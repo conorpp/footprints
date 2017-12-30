@@ -1,30 +1,41 @@
 
 from PIL import Image, ImageDraw
-import cv,cv2
+import cv2
 import numpy as np
 
+def remove_alpha(im):
+    if len(im.shape)>2 and im.shape[2] == 4:
+        return np.delete(im, 3, 2)
+    return im
+
 def greyscale(im):
-    if im.shape[2] == 4:
-        im = np.delete(im, 3, 2)
-    if im.shape[2] == 3:
-        im = np.delete(im, 2, 2)
-    if im.shape[2] == 2:
-        im = np.delete(im, 1, 2)
+    if len(im.shape) > 2:
+        if im.shape[2] == 4:
+            im = np.delete(im, 3, 2)
+        if im.shape[2] == 3:
+            im = np.delete(im, 2, 2)
+        if im.shape[2] == 2:
+            im = np.delete(im, 1, 2)
+        im = im.reshape(im.shape[:2])
     return im
 
 def color(arr):
+    if len(arr.shape) < 3:
+        arr = arr.reshape((arr.shape[0], arr.shape[1], 1))
     if arr.shape[2] != 1: raise ValueError('needs to be single channel')
     arr = np.tile(arr, (1,1,3))
     return arr
 
 def load_image(name):
     im = Image.open(name)
-    return np.array(im)
+    return np.array(im,dtype=np.uint8)
 
 
 def trim(im):
     padding = 2
     colsum = im.shape[0] * 255 * 1
+    xoff = 0
+    yoff = 0
 
     # trim columns left
     jl= 0
@@ -52,7 +63,7 @@ def trim(im):
 
     im = im[it:ib,:]
 
-    return im
+    return im,jl,it
 
 #def preprocess(im):
 
@@ -115,7 +126,7 @@ def trace_sum(im,contour):
 
     total = 0
     for i,j in pixelpoints:
-        total += (sum(im[i,j]) == 0)
+        total += (im[i,j] == 0)
 
     return total, len(pixelpoints)
 
