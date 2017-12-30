@@ -87,10 +87,30 @@ def explore_r(arr,i,j,trackmap):
 
     return trackmap
 
+def apply_mapping(im,mapping):
+    cpy = np.copy(im)
+    for i in range(0,im.shape[0]):
+        for j in range(0,im.shape[1]):
+            if mapping[i,j]:
+                cpy[i,j,0] = 255
+                cpy[i,j,1] = 1
+                cpy[i,j,2] = 1
+    return cpy
 
-for runs in range(1,250+1):
+def gen_image(mapping):
+    cpy = np.zeros((mapping.shape[0], mapping.shape[1],3), dtype = np.uint8) + 255
+    for i in range(0,cpy.shape[0]):
+        for j in range(0,cpy.shape[1]):
+            if mapping[i,j]:
+                cpy[i,j,0] = 0
+                cpy[i,j,1] = 0
+                cpy[i,j,2] = 0
+    return cpy
+
+for runs in range(300,350+1):
     done = 0
     track_map = np.zeros(arr.shape[:2])
+    submaps = [0]
     stop = 0
 
     try:
@@ -102,6 +122,7 @@ for runs in range(1,250+1):
                         track_map[i,j] = 1
                         submap = explore(arr,i,j)
                         track_map += submap
+                        submaps.append(submap)
                         done += 1
                 if done >= runs: break
             if done >= runs: break
@@ -110,22 +131,14 @@ for runs in range(1,250+1):
         stop = 1
 
     if done < runs: stop = 1
-        #arr[arr.shape[0]/4][i][1] = 128
-        #for j,y in enumerate(x):
-            #for k,z in enumerate(y):
 
-    print 'applying track_map..'
-    cpy = np.copy(arr)
-    for i in range(0,arr.shape[0]):
-        for j in range(0,arr.shape[1]):
-            if track_map[i,j]:
-                cpy[i,j,0] = 255
-                cpy[i,j,1] = 1
-                cpy[i,j,2] = 1
+    print 'writing out submappings..'
+    for i,x in enumerate(submaps[1:]):
+        print i
+        out = gen_image(x)
 
-    print 'done'
-    out = Image.fromarray(cpy)
-    out.save(output + ('/run%d.png' % runs))
+        out = Image.fromarray(out)
+        out.save(output + ('/item%d.png' % i))
+
     if stop: break
-
 
