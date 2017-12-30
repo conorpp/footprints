@@ -1,4 +1,4 @@
-import sys,os,json,argparse
+import sys,os,json,argparse,time
 import cv,cv2
 import matplotlib as plt
 from PIL import Image, ImageDraw
@@ -48,13 +48,20 @@ def trim(im):
     return im
 
 
+t1 = int(round(time.time() * 1000))
 out = arr
 out = trim(arr)
 h,w,z = out.shape
+t2 = int(round(time.time() * 1000))
+print 'trim %d' %(t2-t1)
 
 #mat = cv.fromarray(out)
 mat = np.copy(out)
+
+t1 = int(round(time.time() * 1000))
 contours, hierarchy = cv2.findContours(mat, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+t2 = int(round(time.time() * 1000))
+print 'contours %d' %(t2-t1)
 
                 #img, countours, index/all, color, thickness
 
@@ -77,6 +84,8 @@ for i in range(1,1+1):
         p2 = (p2[0],p2[1])
         return (cv2.pointPolygonTest(c, p1,0) > 0 ) and (cv2.pointPolygonTest(c, p2,0) > 0 )
 
+
+    t1 = int(round(time.time() * 1000))
     # right side
     while still_inside(contours[i], square[0], square[1]):
         square[0][0] += 1
@@ -107,6 +116,8 @@ for i in range(1,1+1):
     square[3][1] -= 1
     square[4][1] -= 1
 
+    t2 = int(round(time.time() * 1000))
+    print 'growing time = %d ms' %(t2-t1)
 
     cv2.drawContours(tmp, [square], 0, (255,0,0), 1)
 
