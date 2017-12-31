@@ -103,11 +103,10 @@ def extract_components(arr):
     return submaps
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print('usage: %s <input.png> <output>' % sys.argv[0])
+    if len(sys.argv) != 2:
+        print('usage: %s <input.png>' % sys.argv[0])
         sys.exit(1)
 
-    output = sys.argv[2]
     arr = load_image(sys.argv[1])
     arr = remove_alpha(arr)
 
@@ -131,6 +130,7 @@ if __name__ == '__main__':
         [xx,yy] = xx+x['offset'][0],yy+x['offset'][1]
         cv2.rectangle(cpy,(xx,yy),(xx+w,yy+h),(0,0,255),2)
         save(cpy,'out/line%d.png' % i)
+        save(x['orig'],'out/item%d.png' % i)
 
 
     for x in rect_f:

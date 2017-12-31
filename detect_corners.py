@@ -1,6 +1,6 @@
 import sys,os,json,argparse,time,math
 import cv2
-import matplotlib as plt
+import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 
 import numpy as np
