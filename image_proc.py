@@ -41,12 +41,18 @@ def trim(im):
     jl= 0
     while 0 not in im[:,jl+padding].flatten():
         jl+= 1
+        if (jl + padding) == im.shape[1]: 
+            jl = 0
+            break
         #im = np.delete(im, 0, 1)
     
     # trim columns right
     jr = im.shape[1]-1
     while 0 not in im[:,jr - padding-1].flatten():
         jr -= 1
+        if (jr - padding) == -1: 
+            jr = im.shape[1] - 1
+            break
     
     im = im[:,jl:jr]
     rowsum = im.shape[1] * 255 * 1
@@ -55,11 +61,17 @@ def trim(im):
     it = 0
     while 0 not in (im[padding + it].flatten()):
         it += 1
+        if (it + padding) == im.shape[0]:
+            it = 0
+            break
 
     ib = im.shape[0] - 1
     # trim rows bottom
     while 0 not in (im[ib - padding -1].flatten()):
         ib -= 1
+        if (ib - padding) == -1: 
+            ib = im.shape[0] - 1
+            break
 
     im = im[it:ib,:]
 

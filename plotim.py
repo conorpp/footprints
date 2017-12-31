@@ -39,6 +39,21 @@ def extract(im, y,m,dim):
 
     return newim,im
 
+def contains_line(spec):
+    s = spec['sum']
+    return len(s['sum'])/s['mode'][0] > 15
+
+def break_lines(inp):
+    leftover = []
+    fresh = []
+    for x in inp:
+        if contains_line(x):
+            new,old = extract(x['orig'],x['sum']['sum'], x['sum']['mode'][0], x['vertical'])
+            fresh.append({'orig':new,'offset':x['offset']})
+            fresh.append({'orig':old,'offset':x['offset']})
+        else:
+            leftover.append(x)
+    return fresh,leftover
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

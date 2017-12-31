@@ -6,6 +6,7 @@ import cv2
 
 from image_proc import *
 from detect_corners import *
+from plotim import *
 
 # x: row, y: column, z:rgba, origin is upper-left
 
@@ -89,7 +90,7 @@ def mapping2greyscale(mapping):
     mapping = np.array((mapping == 0) * 255, dtype=np.uint8)
     return mapping
 
-def extract_components(arr):
+def extract_components(arr, offset=[0,0]):
     track_map = np.zeros(arr.shape[:2],dtype=np.uint8)
     submaps = []
     for i in range(0,arr.shape[0]):
@@ -99,7 +100,9 @@ def extract_components(arr):
                     track_map[i,j] = 1
                     submap = explore(arr,i,j)
                     track_map += submap
-                    submaps.append( mapping2greyscale(submap))
+                    submaps.append( 
+                            {'orig':mapping2greyscale(submap),
+                                'offset':offset })
     return submaps
 
 if __name__ == '__main__':
@@ -120,10 +123,27 @@ if __name__ == '__main__':
     lines = get_lines(leftover)
     lines,leftover = filter_lines(lines)
 
+    fresh,leftover = break_lines(leftover)
+    submaps = []
+    for x in fresh:
+        subm = extract_components(x['orig'], x['offset'])
+        submaps += subm
+    rectangles = get_rectangles(submaps)
+    _,leftover2 = filter_rectangles(rectangles)
+    lines2 = get_lines(leftover2)
+    lines2,leftover2 = filter_lines(lines2)
+
+    lines += lines2
+    leftover += leftover2
+
+
+
+
     for i,x in enumerate(lines+leftover):
-        print('%d: %.3f, ar: %.2f, vert: %d, colscore: %.2f, rowscore: %.2f, colsum-len: %d rowsum-len: %d, range: %d' %
-                (i,x['line-conf'],x['aspect-ratio'],x['vertical'],x['colsum']['score'],x['rowsum']['score'],
-                    len(x['colsum']['sum']),len(x['rowsum']['sum']), x['colsum']['range'] if x['vertical'] else x['rowsum']['range']))
+        print('%d: %.3f, ar: %.2f, vert: %d, score: %.2f, sum-len: %d, range: %d, mode: %d' %
+                (i,x['line-conf'],x['aspect-ratio'],x['vertical'],x['sum']['score'],
+                    len(x['sum']['sum']), x['sum']['range'],
+                    x['sum']['mode'][0]))
         cpy = np.copy(orig)
         cv2.drawContours(cpy,[x['line']],0,[255,0,0],1,offset=x['offset'])
         encircle(cpy, x['line'], offset=x['offset'])
@@ -148,7 +168,10 @@ if __name__ == '__main__':
         cv2.drawContours(orig,[x['line']],0,[0,128,0],2, offset=x['offset'])
 
     for x in leftover:
-        cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=x['offset'])
+        if contains_line(x):
+            cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=x['offset'])
+        else:
+            cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=x['offset'])
 
     save(orig,'output.png')
 

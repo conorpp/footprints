@@ -9,14 +9,14 @@ from scipy import stats
 from image_proc import *
 from plotim import *
 
-def tag_rectangle(arr):
+def tag_rectangle(arr, offset=[0,0]):
 
     orig_shape = arr.shape
 
     arr,x,y = trim(greyscale(arr))
     
     specs = {'conf':0, 'area-ratio':0,'a1':0, 'a2':0,'contour':0,
-            'offset':(x,y), 'orig': np.copy(arr), 'height': 1, 'width':1}
+            'offset':(x + offset[0],y + offset[1]), 'orig': np.copy(arr), 'height': 1, 'width':1}
 
 
     mat = np.copy(arr)
@@ -62,7 +62,7 @@ def move_point(im,p,i,di,expected):
             return count
         count += 1
         p[i] += di
-    return -1
+    return count
 
 
 def grow_line(im,c):
@@ -73,7 +73,9 @@ def grow_line(im,c):
     dl,dr,dt,db = -1,-1,-1,-1
 
     # check if point is not on black
+    print(p)
     if im[y,x] != 0:
+        print('not on black')
 
         # move right
         r = move_point(im,[x,y],0,1,0)
@@ -91,11 +93,15 @@ def grow_line(im,c):
         if d > 0: opts.append([d,1,1])
 
         opts = sorted(opts, key = lambda x:x[0])
+        print(opts)
         p[opts[0][1]] += opts[0][2] * opts[0][0]
+        print(p)
 
         # center it
         d = move_point(im,[p[0],p[1]], opts[0][1], opts[0][2],255)
+        print('d',d)
         p[opts[0][1]] += int((d * opts[0][2] - opts[0][2])/2)
+        print (p)
 
     
     # move it to farthest edge possible
@@ -116,7 +122,14 @@ def grow_line(im,c):
     if d > 0: opts.append([d,1,1])
 
     opts = sorted(opts, key = lambda x:x[0],reverse=True)
-    p[opts[0][1]] += opts[0][2] * opts[0][0] - opts[0][2]
+    try:
+        p[opts[0][1]] += opts[0][2] * opts[0][0] - opts[0][2]
+    except:
+        print(x,y)
+        print(opts)
+        print(im)
+        show(im)
+        while True:pass
     [x,y] = p
 
     # get opposite distance
@@ -144,26 +157,28 @@ def tag_line(spec):
     spec['length-area-ratio'] = spec['line-length']/spec['contour-area']
     spec['aspect-ratio'] = spec['line-length']/min([spec['width'],spec['height']])
 
-    rowsum = scan_dim(spec['orig'],0)
-    colsum = scan_dim(spec['orig'],1)
+    if spec['vertical']:
+        rowsum = scan_dim(spec['orig'],1)
+    else:
+        rowsum = scan_dim(spec['orig'],0)
 
-    spec['rowsum'] = {
+    spec['sum'] = {
         'sum':rowsum
         }
-    spec['colsum'] = {
-        'sum':colsum
-        }
+    #spec['colsum'] = {
+        #'sum':colsum
+        #}
 
     rowsum = scan_trim(rowsum)
-    colsum = scan_trim(colsum)
+    #colsum = scan_trim(colsum)
 
-    spec['rowsum']['mode'] = stats.mode(rowsum)
-    spec['rowsum']['range'] = np.ptp(rowsum)
-    spec['rowsum']['score'] = float(spec['rowsum']['mode'][1])/len(rowsum)
+    spec['sum']['mode'] = stats.mode(rowsum)
+    spec['sum']['range'] = np.ptp(rowsum)
+    spec['sum']['score'] = float(spec['sum']['mode'][1])/len(rowsum)
 
-    spec['colsum']['mode'] = stats.mode(colsum)
-    spec['colsum']['range'] = np.ptp(colsum)
-    spec['colsum']['score'] = float(spec['colsum']['mode'][1])/len(colsum)
+    #spec['colsum']['mode'] = stats.mode(colsum)
+    #spec['colsum']['range'] = np.ptp(colsum)
+    #spec['colsum']['score'] = float(spec['colsum']['mode'][1])/len(colsum)
     return spec
 
 
@@ -174,10 +189,10 @@ def get_lines(lines):
         res.append(specs)
     return res
 
-def get_rectangles(rects):
+def get_rectangles(rects, offset=[0,0]):
     res = []
     for im in rects:
-        specs = tag_rectangle(np.copy(im))
+        specs = tag_rectangle(np.copy(im['orig']),offset=im['offset'])
         res.append(specs)
     return res
 
@@ -203,8 +218,8 @@ def filter_lines(rects):
             #lines.append(x)
         #elif (x['line-conf'] > .9) and (x['aspect-ratio'] > 1.5):
             #lines.append(x)
-        score = x['colsum']['score'] if x['vertical'] else x['rowsum']['score']
-        ran   = x['colsum']['range'] if x['vertical'] else x['rowsum']['range']
+        score = x['sum']['score']
+        ran   = x['sum']['range']
 
         if x['aspect-ratio'] > .9:
             if score > .7 and ran < 4:
