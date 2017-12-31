@@ -124,26 +124,47 @@ if __name__ == '__main__':
     lines,leftover = filter_lines(lines)
 
     fresh,leftover = break_lines(leftover)
-    submaps = []
-    for x in fresh:
-        subm = extract_components(x['orig'], x['offset'])
-        submaps += subm
-    rectangles = get_rectangles(submaps)
-    _,leftover2 = filter_rectangles(rectangles)
-    lines2 = get_lines(leftover2)
-    lines2,leftover2 = filter_lines(lines2)
+    it = 0
+    print('fresh')
+    while len(fresh):
+        it += 1
+        submaps = []
+        for x in fresh:
+            subm = extract_components(x['orig'], x['offset'])
+            submaps += subm
+        submaps = filter_fresh(submaps)
+        rectangles = get_rectangles(submaps,detect_rect=False)
+        #leftover3,leftover2 = filter_rectangles(rectangles)
+        lines2 = get_lines(rectangles)
+        lines2,leftover2 = filter_lines(lines2)
+        print('pass %d.  found %d lines and %d more leftover' % (it,len(lines2), len(leftover2)))
+        
+        #fresh,leftover2 = break_lines(leftover2)
+        #print('there\'s %d possible lines and %d not containing lines' % (len(fresh), len(leftover2)))
+        #if it == 1:
+            #for i,x in enumerate(fresh):
+                #save(x['orig'],'output%d.png' % i)
+            #sys.exit(1)
+        #break
+        lines += lines2
+        leftover += leftover2   # not lines
+        break
 
-    lines += lines2
-    leftover += leftover2
+    #lines += lines2
+    #print('%d classified lines.  %d from second pass' % (len(lines),len(lines2)))
+    #leftover += leftover2
+    #print('%d unclassified items. %d from second pass' % (len(leftover), len(leftover2)))
 
-
-
+    for x in (lines + rect_f):
+        x['id'] = True
+    for x in (leftover):
+        x['id'] = False
 
     for i,x in enumerate(lines+leftover):
-        print('%d: %.3f, ar: %.2f, vert: %d, score: %.2f, sum-len: %d, range: %d, mode: %d' %
+        print('%d: %.3f, ar: %.2f, vert: %d, score: %.2f, sum-len: %d, range: %d, mode: %d, pixels: %d' %
                 (i,x['line-conf'],x['aspect-ratio'],x['vertical'],x['sum']['score'],
                     len(x['sum']['sum']), x['sum']['range'],
-                    x['sum']['mode'][0]))
+                    x['sum']['mode'][0], count_black(x['orig'])))
         cpy = np.copy(orig)
         cv2.drawContours(cpy,[x['line']],0,[255,0,0],1,offset=x['offset'])
         encircle(cpy, x['line'], offset=x['offset'])
@@ -151,8 +172,9 @@ if __name__ == '__main__':
         xx,yy,w,h = cv2.boundingRect(x['ocontour'])
         [xx,yy] = xx+x['offset'][0],yy+x['offset'][1]
         cv2.rectangle(cpy,(xx,yy),(xx+w,yy+h),(0,0,255),2)
-        save(cpy,'out/line%d.png' % i)
-        save(x['orig'],'out/item%d.png' % i)
+        postfix = 'C' if x['id'] else 'U'
+        save(cpy,'out/line%c%d.png' % (postfix,i))
+        save(x['orig'],'out/item%c%d.png' % (postfix,i))
 
 
     for x in rect_f:

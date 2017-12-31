@@ -9,7 +9,7 @@ from scipy import stats
 from image_proc import *
 from plotim import *
 
-def tag_rectangle(arr, offset=[0,0]):
+def tag_rectangle(arr, offset=[0,0],**kwargs):
 
     orig_shape = arr.shape
 
@@ -17,7 +17,8 @@ def tag_rectangle(arr, offset=[0,0]):
     
     specs = {'conf':0, 'area-ratio':0,'a1':0, 'a2':0,'contour':0,
             'offset':(x + offset[0],y + offset[1]), 'orig': np.copy(arr), 'height': 1, 'width':1}
-
+    
+    detect_rect = kwargs.get('detect_rect',True)
 
     mat = np.copy(arr)
     
@@ -27,14 +28,16 @@ def tag_rectangle(arr, offset=[0,0]):
 
     if len(contours)>1:
         #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
-        square = grow_rect(contours[1])
-        conf = rect_confidence(tmp, square)
-        specs['conf'] = conf
-        specs['area-ratio'] = cv2.contourArea(square)/float(orig_shape[0] * orig_shape[1])
+        if detect_rect:
+            square = grow_rect(contours[1])
+            conf = rect_confidence(tmp, square)
+            specs['conf'] = conf
+            specs['a1'] = cv2.contourArea(square)
+            specs['contour'] = square
+            specs['area-ratio'] = cv2.contourArea(square)/float(orig_shape[0] * orig_shape[1])
+
         specs['contour-area'] = cv2.contourArea(contours[1])
-        specs['a1'] = cv2.contourArea(square)
         specs['a2'] = float(orig_shape[0] * orig_shape[1])
-        specs['contour'] = square
         specs['ocontour'] = contours[1]
 
         x,y,w,h = cv2.boundingRect(contours[1])
@@ -66,16 +69,18 @@ def move_point(im,p,i,di,expected):
 
 
 def grow_line(im,c):
-    x,y = centroid(c)
+    try:
+        x,y = centroid(c)
+    except:
+        show(im)
+        while True:pass
     p = [x,y]
     
     dx,dy = x,y
     dl,dr,dt,db = -1,-1,-1,-1
 
     # check if point is not on black
-    print(p)
     if im[y,x] != 0:
-        print('not on black')
 
         # move right
         r = move_point(im,[x,y],0,1,0)
@@ -93,15 +98,11 @@ def grow_line(im,c):
         if d > 0: opts.append([d,1,1])
 
         opts = sorted(opts, key = lambda x:x[0])
-        print(opts)
         p[opts[0][1]] += opts[0][2] * opts[0][0]
-        print(p)
 
         # center it
         d = move_point(im,[p[0],p[1]], opts[0][1], opts[0][2],255)
-        print('d',d)
         p[opts[0][1]] += int((d * opts[0][2] - opts[0][2])/2)
-        print (p)
 
     
     # move it to farthest edge possible
@@ -122,14 +123,7 @@ def grow_line(im,c):
     if d > 0: opts.append([d,1,1])
 
     opts = sorted(opts, key = lambda x:x[0],reverse=True)
-    try:
-        p[opts[0][1]] += opts[0][2] * opts[0][0] - opts[0][2]
-    except:
-        print(x,y)
-        print(opts)
-        print(im)
-        show(im)
-        while True:pass
+    p[opts[0][1]] += opts[0][2] * opts[0][0] - opts[0][2]
     [x,y] = p
 
     # get opposite distance
@@ -189,10 +183,10 @@ def get_lines(lines):
         res.append(specs)
     return res
 
-def get_rectangles(rects, offset=[0,0]):
+def get_rectangles(rects, offset=[0,0], **kwargs):
     res = []
     for im in rects:
-        specs = tag_rectangle(np.copy(im['orig']),offset=im['offset'])
+        specs = tag_rectangle(np.copy(im['orig']),offset=im['offset'], **kwargs)
         res.append(specs)
     return res
 
@@ -238,6 +232,19 @@ def filter_lines(rects):
         #if w < 4 or h < 4:
             #lines.append(x)
     #return lines
+def count_black(x):
+    nz = np.count_nonzero(x)
+    return x.shape[0] * x.shape[1] - nz
+
+def filter_fresh(fresh):
+    good = []
+    for x in fresh:
+        nz = np.count_nonzero(x['orig'])
+        z = x['orig'].shape[0] * x['orig'].shape[1] - nz
+        if z > 1:
+            good.append(x)
+    return good
+
 
 def get_num_from_name(n):
     nums = '0123456789'
