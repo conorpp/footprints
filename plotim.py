@@ -12,6 +12,9 @@ from detect_corners import *
 def scan_dim(im,dim):
     return np.sum(im == 0,axis=dim)
 
+def scan_trim(arr):
+    return np.trim_zeros(arr)
+
 def extract(im, y,m,dim):
     if dim == 0:
         im = np.transpose(im)

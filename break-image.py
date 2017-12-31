@@ -118,10 +118,12 @@ if __name__ == '__main__':
     rect_f,leftover = filter_rectangles(rectangles)
 
     lines = get_lines(leftover)
-    lines = filter_lines(lines)
+    lines,leftover = filter_lines(lines)
 
-    for i,x in enumerate(lines):
-        print('%d: %.3f, ar: %.2f' % (i,x['line-conf'],x['aspect-ratio']))
+    for i,x in enumerate(lines+leftover):
+        print('%d: %.3f, ar: %.2f, vert: %d, colscore: %.2f, rowscore: %.2f, colsum-len: %d rowsum-len: %d, range: %d' %
+                (i,x['line-conf'],x['aspect-ratio'],x['vertical'],x['colsum']['score'],x['rowsum']['score'],
+                    len(x['colsum']['sum']),len(x['rowsum']['sum']), x['colsum']['range'] if x['vertical'] else x['rowsum']['range']))
         cpy = np.copy(orig)
         cv2.drawContours(cpy,[x['line']],0,[255,0,0],1,offset=x['offset'])
         encircle(cpy, x['line'], offset=x['offset'])
@@ -136,14 +138,17 @@ if __name__ == '__main__':
     for x in rect_f:
         cv2.drawContours(orig,[x['contour']],0,[255,0,255],1, offset=x['offset'])
     for x in lines:
-        cv2.drawContours(orig,[x['contour']],0,[0,0,255],1, offset=x['offset'])
-        cv2.drawContours(orig,[x['ocontour']],0,[0,255,0],1, offset=x['offset'])
+        #cv2.drawContours(orig,[x['contour']],0,[0,0,255],1, offset=x['offset'])
+        #cv2.drawContours(orig,[x['ocontour']],0,[0,255,0],1, offset=x['offset'])
         #for j,i in x['line']:
             #print ('line',i,j)
             #orig[i+x['offset'][1],j+x['offset'][0],0] = 255
             #orig[i+x['offset'][1],j+x['offset'][0],1] = 0
             #orig[i+x['offset'][1],j+x['offset'][0],2] = 0
-        cv2.drawContours(orig,[x['line']],0,[255,0,0],1, offset=x['offset'])
+        cv2.drawContours(orig,[x['line']],0,[0,128,0],2, offset=x['offset'])
+
+    for x in leftover:
+        cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=x['offset'])
 
     save(orig,'output.png')
 

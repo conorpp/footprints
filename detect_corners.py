@@ -4,8 +4,10 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 
 import numpy as np
+from scipy import stats
 
 from image_proc import *
+from plotim import *
 
 def tag_rectangle(arr):
 
@@ -125,7 +127,7 @@ def grow_line(im,c):
         p2 = [x + d * opts[0][2] * -1,y]
 
 
-    return np.array([(p[0],p[1]), (p2[0], p2[1])])
+    return np.array([(p[0],p[1]), (p2[0], p2[1])]), opts[0][1]
 
 def line_confidence(im,c):
     s,_ = trace_sum(im,c)
@@ -134,12 +136,34 @@ def line_confidence(im,c):
 
 def tag_line(spec):
     c = spec['ocontour']
-    line = grow_line(spec['orig'],c)
+    line,vertical = grow_line(spec['orig'],c)
+    spec['vertical'] = vertical
     spec['line'] = line
     spec['line-conf'] = line_confidence(spec['orig'],line)
     spec['line-length'] = math.hypot(line[1][0] - line[0][0], line[1][1] - line[0][1])
     spec['length-area-ratio'] = spec['line-length']/spec['contour-area']
     spec['aspect-ratio'] = spec['line-length']/min([spec['width'],spec['height']])
+
+    rowsum = scan_dim(spec['orig'],0)
+    colsum = scan_dim(spec['orig'],1)
+
+    spec['rowsum'] = {
+        'sum':rowsum
+        }
+    spec['colsum'] = {
+        'sum':colsum
+        }
+
+    rowsum = scan_trim(rowsum)
+    colsum = scan_trim(colsum)
+
+    spec['rowsum']['mode'] = stats.mode(rowsum)
+    spec['rowsum']['range'] = np.ptp(rowsum)
+    spec['rowsum']['score'] = float(spec['rowsum']['mode'][1])/len(rowsum)
+
+    spec['colsum']['mode'] = stats.mode(colsum)
+    spec['colsum']['range'] = np.ptp(colsum)
+    spec['colsum']['score'] = float(spec['colsum']['mode'][1])/len(colsum)
     return spec
 
 
@@ -172,8 +196,24 @@ def filter_rectangles(rects):
 
 def filter_lines(rects):
     lines = []
-    rects = sorted(rects, key = lambda x : x['line-conf'])
-    return rects
+    leftover = []
+    #rects = sorted(rects, key = lambda x : x['line-conf'])
+    for x in rects:
+        #if (x['line-conf'] > .3) and (x['aspect-ratio'] > 3):
+            #lines.append(x)
+        #elif (x['line-conf'] > .9) and (x['aspect-ratio'] > 1.5):
+            #lines.append(x)
+        score = x['colsum']['score'] if x['vertical'] else x['rowsum']['score']
+        ran   = x['colsum']['range'] if x['vertical'] else x['rowsum']['range']
+
+        if x['aspect-ratio'] > .9:
+            if score > .7 and ran < 4:
+                lines.append(x)
+            else:
+                leftover.append(x)
+        else:
+            leftover.append(x)
+    return lines,leftover
     #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
     #for x in rects:
         #tlc = x['contour'][2]
