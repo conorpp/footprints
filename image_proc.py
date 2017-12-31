@@ -72,11 +72,14 @@ def still_inside(c,p1,p2):
     p2 = (p2[0],p2[1])
     return (cv2.pointPolygonTest(c, p1,0) > 0 ) and (cv2.pointPolygonTest(c, p2,0) > 0 )
 
-def grow_rect(c):
+def centroid(c):
     moms = cv2.moments(c)
     x = int(moms['m10']/moms['m00'])
     y = int(moms['m01']/moms['m00'])
-    
+    return x,y
+ 
+def grow_rect(c):
+    x,y = centroid(c)
     square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
 
     # right side
@@ -133,5 +136,12 @@ def trace_sum(im,contour):
 def rect_confidence(im,con):
     s,t = trace_sum(im,con)
     return float(s)/t
+
+def encircle(img,cnt,**kwargs):
+    (x,y),radius = cv2.minEnclosingCircle(cnt)
+    offset = kwargs.get('offset',[0,0])
+    center = (int(x) + offset[0],int(y) + offset[1])
+    radius = int(radius)
+    cv2.circle(img,center,int(radius * 3),(0,255,0),2)
 
 

@@ -116,10 +116,34 @@ if __name__ == '__main__':
     submaps = extract_components(arr)
 
     rectangles = get_rectangles(submaps)
-    rectangles = filter_rectangles(rectangles)
+    rect_f,leftover = filter_rectangles(rectangles)
 
-    for x in rectangles:
-        cv2.drawContours(orig,[x['rect']],0,[255,0,0],1, offset=x['offset'])
+    lines = get_lines(leftover)
+    lines = filter_lines(lines)
+
+    for i,x in enumerate(lines):
+        print('%d: %.3f, ar: %.2f' % (i,x['line-conf'],x['aspect-ratio']))
+        cpy = np.copy(orig)
+        cv2.drawContours(cpy,[x['line']],0,[255,0,0],1,offset=x['offset'])
+        encircle(cpy, x['line'], offset=x['offset'])
+
+        xx,yy,w,h = cv2.boundingRect(x['ocontour'])
+        [xx,yy] = xx+x['offset'][0],yy+x['offset'][1]
+        cv2.rectangle(cpy,(xx,yy),(xx+w,yy+h),(0,0,255),2)
+        save(cpy,'out/line%d.png' % i)
+
+
+    for x in rect_f:
+        cv2.drawContours(orig,[x['contour']],0,[255,0,255],1, offset=x['offset'])
+    for x in lines:
+        cv2.drawContours(orig,[x['contour']],0,[0,0,255],1, offset=x['offset'])
+        cv2.drawContours(orig,[x['ocontour']],0,[0,255,0],1, offset=x['offset'])
+        #for j,i in x['line']:
+            #print ('line',i,j)
+            #orig[i+x['offset'][1],j+x['offset'][0],0] = 255
+            #orig[i+x['offset'][1],j+x['offset'][0],1] = 0
+            #orig[i+x['offset'][1],j+x['offset'][0],2] = 0
+        cv2.drawContours(orig,[x['line']],0,[255,0,0],1, offset=x['offset'])
 
     save(orig,'output.png')
 
