@@ -6,19 +6,10 @@ from PIL import Image, ImageDraw
 import numpy as np
 from scipy import stats
 
-from image_proc import *
-from plotim import *
+from utils import *
+from filters import *
 
-def trim_image(arr):
-    arr['img'],x,y = trim(arr['img'])
-    arr['offset'][0] += x
-    arr['offset'][1] += y
-
-def trim_images(imgs):
-    for x in imgs:
-        trim_image(x)
-
-def tag_rectangle(arr):
+def analyze_rectangle(arr):
 
     # TODO
     num_pixels = float(960*760)
@@ -66,11 +57,7 @@ def move_point(im,p,i,di,expected):
 
 
 def grow_line(im,c):
-    try:
-        x,y = centroid(c)
-    except:
-        show(im)
-        while True:pass
+    x,y = centroid(c)
     p = [x,y]
     
     dx,dy = x,y
@@ -138,7 +125,14 @@ def line_confidence(im,c):
     blackpixels = im.shape[0] * im.shape[1] - np.count_nonzero(im)
     return float(s)/blackpixels
 
-def tag_line(spec):
+def scan_dim(im,dim):
+    return np.sum(im == 0,axis=dim)
+
+def scan_trim(arr):
+    return np.trim_zeros(arr)
+
+
+def analyze_line(spec):
     c = spec['ocontour']
     line,vertical = grow_line(spec['img'],c)
     spec['vertical'] = vertical
@@ -173,115 +167,11 @@ def tag_line(spec):
     return spec
 
 
-def get_lines(lines):
-    res = []
+def analyze_lines(lines):
     for x in lines:
-        specs = tag_line(x)
-        res.append(specs)
-    return res
+        specs = analyze_line(x)
 
-def get_rectangles(rects):
+def analyze_rectangles(rects):
     for im in rects:
-        tag_rectangle(im)
-    return rects
-
-def filter_rectangles(rects):
-    filtered = []
-    left = []
-    for x in rects:
-        if x['area-ratio'] > 0.001:
-            if x['conf'] > .95:
-                filtered.append(x)
-            else:
-                left.append(x)
-        else:
-            left.append(x)
-    return filtered,left
-
-def filter_lines(rects):
-    lines = []
-    leftover = []
-    #rects = sorted(rects, key = lambda x : x['line-conf'])
-    for x in rects:
-        #if (x['line-conf'] > .3) and (x['aspect-ratio'] > 3):
-            #lines.append(x)
-        #elif (x['line-conf'] > .9) and (x['aspect-ratio'] > 1.5):
-            #lines.append(x)
-        score = x['sum']['score']
-        ran   = x['sum']['range']
-
-        if x['aspect-ratio'] > .9:
-            if score > .7 and ran < 4:
-                lines.append(x)
-            else:
-                leftover.append(x)
-        else:
-            leftover.append(x)
-    return lines,leftover
-    #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
-    #for x in rects:
-        #tlc = x['contour'][2]
-        #brc = x['contour'][0]
-        #w = brc[0] - tlc[0]
-        #h = brc[1] - tlc[1]
-        #if w < 4 or h < 4:
-            #lines.append(x)
-    #return lines
-def filter_fresh(fresh):
-    good = []
-    for x in fresh:
-        nz = np.count_nonzero(x['img'])
-        z = x['img'].shape[0] * x['img'].shape[1] - nz
-        if z > 1:
-            good.append(x)
-    return good
-
-
-def get_num_from_name(n):
-    nums = '0123456789'
-    num = ''
-    for x in n:
-        if x in nums:
-            num += x
-    return int(num)
-
-
-if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print('usage: %s <inputs.png [...]> <out-dir>' % sys.argv[0])
-        sys.exit(1)
-
-
-    names = sys.argv[1:-1]
-    output = sys.argv[-1]
-
-    #images = [load_image(x) for x in names]
-    res = []
-    for i,n in enumerate(names):
-        im = load_image(n)
-
-        t1 = int(round(time.time() * 1000))
-
-        specs = tag_rectangle(im)
-        specs['i'] = i
-        specs['name'] = n
-        res.append(specs)
-
-
-        t2 = int(round(time.time() * 1000))
-        print('get_rect: %d' % (t2-t1))
-
-        im = color(specs['im'])
-        cv2.drawContours(im,[specs['rect']],0,[255,0,0],1)
-
-        Image.fromarray(im).save(output+'/'+('cat-%d.png'%get_num_from_name(n)))
-
-
-    res = sorted(res, key=lambda x: x['area-ratio'])
-    for x in res:
-        print('i: %d, name: %s, conf: %.2f, ar: %.3f a1: %.2f a2: %.2f' % (x['i'], x['name'], 
-                    x['conf'], x['area-ratio'],x['a1'],x['a2']))
-
-    print(' '.join([x['name'] for x in res]))
-
+        analyze_rectangle(im)
 

@@ -6,7 +6,7 @@ import numpy as np
 
 # wraps np array image with metadata
 counter = 0
-def wrap_image(im):
+def wrap_image(im,parent=None):
     global counter
     specs = {
             'conf':0,           # % of pixels that are black under contour
@@ -31,6 +31,8 @@ def wrap_image(im):
             }
 
     counter = counter + 1
+    if parent is not None:
+        specs['offset'] = parent['offset'][:]
 
     return specs
 
@@ -87,53 +89,6 @@ def color(arr):
 def load_image(name):
     im = Image.open(name)
     return np.array(im,dtype=np.uint8)
-
-
-def trim(im):
-    padding = 2
-    colsum = im.shape[0] * 255 * 1
-    xoff = 0
-    yoff = 0
-
-    # trim columns left
-    jl= 0
-    while 0 not in im[:,jl+padding].flatten():
-        jl+= 1
-        if (jl + padding) == im.shape[1]: 
-            jl = 0
-            break
-        #im = np.delete(im, 0, 1)
-    
-    # trim columns right
-    jr = im.shape[1]-1
-    while 0 not in im[:,jr - padding-1].flatten():
-        jr -= 1
-        if (jr - padding) == -1: 
-            jr = im.shape[1] - 1
-            break
-    
-    im = im[:,jl:jr]
-    rowsum = im.shape[1] * 255 * 1
-
-    # trim rows top
-    it = 0
-    while 0 not in (im[padding + it].flatten()):
-        it += 1
-        if (it + padding) == im.shape[0]:
-            it = 0
-            break
-
-    ib = im.shape[0] - 1
-    # trim rows bottom
-    while 0 not in (im[ib - padding -1].flatten()):
-        ib -= 1
-        if (ib - padding) == -1: 
-            ib = im.shape[0] - 1
-            break
-
-    im = im[it:ib,:]
-
-    return im,jl,it
 
 #def preprocess(im):
 
@@ -233,10 +188,5 @@ def save_history(x):
         name = 'img%d-%d.png' % (x['id'],i)
         save(y['img'],'hist/'+name)
     print_img(x,'current')
-
-
-
-
-
 
 
