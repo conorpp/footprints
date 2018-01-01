@@ -33,7 +33,7 @@ def extract(im, y,m,dim):
         #elif y[i] > m:
         else:
             #im[i] = 255
-            #newim[i] += lastscan
+            newim[i] += lastscan
 
     if dim == 0:
         im = np.transpose(im)
@@ -50,9 +50,11 @@ def break_lines(inp):
     fresh = []
     for x in inp:
         if contains_line(x):
-            new,old = extract(x['orig'],x['sum']['sum'], x['sum']['mode'][0], x['vertical'])
-            fresh.append({'orig':new,'offset':x['offset']})
-            fresh.append({'orig':old,'offset':x['offset']})
+            new,old = extract(x['img'],x['sum']['sum'], x['sum']['mode'][0], x['vertical'])
+            new = wrap_image(new,x)
+            old = wrap_image(old,x)
+            fresh.append(new)
+            fresh.append(old)
         else:
             # try other direction
             #v = (x['vertical'] + 1) & 1

@@ -9,47 +9,44 @@ from scipy import stats
 from image_proc import *
 from plotim import *
 
-def tag_rectangle(arr, offset=[0,0],**kwargs):
+def trim_image(arr):
+    arr['img'],x,y = trim(arr['img'])
+    arr['offset'][0] += x
+    arr['offset'][1] += y
 
-    orig_shape = arr.shape
+def trim_images(imgs):
+    for x in imgs:
+        trim_image(x)
 
-    arr,x,y = trim(greyscale(arr))
-    
-    specs = {'conf':0, 'area-ratio':0,'a1':0, 'a2':0,'contour':0,
-            'offset':(x + offset[0],y + offset[1]), 'orig': np.copy(arr), 'height': 1, 'width':1}
-    
-    detect_rect = kwargs.get('detect_rect',True)
+def tag_rectangle(arr):
 
-    mat = np.copy(arr)
-    
+    # TODO
+    num_pixels = float(960*760)
+
+    mat = np.copy(arr['img'])
     mat, contours, hier = cv2.findContours(mat, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    
-    tmp = arr
+    tmp = arr['img']
 
     if len(contours)>1:
         #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
-        if detect_rect:
-            square = grow_rect(contours[1])
-            conf = rect_confidence(tmp, square)
-            specs['conf'] = conf
-            specs['a1'] = cv2.contourArea(square)
-            specs['contour'] = square
-            specs['area-ratio'] = cv2.contourArea(square)/float(orig_shape[0] * orig_shape[1])
+        square = grow_rect(contours[1])
+        conf = rect_confidence(tmp, square)
+        arr['conf'] = conf
+        arr['a1'] = cv2.contourArea(square)
+        arr['contour'] = square
 
-        specs['contour-area'] = cv2.contourArea(contours[1])
-        specs['a2'] = float(orig_shape[0] * orig_shape[1])
-        specs['ocontour'] = contours[1]
+
+        arr['area-ratio'] = cv2.contourArea(square)/num_pixels
+
+        arr['contour-area'] = cv2.contourArea(contours[1])
+        arr['ocontour'] = contours[1]
 
         x,y,w,h = cv2.boundingRect(contours[1])
-        specs['width'] = w
-        specs['height'] = h
+        arr['width'] = w
+        arr['height'] = h
 
     else: 
-        print('warning, contours')
-
-
-    specs['im'] = tmp
-    return specs
+        print('warning, no contours')
 
 def move_point(im,p,i,di,expected):
     count = 0
@@ -143,18 +140,18 @@ def line_confidence(im,c):
 
 def tag_line(spec):
     c = spec['ocontour']
-    line,vertical = grow_line(spec['orig'],c)
+    line,vertical = grow_line(spec['img'],c)
     spec['vertical'] = vertical
     spec['line'] = line
-    spec['line-conf'] = line_confidence(spec['orig'],line)
+    spec['line-conf'] = line_confidence(spec['img'],line)
     spec['line-length'] = math.hypot(line[1][0] - line[0][0], line[1][1] - line[0][1])
     spec['length-area-ratio'] = spec['line-length']/spec['contour-area']
     spec['aspect-ratio'] = spec['line-length']/min([spec['width'],spec['height']])
 
     if spec['vertical']:
-        rowsum = scan_dim(spec['orig'],1)
+        rowsum = scan_dim(spec['img'],1)
     else:
-        rowsum = scan_dim(spec['orig'],0)
+        rowsum = scan_dim(spec['img'],0)
 
     spec['sum'] = {
         'sum':rowsum
@@ -183,12 +180,10 @@ def get_lines(lines):
         res.append(specs)
     return res
 
-def get_rectangles(rects, offset=[0,0], **kwargs):
-    res = []
+def get_rectangles(rects):
     for im in rects:
-        specs = tag_rectangle(np.copy(im['orig']),offset=im['offset'], **kwargs)
-        res.append(specs)
-    return res
+        tag_rectangle(im)
+    return rects
 
 def filter_rectangles(rects):
     filtered = []
@@ -232,15 +227,11 @@ def filter_lines(rects):
         #if w < 4 or h < 4:
             #lines.append(x)
     #return lines
-def count_black(x):
-    nz = np.count_nonzero(x)
-    return x.shape[0] * x.shape[1] - nz
-
 def filter_fresh(fresh):
     good = []
     for x in fresh:
-        nz = np.count_nonzero(x['orig'])
-        z = x['orig'].shape[0] * x['orig'].shape[1] - nz
+        nz = np.count_nonzero(x['img'])
+        z = x['img'].shape[0] * x['img'].shape[1] - nz
         if z > 1:
             good.append(x)
     return good
@@ -292,8 +283,5 @@ if __name__ == '__main__':
                     x['conf'], x['area-ratio'],x['a1'],x['a2']))
 
     print(' '.join([x['name'] for x in res]))
-
-
-
 
 

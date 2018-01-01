@@ -90,19 +90,22 @@ def mapping2greyscale(mapping):
     mapping = np.array((mapping == 0) * 255, dtype=np.uint8)
     return mapping
 
-def extract_components(arr, offset=[0,0]):
-    track_map = np.zeros(arr.shape[:2],dtype=np.uint8)
+def extract_components(arr):
+    img = arr['img']
+    track_map = np.zeros(img.shape[:2],dtype=np.uint8)
     submaps = []
-    for i in range(0,arr.shape[0]):
-        for j in range(0,arr.shape[1]):
-            if arr[i][j] == 0:
+    for i in range(0,img.shape[0]):
+        for j in range(0,img.shape[1]):
+            if img[i][j] == 0:
                 if not track_map[i,j]:
                     track_map[i,j] = 1
-                    submap = explore(arr,i,j)
+                    submap = explore(img,i,j)
                     track_map += submap
-                    submaps.append( 
-                            {'orig':mapping2greyscale(submap),
-                                'offset':offset })
+                    submap = mapping2greyscale(submap)
+                    submap = wrap_image(submap)
+                    submaps.append( submap )
+
+
     return submaps
 
 if __name__ == '__main__':
@@ -115,40 +118,58 @@ if __name__ == '__main__':
 
     orig = np.copy(arr)
     arr = polarize(arr)
+    arr = wrap_image(arr)
+
     submaps = extract_components(arr)
+    snapshot_imgs(submaps,'extract_components parent',arr)
+    snapshot_imgs(submaps,'before trim')
+
+    trim_images(submaps)
+    snapshot_imgs(submaps,'after trim')
 
     rectangles = get_rectangles(submaps)
+    #snapshot_imgs(rectangles,'after get_rectangles')
+
     rect_f,leftover = filter_rectangles(rectangles)
+    #snapshot_imgs(rect_f,'im a rectangle')
+    #snapshot_imgs(leftover,'im not a rectangle')
 
     lines = get_lines(leftover)
-    lines,leftover = filter_lines(lines)
 
-    fresh,leftover = break_lines(leftover)
-    it = 0
-    print('fresh')
-    while len(fresh):
-        it += 1
-        submaps = []
-        for x in fresh:
-            subm = extract_components(x['orig'], x['offset'])
-            submaps += subm
-        submaps = filter_fresh(submaps)
-        rectangles = get_rectangles(submaps,detect_rect=False)
-        #leftover3,leftover2 = filter_rectangles(rectangles)
-        lines2 = get_lines(rectangles)
-        lines2,leftover2 = filter_lines(lines2)
-        print('pass %d.  found %d lines and %d more leftover' % (it,len(lines2), len(leftover2)))
+    #snapshot_imgs(lines,'after get_lines')
+
+    lines,leftover = filter_lines(lines)
+    
+    #snapshot_imgs(lines,'im a line')
+    #snapshot_imgs(leftover,'im not a line')
+
+    #fresh,leftover = break_lines(leftover)
+    #it = 0
+    #print('fresh')
+    #while len(fresh):
+        #it += 1
+        #submaps = []
+        #for x in fresh:
+            #subm = extract_components(x)
+            #submaps += subm
+        #submaps = filter_fresh(submaps)
+        #trim_images(submaps)
+        #rectangles = get_rectangles(submaps)
+        ##leftover3,leftover2 = filter_rectangles(rectangles)
+        #lines2 = get_lines(rectangles)
+        #lines2,leftover2 = filter_lines(lines2)
+        #print('pass %d.  found %d lines and %d more leftover' % (it,len(lines2), len(leftover2)))
         
         #fresh,leftover2 = break_lines(leftover2)
         #print('there\'s %d possible lines and %d not containing lines' % (len(fresh), len(leftover2)))
-        #if it == 1:
-            #for i,x in enumerate(fresh):
-                #save(x['orig'],'output%d.png' % i)
-            #sys.exit(1)
+        ##if it == 1:
+            ##for i,x in enumerate(fresh):
+                ##save(x['orig'],'output%d.png' % i)
+            ##sys.exit(1)
         #break
-        lines += lines2
-        leftover += leftover2   # not lines
-        break
+        #lines += lines2
+        #leftover += leftover2   # not lines
+        #break
 
     #lines += lines2
     #print('%d classified lines.  %d from second pass' % (len(lines),len(lines2)))
@@ -156,29 +177,26 @@ if __name__ == '__main__':
     #print('%d unclassified items. %d from second pass' % (len(leftover), len(leftover2)))
 
     for x in (lines + rect_f):
-        x['id'] = True
+        x['cl'] = True
     for x in (leftover):
-        x['id'] = False
+        x['cl'] = False
+    if 0:
+        for x in sorted(lines+leftover, key=lambda x: x['id']):
+            print_img(x)
+            cpy = np.copy(orig)
+            cv2.drawContours(cpy,[x['line']],0,[255,0,0],1,offset=tuple(x['offset']))
+            encircle(cpy, x['line'], offset=x['offset'])
 
-    for i,x in enumerate(lines+leftover):
-        print('%d: %.3f, ar: %.2f, vert: %d, score: %.2f, sum-len: %d, range: %d, mode: %d, pixels: %d' %
-                (i,x['line-conf'],x['aspect-ratio'],x['vertical'],x['sum']['score'],
-                    len(x['sum']['sum']), x['sum']['range'],
-                    x['sum']['mode'][0], count_black(x['orig'])))
-        cpy = np.copy(orig)
-        cv2.drawContours(cpy,[x['line']],0,[255,0,0],1,offset=x['offset'])
-        encircle(cpy, x['line'], offset=x['offset'])
-
-        xx,yy,w,h = cv2.boundingRect(x['ocontour'])
-        [xx,yy] = xx+x['offset'][0],yy+x['offset'][1]
-        cv2.rectangle(cpy,(xx,yy),(xx+w,yy+h),(0,0,255),2)
-        postfix = 'C' if x['id'] else 'U'
-        save(cpy,'out/line%c%d.png' % (postfix,i))
-        save(x['orig'],'out/item%c%d.png' % (postfix,i))
+            xx,yy,w,h = cv2.boundingRect(x['ocontour'])
+            [xx,yy] = xx+x['offset'][0],yy+x['offset'][1]
+            cv2.rectangle(cpy,(xx,yy),(xx+w,yy+h),(0,0,255),2)
+            postfix = 'C' if x['cl'] else 'U'
+            save(cpy,'out/line%c%d.png' % (postfix,x['id']))
+            save(x['img'],'out/item%c%d.png' % (postfix,x['id']))
 
 
     for x in rect_f:
-        cv2.drawContours(orig,[x['contour']],0,[255,0,255],1, offset=x['offset'])
+        cv2.drawContours(orig,[x['contour']],0,[255,0,255],1, offset=tuple(x['offset']))
     for x in lines:
         #cv2.drawContours(orig,[x['contour']],0,[0,0,255],1, offset=x['offset'])
         #cv2.drawContours(orig,[x['ocontour']],0,[0,255,0],1, offset=x['offset'])
@@ -187,15 +205,16 @@ if __name__ == '__main__':
             #orig[i+x['offset'][1],j+x['offset'][0],0] = 255
             #orig[i+x['offset'][1],j+x['offset'][0],1] = 0
             #orig[i+x['offset'][1],j+x['offset'][0],2] = 0
-        cv2.drawContours(orig,[x['line']],0,[0,128,0],2, offset=x['offset'])
+        cv2.drawContours(orig,[x['line']],0,[0,128,0],2, offset=tuple(x['offset']))
 
     for x in leftover:
         if contains_line(x):
-            cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=x['offset'])
+            cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
         else:
-            cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=x['offset'])
+            cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=tuple(x['offset']))
 
     save(orig,'output.png')
+    save_history(rect_f[1])
 
     #for x in rectangles:
         #print(x)

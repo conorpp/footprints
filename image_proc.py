@@ -3,6 +3,64 @@ from PIL import Image, ImageDraw
 import cv2
 import numpy as np
 
+
+# wraps np array image with metadata
+counter = 0
+def wrap_image(im):
+    global counter
+    specs = {
+            'conf':0,           # % of pixels that are black under contour
+            'area-ratio':0,     # a1/a2
+            'a1':0,             # number of pixels in contour
+            'a2':0,             # number of pixels
+            'contour':0,        # inside rectangle growth
+            'offset':[0,0],     # offset with respect to parent
+            'img': im,          # image
+            'height': 1,        # bounding rect height and width
+            'width':1,
+            'history':[],       # previous image
+            'comment':'',
+            'id': counter,
+
+            'line-conf': 0,
+            'aspect-ratio':0,
+            'line-length':0,
+            'length-area-ratio':0,
+            'vertical':0,
+            'sum':{'score':0.0, 'range':0, 'mode':[0,0], 'sum':[]},
+            }
+
+    counter = counter + 1
+
+    return specs
+
+def count_black(x):
+    nz = np.count_nonzero(x)
+    return x.shape[0] * x.shape[1] - nz
+
+
+def snapshot_imgs(imgs,comment,parent=None):
+    for x in imgs:
+        snapshot_img(x,comment,parent)
+
+def snapshot_img(im,comment,parent=None):
+    cop = {}
+    if parent is None:
+        for key, value in im.items():
+            cop[key] = value
+        im['offset'] = im['offset'][:]
+        im['img'] = np.copy(im['img'])
+    else:
+        for key, value in parent.items():
+            cop[key] = value
+        im['offset'] = parent['offset'][:]
+
+
+    cop['comment'] = comment
+    im['history'].append(cop)
+
+
+
 def remove_alpha(im):
     if len(im.shape)>2 and im.shape[2] == 4:
         return np.delete(im, 3, 2)
@@ -155,5 +213,30 @@ def encircle(img,cnt,**kwargs):
     center = (int(x) + offset[0],int(y) + offset[1])
     radius = int(radius)
     cv2.circle(img,center,int(radius * 3),(0,255,0),2)
+
+def print_img(x, itr=None):
+    s = '%d: %.3f, ar: %.2f, vert: %d, score: %.2f, sum-len: %d, range: %d, mode: %d, pixels: %d  %s' % (
+            x['id'], x['line-conf'], x['aspect-ratio'], 
+            x['vertical'], x['sum']['score'],
+            len(x['sum']['sum']), x['sum']['range'],
+            x['sum']['mode'][0], count_black(x['img']),
+            x['comment']
+            )
+    if itr is not None:
+        s = '('+str(itr)+') ' + s
+    print(s)
+
+def save_history(x):
+    print('saving history for image %d' % x['id'])
+    for i,y in enumerate(x['history']):
+        print_img(y,i)
+        name = 'img%d-%d.png' % (x['id'],i)
+        save(y['img'],'hist/'+name)
+    print_img(x,'current')
+
+
+
+
+
 
 
