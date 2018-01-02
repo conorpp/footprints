@@ -9,6 +9,56 @@ from scipy import stats
 from utils import *
 from filters import *
 
+def grow_rect(c):
+    x,y = centroid(c)
+    square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
+
+    # right side
+    while still_inside(c, square[0], square[1]):
+        square[0][0] += 1
+        square[1][0] += 1
+        square[4][0] += 1
+    square[0][0] -= 1
+    square[1][0] -= 1
+    square[4][0] -= 1
+
+    # top side
+    while still_inside(c, square[1], square[2]):
+        square[1][1] -= 1
+        square[2][1] -= 1
+    square[1][1] += 1
+    square[2][1] += 1
+
+    # left side
+    while still_inside(c, square[2], square[3]):
+        square[2][0] -= 1
+        square[3][0] -= 1
+    square[2][0] += 1
+    square[3][0] += 1
+
+    # bottom side
+    while still_inside(c, square[3], square[4]):
+        square[3][1] += 1
+        square[4][1] += 1
+    square[3][1] -= 1
+    square[4][1] -= 1
+    return square
+
+def grow_rect_by_one(square):
+    square[0][0] += 1
+    square[1][0] += 1
+    square[4][0] += 1
+
+    square[1][1] -= 1
+    square[2][1] -= 1
+
+    square[2][0] -= 1
+    square[3][0] -= 1
+
+    square[3][1] += 1
+    square[4][1] += 1
+
+
 def analyze_rectangle(arr):
 
     # TODO
@@ -20,7 +70,11 @@ def analyze_rectangle(arr):
 
     if len(contours)>1:
         #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
+        #try:
         square = grow_rect(contours[1])
+        #except:
+            #save_history(arr)
+            #sys.exit(1)
         conf = rect_confidence(tmp, square)
         arr['conf'] = conf
         arr['a1'] = cv2.contourArea(square)
@@ -133,9 +187,14 @@ def scan_trim(arr):
 
 
 def analyze_line(spec):
+    #try:
     c = spec['ocontour']
+    #except:
+        #save_history(spec)
+        #sys.exit(1)
     line,vertical = grow_line(spec['img'],c)
-    spec['vertical'] = vertical
+    #spec['vertical'] = vertical
+    spec['vertical'] = 1 if (spec['height'] > spec['width']) else 0
     spec['line'] = line
     spec['line-conf'] = line_confidence(spec['img'],line)
     spec['line-length'] = math.hypot(line[1][0] - line[0][0], line[1][1] - line[0][1])
@@ -154,12 +213,12 @@ def analyze_line(spec):
         #'sum':colsum
         #}
 
-    rowsum = scan_trim(rowsum)
+    rowsum_trim = scan_trim(rowsum)
     #colsum = scan_trim(colsum)
 
-    spec['sum']['mode'] = stats.mode(rowsum)
+    spec['sum']['mode'] = stats.mode(rowsum_trim)
     spec['sum']['range'] = np.ptp(rowsum)
-    spec['sum']['score'] = float(spec['sum']['mode'][1])/len(rowsum)
+    spec['sum']['score'] = float(spec['sum']['mode'][1])/len(rowsum_trim)
 
     #spec['colsum']['mode'] = stats.mode(colsum)
     #spec['colsum']['range'] = np.ptp(colsum)
@@ -174,4 +233,19 @@ def analyze_lines(lines):
 def analyze_rectangles(rects):
     for im in rects:
         analyze_rectangle(im)
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print('usage: %s <input.png>' % sys.argv[0])
+        sys.exit(1)
+
+    arr = load_image(sys.argv[1])
+    arr = wrap_image(arr)
+
+ 
+
+    analyze_rectangle(arr)
+
+
+
 

@@ -43,12 +43,14 @@ if __name__ == '__main__':
     lines,leftover = pass_lines(leftover)
     
     potential_lines,leftover = pass_potential_lines(leftover)
+    snapshot_imgs(potential_lines,'after potential line pass')
 
 
     it = 0
     print('fresh')
     while len(potential_lines):
         newitems = separate_lines(potential_lines)
+        snapshot_imgs(newitems,'after line separation')
         it += 1
         submaps = []
         for x in newitems:
@@ -56,24 +58,27 @@ if __name__ == '__main__':
             submaps += subm
 
         submaps = block_dots(submaps)
+        snapshot_imgs(submaps,'after extraction')
 
         trim_images(submaps)
+        snapshot_imgs(submaps,'after trim')
         analyze_rectangles(submaps)
         analyze_lines(submaps)
         lines2,leftover2 = pass_lines(submaps)
         print('pass %d.  found %d lines and %d more leftover' % (it,len(lines2), len(leftover2)))
         potential_lines,leftover2 = pass_potential_lines(leftover2)
+        snapshot_imgs(potential_lines,'passed for potential line')
         print('there\'s %d possible lines and %d not containing lines' % (len(potential_lines), len(leftover2)))
-        leftover2 += potential_lines
-        break
+        #leftover2 += potential_lines
+        #break
         lines += lines2
         leftover += leftover2   # not lines
-        break
+        #break
 
-    lines += lines2
-    print('%d classified lines.  %d from second pass' % (len(lines),len(lines2)))
-    leftover += leftover2
-    print('%d unclassified items. %d from second pass' % (len(leftover), len(leftover2)))
+    #lines += lines2
+    #print('%d classified lines.  %d from second pass' % (len(lines),len(lines2)))
+    #leftover += leftover2
+    #print('%d unclassified items. %d from second pass' % (len(leftover), len(leftover2)))
 
     for x in (lines + rectangles):
         x['cl'] = True
@@ -96,6 +101,7 @@ if __name__ == '__main__':
 
     for x in rectangles:
         cv2.drawContours(orig,[x['contour']],0,[255,0,255],1, offset=tuple(x['offset']))
+        save(x['img'],'out/rect%d.png' % (x['id']))
     for x in lines:
         #cv2.drawContours(orig,[x['contour']],0,[0,0,255],1, offset=x['offset'])
         #cv2.drawContours(orig,[x['ocontour']],0,[0,255,0],1, offset=x['offset'])
@@ -108,7 +114,9 @@ if __name__ == '__main__':
             cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=tuple(x['offset']))
 
     save(orig,'output.png')
-    save_history(rectangles[1])
+    for x in (leftover + rectangles + lines):
+        if x['id'] == 284:
+            save_history(x)
 
     #for x in rectangles:
         #print(x)

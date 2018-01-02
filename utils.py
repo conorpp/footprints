@@ -32,7 +32,7 @@ def wrap_image(im,parent=None):
 
     counter = counter + 1
     if parent is not None:
-        specs['offset'] = parent['offset'][:]
+        snapshot_img(specs,'parent',parent)
 
     return specs
 
@@ -56,6 +56,7 @@ def snapshot_img(im,comment,parent=None):
         for key, value in parent.items():
             cop[key] = value
         im['offset'] = parent['offset'][:]
+        im['history'] += parent['history']
 
 
     cop['comment'] = comment
@@ -102,41 +103,6 @@ def centroid(c):
     x = int(moms['m10']/moms['m00'])
     y = int(moms['m01']/moms['m00'])
     return x,y
- 
-def grow_rect(c):
-    x,y = centroid(c)
-    square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
-
-    # right side
-    while still_inside(c, square[0], square[1]):
-        square[0][0] += 1
-        square[1][0] += 1
-        square[4][0] += 1
-    square[0][0] -= 1
-    square[1][0] -= 1
-    square[4][0] -= 1
-
-    # top side
-    while still_inside(c, square[1], square[2]):
-        square[1][1] -= 1
-        square[2][1] -= 1
-    square[1][1] += 1
-    square[2][1] += 1
-
-    # left side
-    while still_inside(c, square[2], square[3]):
-        square[2][0] -= 1
-        square[3][0] -= 1
-    square[2][0] += 1
-    square[3][0] += 1
-
-    # bottom side
-    while still_inside(c, square[3], square[4]):
-        square[3][1] += 1
-        square[4][1] += 1
-    square[3][1] -= 1
-    square[4][1] -= 1
-    return square
 
 def show(im):
     tmp = Image.fromarray(im)
@@ -188,5 +154,11 @@ def save_history(x):
         name = 'img%d-%d.png' % (x['id'],i)
         save(y['img'],'hist/'+name)
     print_img(x,'current')
+
+
+def polarize(arr):
+    arr = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+    (thresh, arr) = cv2.threshold(arr, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    return arr
 
 
