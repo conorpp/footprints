@@ -178,23 +178,24 @@ def explore_r(arr,i,j,trackmap):
     return trackmap
 
 
-def extract_components(arr):
-    img = arr['img']
-    track_map = np.zeros(img.shape[:2],dtype=np.uint8)
+def extract_components(arrs):
     submaps = []
-    for i in range(0,img.shape[0]):
-        for j in range(0,img.shape[1]):
-            if img[i][j] == 0:
-                if not track_map[i,j]:
-                    track_map[i,j] = 1
-                    submap = explore(img,i,j)
-                    track_map += submap
-                    def mapping2greyscale(mapping):
-                        mapping = np.array((mapping == 0) * 255, dtype=np.uint8)
-                        return mapping
-                    submap = mapping2greyscale(submap)
-                    submap = wrap_image(submap,arr)
-                    submaps.append( submap )
+    for arr in arrs:
+        img = arr['img']
+        track_map = np.zeros(img.shape[:2],dtype=np.uint8)
+        for i in range(0,img.shape[0]):
+            for j in range(0,img.shape[1]):
+                if img[i][j] == 0:
+                    if not track_map[i,j]:
+                        track_map[i,j] = 1
+                        submap = explore(img,i,j)
+                        track_map += submap
+                        def mapping2greyscale(mapping):
+                            mapping = np.array((mapping == 0) * 255, dtype=np.uint8)
+                            return mapping
+                        submap = mapping2greyscale(submap)
+                        submap = wrap_image(submap,arr)
+                        submaps.append( submap )
 
     return submaps
 

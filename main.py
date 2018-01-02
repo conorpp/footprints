@@ -22,7 +22,7 @@ if __name__ == '__main__':
     arr = polarize(arr)
     arr = wrap_image(arr)
 
-    submaps = extract_components(arr)
+    submaps = extract_components([arr])
     snapshot_imgs(submaps,'extract_components parent',arr)
     snapshot_imgs(submaps,'before trim')
 
@@ -35,7 +35,9 @@ if __name__ == '__main__':
     rectangles,leftover = pass_rectangles(submaps)
 
     outsides = separate_rectangles(rectangles)
-    outsides = block_dots(outsides)
+    submaps = extract_components(outsides)
+
+    outsides = block_dots(submaps)
     analyze_rectangles(outsides)
     leftover += outsides
     #snapshot_imgs(rectangles,'im a rectangle')
@@ -57,10 +59,7 @@ if __name__ == '__main__':
         newitems = separate_lines(potential_lines)
         snapshot_imgs(newitems,'after line separation')
         it += 1
-        submaps = []
-        for x in newitems:
-            subm = extract_components(x)
-            submaps += subm
+        submaps = extract_components(newitems)
 
         submaps = block_dots(submaps)
         snapshot_imgs(submaps,'after extraction')
