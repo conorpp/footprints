@@ -248,15 +248,9 @@ if __name__ == '__main__':
     
     analyze_rectangle(arr)
 
-    squ = arr['contour'][:]
-    grow_rect_by_one(squ)
-
-    cv2.fillPoly(arr['img'], [squ], 255)
-
-    arr['img'] = color(arr['img'])
-    #cv2.drawContours(arr['img'],[squ],0,[255,0,255],1)
-    save(arr['img'],'output.png')
-
+    retval,triangle = cv2.minEnclosingTriange(arr['ocontour'])
+    print(triangle)
+    print(retval)
 
 
 

@@ -18,42 +18,42 @@ def separate_lines(inp):
         old = wrap_image(old,x)
         out.append(new)
         out.append(old)
-        # try other direction
-        #v = (x['vertical'] + 1) & 1
-        #swhole = scan_dim(x['orig'],v)
-        #strim = scan_trim(swhole)
-        #m = stats.mode(strim)
-        #if contains_line({'sum':{'sum':swhole, 'mode':m}}):
-            #x['vertical'] = v
-            #x['sum']['sum'] = swhole
-            #x['sum']['mode'] = m
-            #x['sum']['range'] = np.ptp(strim)
-            #fresh.append(x)
-        #else:
+
     return out
+
+def get_mode_locations(y,val):
+    locs = []
+    start = None
+    end = None
+    for i,p in enumerate(y):
+        if p == val:
+            if start is None:
+                start = i
+                end = i+1
+            else:
+                end += 1
+        else:
+            if start is not None:
+                if (end - start) > 3:
+                    locs.append((start,end))
+                start = None
+    return locs
+
+            
 
 
 def extract(im, y,m,dim):
     if dim == 0:
         im = np.transpose(im)
     im = np.copy(im)
-    newim = np.zeros(im.shape,dtype=np.uint8)
-    lastscan = None
-    for i,val in enumerate(y):
-        if val == m:
-            lastscan = im[i]
-            break
-    for i in range(0,len(y)):
-        if y[i] == m:
-            newim[i] += im[i]
-            lastscan = np.copy(im[i])
+    newim = np.zeros(im.shape,dtype=np.uint8) + 255
+
+    locs = get_mode_locations(y,m)
+
+    for loc in locs:
+        for i in range(loc[0],loc[1]):
+            newim[i] = im[i]
             im[i] = 255
-        #elif y[i] > m:
-        else:
-            #im[i] = 255
-            #newim[i] += lastscan
-            newim[i] = 255
-            pass
 
     if dim == 0:
         im = np.transpose(im)

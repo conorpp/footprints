@@ -88,8 +88,8 @@ if __name__ == '__main__':
         x['cl'] = True
     for x in (leftover):
         x['cl'] = False
-    if 0:
-        for x in sorted(lines+leftover, key=lambda x: x['id']):
+    if 1:
+        for x in sorted(leftover, key=lambda x: x['id']):
             print_img(x)
             cpy = np.copy(orig)
             cv2.drawContours(cpy,[x['line']],0,[255,0,0],1,offset=tuple(x['offset']))
@@ -99,7 +99,7 @@ if __name__ == '__main__':
             [xx,yy] = xx+x['offset'][0],yy+x['offset'][1]
             cv2.rectangle(cpy,(xx,yy),(xx+w,yy+h),(0,0,255),2)
             postfix = 'C' if x['cl'] else 'U'
-            save(cpy,'out/line%c%d.png' % (postfix,x['id']))
+            #save(cpy,'out/line%c%d.png' % (postfix,x['id']))
             save(x['img'],'out/item%c%d.png' % (postfix,x['id']))
 
 
