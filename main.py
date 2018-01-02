@@ -33,6 +33,11 @@ if __name__ == '__main__':
     #snapshot_imgs(rectangles,'after analyze_rectangles')
 
     rectangles,leftover = pass_rectangles(submaps)
+
+    outsides = separate_rectangles(rectangles)
+    outsides = block_dots(outsides)
+    analyze_rectangles(outsides)
+    leftover += outsides
     #snapshot_imgs(rectangles,'im a rectangle')
     #snapshot_imgs(leftover,'im not a rectangle')
 

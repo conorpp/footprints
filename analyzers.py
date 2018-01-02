@@ -234,17 +234,29 @@ def analyze_rectangles(rects):
     for im in rects:
         analyze_rectangle(im)
 
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('usage: %s <input.png>' % sys.argv[0])
         sys.exit(1)
 
     arr = load_image(sys.argv[1])
+    if len(arr.shape) > 2:
+        arr = polarize(arr)
+    print(arr.shape)
     arr = wrap_image(arr)
-
- 
-
+    
     analyze_rectangle(arr)
+
+    squ = arr['contour'][:]
+    grow_rect_by_one(squ)
+
+    cv2.fillPoly(arr['img'], [squ], 255)
+
+    arr['img'] = color(arr['img'])
+    #cv2.drawContours(arr['img'],[squ],0,[255,0,255],1)
+    save(arr['img'],'output.png')
+
 
 
 
