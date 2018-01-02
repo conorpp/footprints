@@ -234,6 +234,13 @@ def analyze_rectangles(rects):
     for im in rects:
         analyze_rectangle(im)
 
+def analyze_triangles(rects):
+    for x in rects:
+        area,tri = cv2.minEnclosingTriangle(x['ocontour'])
+        x['triangle'] = np.round(tri).astype(np.int32)
+        x['triangle-area'] = area
+        x['triangle-area-ratio'] = count_black(x['img'])/area
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
@@ -248,9 +255,21 @@ if __name__ == '__main__':
     
     analyze_rectangle(arr)
 
-    retval,triangle = cv2.minEnclosingTriange(arr['ocontour'])
+    retval,triangle = cv2.minEnclosingTriangle(arr['ocontour'])
     print(triangle)
     print(retval)
+    tri2 = triangle
+
+    tri2 = np.array(tri2)
+    print ('triangle area exa',cv2.contourArea(tri2))
+    tri2 = np.round(tri2).astype(np.int32)
+    print ('triangle area aprx',cv2.contourArea(tri2))
+    print('black pixels: ',count_black(arr['img']))
+
+
+    arr['img'] = color(arr['img'])
+    cv2.drawContours(arr['img'],[tri2],0,[255,0,0],1)
+    save(arr['img'],'output.png')
 
 
 

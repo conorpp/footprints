@@ -78,7 +78,9 @@ if __name__ == '__main__':
         lines += lines2
         leftover += leftover2   # not lines
         #break
-
+    
+    analyze_triangles(leftover)
+    triangles,leftover = pass_triangles(leftover)
     #lines += lines2
     #print('%d classified lines.  %d from second pass' % (len(lines),len(lines2)))
     #leftover += leftover2
@@ -110,6 +112,8 @@ if __name__ == '__main__':
         #cv2.drawContours(orig,[x['contour']],0,[0,0,255],1, offset=x['offset'])
         #cv2.drawContours(orig,[x['ocontour']],0,[0,255,0],1, offset=x['offset'])
         cv2.drawContours(orig,[x['line']],0,[0,128,0],2, offset=tuple(x['offset']))
+    for x in triangles:
+        cv2.drawContours(orig,[x['triangle']],0,[0,0,255],2, offset=tuple(x['offset']))
 
     for x in leftover:
         if contains_line(x):

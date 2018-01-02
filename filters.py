@@ -76,7 +76,16 @@ def block_dots(fresh):
             good.append(x)
     return good
 
+def pass_triangles(inp):
+    tris = []
+    notris = []
+    for x in inp:
+        if x['triangle-area-ratio']>.5:
+            tris.append(x)
+        else:
+            notris.append(x)
 
+    return tris,notris
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
