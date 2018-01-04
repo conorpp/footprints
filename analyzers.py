@@ -9,6 +9,8 @@ from scipy import stats
 from utils import *
 from filters import *
 
+from ocr import OCR_API
+
 def grow_rect(c):
     x,y = centroid(c)
     square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
@@ -240,6 +242,25 @@ def analyze_triangles(rects):
         x['triangle'] = np.round(tri).astype(np.int32)
         x['triangle-area'] = area
         x['triangle-area-ratio'] = count_black(x['img'])/area
+
+def analyze_ocr(inp):
+    for x in inp:
+        im = x['img']
+        OCR_API.SetImageBytes(im.tobytes(), im.shape[1], im.shape[0], 1, im.shape[1])
+        text = OCR_API.GetUTF8Text()  # r == ri
+        conf = OCR_API.MeanTextConf()
+        x['ocr-conf'] = conf
+        if text:
+            symbol = text[0]
+            x['symbol'] = symbol
+        else:
+            # check-periods
+            if (x['width'] == x['height']) and (count_black(im) < 17) and x['width']<8:
+                x['symbol'] = '.'
+                x['ocr-conf'] = 75
+            else:
+                x['symbol'] = None
+
 
 
 if __name__ == '__main__':

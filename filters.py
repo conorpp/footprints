@@ -87,6 +87,17 @@ def pass_triangles(inp):
 
     return tris,notris
 
+def pass_ocr(inp):
+    good = []
+    bad = []
+    for x in inp:
+        if x['ocr-conf'] >= 60:
+            good.append(x)
+        else:
+            bad.append(x)
+    return good,bad
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('usage: %s <input.png>' % sys.argv[0])

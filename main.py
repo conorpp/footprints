@@ -81,6 +81,9 @@ if __name__ == '__main__':
     
     analyze_triangles(leftover)
     triangles,leftover = pass_triangles(leftover)
+
+    analyze_ocr(leftover)
+    ocr, leftover = pass_ocr(leftover)
     #lines += lines2
     #print('%d classified lines.  %d from second pass' % (len(lines),len(lines2)))
     #leftover += leftover2
@@ -90,7 +93,7 @@ if __name__ == '__main__':
         x['cl'] = True
     for x in (leftover):
         x['cl'] = False
-    if 1:
+    if 0:
         for x in sorted(leftover, key=lambda x: x['id']):
             print_img(x)
             cpy = np.copy(orig)
@@ -102,19 +105,27 @@ if __name__ == '__main__':
             cv2.rectangle(cpy,(xx,yy),(xx+w,yy+h),(0,0,255),2)
             postfix = 'C' if x['cl'] else 'U'
             #save(cpy,'out/line%c%d.png' % (postfix,x['id']))
-            save(x['img'],'out/item%c%d.png' % (postfix,x['id']))
+            save(x,'out/item%c%d.png' % (postfix,x['id']))
 
 
+    print('%d rectangles' % len(rectangles))
     for x in rectangles:
         cv2.drawContours(orig,[x['contour']],0,[255,0,255],1, offset=tuple(x['offset']))
         save(x['img'],'out/rect%d.png' % (x['id']))
+
+    print('%d lines' % len(lines))
     for x in lines:
-        #cv2.drawContours(orig,[x['contour']],0,[0,0,255],1, offset=x['offset'])
-        #cv2.drawContours(orig,[x['ocontour']],0,[0,255,0],1, offset=x['offset'])
         cv2.drawContours(orig,[x['line']],0,[0,128,0],2, offset=tuple(x['offset']))
+
+    print('%d triangles' % len(triangles))
     for x in triangles:
         cv2.drawContours(orig,[x['triangle']],0,[0,0,255],2, offset=tuple(x['offset']))
 
+    print('%d characters' % len(ocr))
+    for x in ocr:
+        cv2.drawContours(orig,[x['ocontour']],0,[0,255,255],2, offset=tuple(x['offset']))
+
+    print('%d unclassified items' % len(leftover))
     for x in leftover:
         if contains_line(x):
             cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
@@ -122,19 +133,13 @@ if __name__ == '__main__':
             cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=tuple(x['offset']))
 
     save(orig,'output.png')
-    for x in (leftover + rectangles + lines):
-        if x['id'] == 284:
-            save_history(x)
+    for x in sorted(leftover + rectangles + lines, key = lambda x:x['id']):
+        #if x['id'] == 284:
+            #save_history(x)
+        #print('saving %d' % (x['id'],) )
+        #save(x,'out/item')
+        pass
 
-    #for x in rectangles:
-        #print(x)
-
-    #for i,x in enumerate(submaps):
-        #print(i)
-        #out = gen_image(x)
-        
-        #out = Image.fromarray(out)
-        #out.save(output + ('/item%d.png' % i))
 
 
 
