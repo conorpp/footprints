@@ -138,6 +138,8 @@ if __name__ == '__main__':
         #if x['id'] == 284:
         #if x in triangles:
             #save_history(x)
+        if x in rectangles:
+            save_history(x)
         #print('saving %d' % (x['id'],) )
         #save(x,'out/item')
         pass

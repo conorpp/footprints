@@ -42,8 +42,10 @@ def grow_rect(c):
     while still_inside(c, square[3], square[4]):
         square[3][1] += 1
         square[4][1] += 1
+        square[0][1] += 1
     square[3][1] -= 1
     square[4][1] -= 1
+    square[0][1] -= 1
     return square
 
 def grow_rect_by_one(square):
@@ -263,7 +265,85 @@ def analyze_ocr(inp):
             else:
                 x['symbol'] = None
 
+def shift_line(im, pts,dim,perc,direc):
+    _zeros = np.zeros(im.shape)
+    udim = (dim + 1) & 1
+    # right side
+    while True:
+        _zeros[:] = 1
+        cv2.drawContours(_zeros,[pts],0,0,1)
+        pixels = np.sum(_zeros==im)
+        if pixels < (perc * abs(pts[0][udim] - pts[1][udim])):
+            break
+        pts[0][dim] += direc
+        pts[1][dim] += direc
 
+    return pts
+
+
+def get_inner_rect(im,c):
+    #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
+    square = np.copy(c[:])
+    count = 25
+
+    # right side
+    square[0:2] = shift_line(im, square[0:2], 0, .9, -1)
+    
+    # top side
+    square[1:3] = shift_line(im, square[1:3], 1, .9, 1)
+
+    # left side
+    square[2:4] = shift_line(im, square[2:4], 0, .9, 1)
+    
+    # bottom side
+    square[4] = square[0]
+    square[3:5] = shift_line(im, square[3:5], 1, .9, -1)
+    square[0] = square[4]
+
+    return square
+
+def get_outer_rect(im,c):
+    #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
+    square = np.copy(c)
+    count = 25
+
+    zeros = np.zeros(im.shape)
+
+    # right side
+    square[0:2] = shift_line(im, square[0:2], 0, .9, 1)
+    
+    # top side
+    square[1:3] = shift_line(im, square[1:3], 1, .9, -1)
+
+    # left side
+    square[2:4] = shift_line(im, square[2:4], 0, .9, -1)
+    
+    # bottom side
+    square[4] = square[0]
+    square[3:5] = shift_line(im, square[3:5], 1, .9, 1)
+    square[0] = square[4]
+
+
+    return square
+
+def get_center_rect(out,ins):
+    cen = np.copy(out)
+    print((out[0][0] - ins[0][0])/2)
+    cen[0][0] -= (out[0][0] - ins[0][0])/2.
+    cen[0][1] -= (out[0][1] - ins[0][1])/2.
+
+    cen[1][0] -= (out[1][0] - ins[1][0])/2.
+    cen[1][1] += (-out[1][1]+ ins[1][1])/2.
+
+    cen[2][0] += (-out[2][0]+ ins[2][0])/2.
+    cen[2][1] += (-out[2][1]+ ins[2][1])/2.
+
+    cen[3][0] += (-out[3][0]+ ins[3][0])/2.
+    cen[3][1] -= (out[3][1] - ins[3][1])/2.
+
+    cen[4] = cen[0]
+
+    return cen
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
@@ -275,24 +355,30 @@ if __name__ == '__main__':
         arr = polarize(arr)
     print(arr.shape)
     arr = wrap_image(arr)
-    
+
     analyze_rectangle(arr)
 
-    retval,triangle = cv2.minEnclosingTriangle(arr['ocontour'])
-    print(triangle)
-    print(retval)
-    tri2 = triangle
-
-    tri2 = np.array(tri2)
-    print ('triangle area exa',cv2.contourArea(tri2))
-    tri2 = np.round(tri2).astype(np.int32)
-    print ('triangle area aprx',cv2.contourArea(tri2))
-    print('black pixels: ',count_black(arr['img']))
-
-
     arr['img'] = color(arr['img'])
-    cv2.drawContours(arr['img'],[tri2],0,[255,0,0],1)
-    save(arr['img'],'output.png')
+    #cv2.drawContours(arr['img'],[arr['contour'][0:2]],0,[0,255,255],1)
+    #cv2.drawContours(arr['img'],[arr['contour'][1:3]],0,[0,255,0],1)
+    #cv2.drawContours(arr['img'],[arr['contour'][2:4]],0,[255,0,0],1)
+    #cv2.drawContours(arr['img'],[arr['contour'][3:5]],0,[255,0,255],1)
+    
+    outer_sq = get_outer_rect(arr['img'],arr['contour'])
+    inner_sq = get_inner_rect(arr['img'],arr['contour'])
+    center_sq = get_center_rect(outer_sq,inner_sq)
+
+    print('out:',outer_sq)
+    print('cen:',center_sq)
+    print('in:',inner_sq)
+
+    cv2.drawContours(arr['img'],[inner_sq],0,[255,255,0],1)
+    cv2.drawContours(arr['img'],[outer_sq],0,[0,0,255],1)
+    cv2.drawContours(arr['img'],[center_sq],0,[255,255,255],1)
+    
+    cv2.fillPoly(arr['img'], [inner_sq], [255]*3)
+
+    save(arr,'output.png')
 
 
 
