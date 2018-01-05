@@ -89,12 +89,12 @@ if __name__ == '__main__':
     #leftover += leftover2
     #print('%d unclassified items. %d from second pass' % (len(leftover), len(leftover2)))
 
-    for x in (lines + rectangles):
+    for x in (lines + rectangles + triangles + ocr):
         x['cl'] = True
     for x in (leftover):
         x['cl'] = False
-    if 0:
-        for x in sorted(leftover, key=lambda x: x['id']):
+    if 1:
+        for x in sorted(triangles, key=lambda x: x['id']):
             print_img(x)
             cpy = np.copy(orig)
             cv2.drawContours(cpy,[x['line']],0,[255,0,0],1,offset=tuple(x['offset']))
@@ -133,8 +133,10 @@ if __name__ == '__main__':
             cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=tuple(x['offset']))
 
     save(orig,'output.png')
-    for x in sorted(leftover + rectangles + lines, key = lambda x:x['id']):
+    for x in sorted(leftover + rectangles + lines + triangles + ocr, key = lambda x:x['id']):
+
         #if x['id'] == 284:
+        #if x in triangles:
             #save_history(x)
         #print('saving %d' % (x['id'],) )
         #save(x,'out/item')

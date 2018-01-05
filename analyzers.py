@@ -94,6 +94,8 @@ def analyze_rectangle(arr):
 
     else: 
         print('warning, no contours')
+        save_history(arr)
+        sys.exit(1)
 
 def move_point(im,p,i,di,expected):
     count = 0

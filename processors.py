@@ -13,11 +13,16 @@ def separate_lines(inp):
     out = []
 
     for x in inp:
-        new,old = extract(x['img'],x['sum']['sum'], x['sum']['mode'][0], x['vertical'])
-        new = wrap_image(new,x)
-        old = wrap_image(old,x)
-        out.append(new)
-        out.append(old)
+        #try:
+            new,old = extract(x['img'],x['sum']['sum'], x['sum']['mode'][0], x['vertical'])
+            new = wrap_image(new,x)
+            old = wrap_image(old,x)
+            out.append(new)
+            out.append(old)
+        #except Exception as e:
+            #print('execption',e)
+            #save_history(x)
+            #sys.exit(1)
 
     return out
 
@@ -34,12 +39,75 @@ def get_mode_locations(y,val):
                 end += 1
         else:
             if start is not None:
-                if (end - start) > 3:
-                    locs.append((start,end))
+                locs.append([start,end])
                 start = None
     return locs
 
-            
+# determines the starting position of mode 
+# pixels and checks that they are consecutive
+def mode_start_mode(im,locs,m):
+    # scanning across 2nd dim to find m consecutive black pixels
+    starts = []
+    s = 0
+    p = 0
+    for loc in locs:
+        for i in range(loc[0],loc[1]):
+            p = 0
+            s = 0
+            for j in range(im.shape[1]):
+                if im[i,j] == 0:
+                    p += 1
+                    if p == m:
+                        starts.append(s)
+                        break
+                else:
+                    if p:
+                        break
+                    s += 1
+
+    #print('black pixels:', count_black(im))
+    #print(starts,m)
+    #print(locs)
+    if len(starts):
+        return stats.mode(starts)[0][0]
+    else:
+        return -1
+
+def extend_locs(im,locs,m,start):
+    for loc in locs:
+        while True:
+            white_both_sides = (im[loc[1],start-1] == 255) and (im[loc[1],start+m] == 255)
+            mode = sum(im[loc[1],start:(start+m)]) == 0
+            if white_both_sides and mode:
+                loc[1] += 1
+            else:
+                break
+
+def get_line_locations(im,y,line_start,m):
+    locs = []
+    start = None
+    end = None
+    for i,p in enumerate(y):
+        if p >= m:
+
+            white_both_sides = (im[i,line_start-1] == 255) and (im[i,line_start+m] == 255)
+            mode = np.sum(im[i,line_start:(line_start+m)]) == 0
+
+            if white_both_sides and mode:
+                if start is None:
+                    start = i
+                    end = i+1
+                else:
+                    end += 1
+            else:
+                if start is not None: # redund
+                    locs.append((start,end))
+                    start = None
+        else:
+            if start is not None: #redund
+                locs.append((start,end))
+                start = None
+    return locs
 
 
 def extract(im, y,m,dim):
@@ -47,13 +115,29 @@ def extract(im, y,m,dim):
         im = np.transpose(im)
     im = np.copy(im)
     newim = np.zeros(im.shape,dtype=np.uint8) + 255
+    m = m[0]
 
     locs = get_mode_locations(y,m)
 
-    for loc in locs:
-        for i in range(loc[0],loc[1]):
-            newim[i] = im[i]
-            im[i] = 255
+    #for loc in locs:
+        #for i in range(loc[0],loc[1]):
+    if len(locs):
+        start = mode_start_mode(im,locs,m)
+        extend_locs(im,locs,m,start)
+        locs = get_line_locations(im,y,start,m)
+        locs = [x for x in locs if (x[1] - x[0] > 3)]
+        for loc in locs:
+            for i in range(loc[0],loc[1]):
+                newim[i,start:(start+m)] = 0
+                im[i,start:(start+m)] = 255
+
+
+        #for i in range(0, im.shape[0]):
+            ## just check the outside
+            #if (im[i,start-1] == 255) and (im[i,start+m] == 255):
+                #if sum(im[i,start:(start+m)]) == 0:
+                    #newim[i,start:(start+m)] = 0
+                    #im[i,start:(start+m)] = 255
 
     if dim == 0:
         im = np.transpose(im)
@@ -129,7 +213,6 @@ def explore_r(arr,i,j,trackmap):
     nodes_to_visit = [(i,j)]
 
     def checkout(i,j):
-        #print i,j
         if arr[i][j] == 0:
             if not trackmap[i,j]:
                 trackmap[i,j] = 1             # add to list
