@@ -265,6 +265,13 @@ def analyze_ocr(inp):
             else:
                 x['symbol'] = None
 
+def polish_rectangles(rects):
+    for x in rects:
+        ins = get_inner_rect(x['img'],x['contour'])
+        out = get_outer_rect(x['img'],x['contour'])
+        cen = get_center_rect(out,ins)
+        x['rectangle'] = cen
+
 def shift_line(im, pts,dim,perc,direc):
     _zeros = np.zeros(im.shape)
     udim = (dim + 1) & 1
@@ -328,7 +335,6 @@ def get_outer_rect(im,c):
 
 def get_center_rect(out,ins):
     cen = np.copy(out)
-    print((out[0][0] - ins[0][0])/2)
     cen[0][0] -= (out[0][0] - ins[0][0])/2.
     cen[0][1] -= (out[0][1] - ins[0][1])/2.
 

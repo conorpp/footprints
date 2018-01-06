@@ -84,6 +84,8 @@ if __name__ == '__main__':
 
     analyze_ocr(leftover)
     ocr, leftover = pass_ocr(leftover)
+
+    polish_rectangles(rectangles)
     #lines += lines2
     #print('%d classified lines.  %d from second pass' % (len(lines),len(lines2)))
     #leftover += leftover2
@@ -110,7 +112,7 @@ if __name__ == '__main__':
 
     print('%d rectangles' % len(rectangles))
     for x in rectangles:
-        cv2.drawContours(orig,[x['contour']],0,[255,0,255],1, offset=tuple(x['offset']))
+        cv2.drawContours(orig,[x['rectangle']],0,[255,0,255],1, offset=tuple(x['offset']))
         save(x['img'],'out/rect%d.png' % (x['id']))
 
     print('%d lines' % len(lines))
@@ -138,8 +140,8 @@ if __name__ == '__main__':
         #if x['id'] == 284:
         #if x in triangles:
             #save_history(x)
-        if x in rectangles:
-            save_history(x)
+        #if x in rectangles:
+            #save_history(x)
         #print('saving %d' % (x['id'],) )
         #save(x,'out/item')
         pass

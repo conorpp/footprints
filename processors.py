@@ -283,8 +283,9 @@ def extract_components(arrs):
     return submaps
 
 def separate_rectangle(arr):
-    squ = arr['contour'][:]
-    grow_rect_by_one(squ)
+    #squ = arr['contour'][:]
+    squ = get_outer_rect(arr['img'],arr['contour'])
+    #grow_rect_by_one(squ)
 
     outside = np.copy(arr['img'])
 
