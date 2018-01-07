@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw
 import numpy as np
 import cv2
 
+import analyzers
 from utils import *
 from filters import *
 from analyzers import *
@@ -18,17 +19,27 @@ if __name__ == '__main__':
     arr = load_image(sys.argv[1])
     arr = remove_alpha(arr)
 
+    #arr[160,:] = 255
+    #arr[int(763 * .50),:] = 255
+    #arr[int(763 * .65),:] = 255
+    #arr[int(763 * .95),:] = 255
+
+    #arr[:,int(802 * .97)] = 255
+
+
+
     orig = np.copy(arr)
     arr = polarize(arr)
     arr = wrap_image(arr)
+    #trim_images([arr])
 
-    submaps = extract_components([arr])
-    snapshot_imgs(submaps,'extract_components parent',arr)
-    snapshot_imgs(submaps,'before trim')
+    analyzers.init(arr)
+    print(arr['img'].shape)
 
-    trim_images(submaps)
+    submaps = extract_features([arr])
+
+    #trim_images(submaps)
     submaps = block_clipped_components(submaps)
-    snapshot_imgs(submaps,'after trim')
 
     analyze_rectangles(submaps)
     #snapshot_imgs(rectangles,'after analyze_rectangles')
@@ -36,11 +47,28 @@ if __name__ == '__main__':
     rectangles,leftover = pass_rectangles(submaps)
 
     outsides = separate_rectangles(rectangles)
-    submaps = extract_components(outsides)
+    submaps = extract_features(outsides)
 
     outsides = block_dots(submaps)
     analyze_rectangles(outsides)
-    leftover += outsides
+
+    new_rectangles, new_leftover = pass_rectangles(outsides)
+    leftover += new_leftover
+
+    while len(new_rectangles):
+        rectangles += new_rectangles
+
+        outsides = separate_rectangles(new_rectangles)
+        submaps = extract_features(outsides)
+
+        outsides = block_dots(submaps)
+        analyze_rectangles(outsides)
+
+        new_rectangles, new_leftover = pass_rectangles(outsides)
+        leftover += new_leftover
+
+
+
     #snapshot_imgs(rectangles,'im a rectangle')
     #snapshot_imgs(leftover,'im not a rectangle')
 
@@ -60,12 +88,12 @@ if __name__ == '__main__':
         newitems = separate_lines(potential_lines)
         snapshot_imgs(newitems,'after line separation')
         it += 1
-        submaps = extract_components(newitems)
+        submaps = extract_features(newitems)
 
         submaps = block_dots(submaps)
         snapshot_imgs(submaps,'after extraction')
 
-        trim_images(submaps)
+        #trim_images(submaps)
         snapshot_imgs(submaps,'after trim')
         analyze_rectangles(submaps)
         analyze_lines(submaps)
@@ -74,22 +102,29 @@ if __name__ == '__main__':
         potential_lines,leftover2 = pass_potential_lines(leftover2)
         snapshot_imgs(potential_lines,'passed for potential line')
         print('there\'s %d possible lines and %d not containing lines' % (len(potential_lines), len(leftover2)))
-        #leftover2 += potential_lines
-        #break
+
+
+        if len(lines2) == 0:
+            print('no more lines to find')
+            break
+
         lines += lines2
         leftover += leftover2   # not lines
-        #break
-        if it > 5:
-            print('infinite loop detected')
-            for x in potential_lines:
-                save_history(x)
-            sys.exit(1)
     
     analyze_triangles(leftover)
     triangles,leftover = pass_triangles(leftover)
 
     analyze_ocr(leftover)
     ocr, leftover = pass_ocr(leftover)
+
+    # check orientations
+    rotate_right(leftover)
+    analyze_ocr(leftover)
+    ocr2, leftover = pass_ocr(leftover)
+    ocr += ocr2
+
+    rotate_left(leftover)
+    #
 
     polish_rectangles(rectangles)
     #lines += lines2
@@ -101,7 +136,7 @@ if __name__ == '__main__':
         x['cl'] = True
     for x in (leftover):
         x['cl'] = False
-    if 1:
+    if 0:
         for x in sorted(triangles, key=lambda x: x['id']):
             print_img(x)
             cpy = np.copy(orig)
@@ -132,6 +167,8 @@ if __name__ == '__main__':
     print('%d characters' % len(ocr))
     for x in ocr:
         cv2.drawContours(orig,[x['ocontour']],0,[0,255,255],2, offset=tuple(x['offset']))
+        #print('%d == %s (%d%%)' % (x['id'],x['symbol'],x['ocr-conf']))
+        #save(x,'out/ocr%d.png' % x['id'])
 
     print('%d unclassified items' % len(leftover))
     for x in leftover:

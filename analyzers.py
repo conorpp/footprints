@@ -11,6 +11,13 @@ from filters import *
 
 from ocr import OCR_API
 
+PARAMS = {'imageh':100,'imagew':100}
+
+def init(x):
+    PARAMS['imageh'] = x['img'].shape[0]
+    PARAMS['imagew'] = x['img'].shape[1]
+    print(PARAMS)
+
 def grow_rect(c):
     x,y = centroid(c)
     square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
@@ -66,7 +73,7 @@ def grow_rect_by_one(square):
 def analyze_rectangle(arr):
 
     # TODO
-    num_pixels = float(960*760)
+    num_pixels = float(PARAMS['imageh']*PARAMS['imagew'])
 
     mat = np.copy(arr['img'])
     mat, contours, hier = cv2.findContours(mat, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -363,6 +370,131 @@ def get_center_rect(out,ins):
 
     return cen
 
+#def get_flat_locations(y,flat_size):
+    #locs = []
+    #start = None
+    #end = None
+    #lastp = -1
+    #print('y len',len(y))
+    #for i,p in enumerate(y):
+        #if p == lastp:
+            #if start is None:
+                #start = i
+                #end = i+1
+            #else:
+                #end += 1
+        #else:
+            #if start is not None and ((end-start) >= flat_size):
+                #locs.append([start,end])
+            #start = None
+            #if p:
+                #lastp = p
+    #return locs
+
+def sum_crossings(im,dim):
+    if dim == 0:
+        im = np.transpose(im)
+
+    sums = np.zeros(im.shape[0])
+    indexs = np.zeros(im.shape[0])
+    lastp = 255 # white
+
+    for i in range(0,im.shape[0]):
+        for j in range(0,im.shape[1]):
+            if im[i,j] != lastp:
+                sums[i] += 1
+                lastp = im[i,j]
+
+                indexs[i] = j
+
+    if dim == 0:
+        im = np.transpose(im)
+
+    return sums/2, indexs
+
+def trim_crossings(sums):
+    #sums = np.trim_zeros(sums)
+    sums = sums + (sums == 0)
+    for i,p in enumerate(sums):
+        if p == 1:
+            sums[i] = 0
+        else:
+            break
+
+    for i in range(len(sums)-1,-1,-1):
+        if sums[i] == 1:
+            sums[i] = 0
+        else:
+            break
+
+    #sums = np.trim_zeros(sums)
+    return sums
+
+def center_locs(locs):
+    return [int(x[0] + (x[1] - x[0])/2) for x in locs]
+
+def get_mode_locations(y,val):
+    locs = []
+    start = None
+    end = None
+    for i,p in enumerate(y):
+        if p == val:
+            if start is None:
+                start = i
+                end = i+1
+            else:
+                end += 1
+        else:
+            if start is not None:
+                locs.append([start,end])
+                start = None
+    return locs
+
+def cut_linking_lines(arrs):
+    for arr in arrs:
+        img = arr['img']
+        cut_linking_line(img)
+
+def cut_linking_line(arr):
+    #TODO derive these from something
+    perpendicular_line_length = 10
+    min_line_length = 10
+    variation = 3
+
+    lines,indexs = sum_crossings(arr,0)
+    sums = scan_dim(arr,0)
+    lines = lines + (sums > perpendicular_line_length )
+
+    lines = trim_crossings(lines)
+    locs = get_mode_locations(lines,1)
+    locs = [x for x in locs if ((x[1] - x[0]) >= min_line_length)]
+
+    locs = [x for x in locs if (len(np.unique( indexs[x[0]:x[1]] )) < variation)]
+
+    col_cut_points = center_locs(locs)
+    for x in col_cut_points:
+        if (arr.shape[0] - np.sum(arr[:,x])/255) < 5:
+            arr[:,x] = 255
+
+
+    lines,indexs = sum_crossings(arr,1)
+    sums = scan_dim(arr,1)
+    lines = lines + (sums > perpendicular_line_length )
+    lines = trim_crossings(lines)
+
+    #plt.plot(lines)
+    #plt.show()
+
+    locs = get_mode_locations(lines,1)
+    locs = [x for x in locs if ((x[1] - x[0]) >= min_line_length)]
+    locs = [x for x in locs if (len(np.unique( indexs[x[0]:x[1]] )) < variation)]
+    row_cut_points = center_locs(locs)
+    for x in row_cut_points:
+        if (arr.shape[1] - np.sum(arr[x,:])/255) < 5:
+            arr[x,:] = 255
+
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('usage: %s <input.png>' % sys.argv[0])
@@ -371,30 +503,37 @@ if __name__ == '__main__':
     arr = load_image(sys.argv[1])
     if len(arr.shape) > 2:
         arr = polarize(arr)
+
     print(arr.shape)
-    arr = wrap_image(arr)
-
-    analyze_rectangle(arr)
-
-    arr['img'] = color(arr['img'])
-    #cv2.drawContours(arr['img'],[arr['contour'][0:2]],0,[0,255,255],1)
-    #cv2.drawContours(arr['img'],[arr['contour'][1:3]],0,[0,255,0],1)
-    #cv2.drawContours(arr['img'],[arr['contour'][2:4]],0,[255,0,0],1)
-    #cv2.drawContours(arr['img'],[arr['contour'][3:5]],0,[255,0,255],1)
+    #rowsum = scan_dim(arr,0)
+    #colsum = scan_dim(arr,1)
     
-    outer_sq = get_outer_rect(arr['img'],arr['contour'])
-    inner_sq = get_inner_rect(arr['img'],arr['contour'])
-    center_sq = get_center_rect(outer_sq,inner_sq)
+    cut_linking_line(arr)
 
-    print('out:',outer_sq)
-    print('cen:',center_sq)
-    print('in:',inner_sq)
+    #arr = color(arr)
 
-    cv2.drawContours(arr['img'],[inner_sq],0,[255,255,0],1)
-    cv2.drawContours(arr['img'],[outer_sq],0,[0,0,255],1)
-    cv2.drawContours(arr['img'],[center_sq],0,[255,255,255],1)
+    #arr = wrap_image(arr)
+
+    #analyze_rectangle(arr)
+
+    ##cv2.drawContours(arr['img'],[arr['contour'][0:2]],0,[0,255,255],1)
+    ##cv2.drawContours(arr['img'],[arr['contour'][1:3]],0,[0,255,0],1)
+    ##cv2.drawContours(arr['img'],[arr['contour'][2:4]],0,[255,0,0],1)
+    ##cv2.drawContours(arr['img'],[arr['contour'][3:5]],0,[255,0,255],1)
     
-    cv2.fillPoly(arr['img'], [inner_sq], [255]*3)
+    #outer_sq = get_outer_rect(arr['img'],arr['contour'])
+    #inner_sq = get_inner_rect(arr['img'],arr['contour'])
+    #center_sq = get_center_rect(outer_sq,inner_sq)
+
+    #print('out:',outer_sq)
+    #print('cen:',center_sq)
+    #print('in:',inner_sq)
+
+    #cv2.drawContours(arr['img'],[inner_sq],0,[255,255,0],1)
+    #cv2.drawContours(arr['img'],[outer_sq],0,[0,0,255],1)
+    #cv2.drawContours(arr['img'],[center_sq],0,[255,255,255],1)
+    
+    #cv2.fillPoly(arr['img'], [inner_sq], [255]*3)
 
     save(arr,'output.png')
 

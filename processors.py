@@ -26,23 +26,6 @@ def separate_lines(inp):
 
     return out
 
-def get_mode_locations(y,val):
-    locs = []
-    start = None
-    end = None
-    for i,p in enumerate(y):
-        if p == val:
-            if start is None:
-                start = i
-                end = i+1
-            else:
-                end += 1
-        else:
-            if start is not None:
-                locs.append([start,end])
-                start = None
-    return locs
-
 # determines the starting position of mode 
 # pixels and checks that they are consecutive
 def mode_start_mode(im,locs,m):
@@ -62,6 +45,7 @@ def mode_start_mode(im,locs,m):
                         break
                 else:
                     if p:
+                        #starts.append(s)
                         break
                     s += 1
 
@@ -76,7 +60,8 @@ def mode_start_mode(im,locs,m):
 def extend_locs(im,locs,m,start):
     for loc in locs:
         while True:
-            white_both_sides = (im[loc[1],start-1] == 255) and (im[loc[1],start+m] == 255)
+            white_both_sides = (im[loc[1],start-1] == 255) 
+            white_both_sides = white_both_sides and (im[loc[1],start+m] == 255)
             mode = sum(im[loc[1],start:(start+m)]) == 0
             if white_both_sides and mode:
                 loc[1] += 1
@@ -123,21 +108,22 @@ def extract(im, y,m,dim):
         #for i in range(loc[0],loc[1]):
     if len(locs):
         start = mode_start_mode(im,locs,m)
-        extend_locs(im,locs,m,start)
-        locs = get_line_locations(im,y,start,m)
-        locs = [x for x in locs if (x[1] - x[0] > 3)]
-        for loc in locs:
-            for i in range(loc[0],loc[1]):
-                newim[i,start:(start+m)] = 0
-                im[i,start:(start+m)] = 255
+        if start > -1:
+            extend_locs(im,locs,m,start)
+            locs = get_line_locations(im,y,start,m)
+            locs = [x for x in locs if (x[1] - x[0] > 3)]
+            for loc in locs:
+                for i in range(loc[0],loc[1]):
+                    newim[i,start:(start+m)] = 0
+                    im[i,start:(start+m)] = 255
 
 
-        #for i in range(0, im.shape[0]):
-            ## just check the outside
-            #if (im[i,start-1] == 255) and (im[i,start+m] == 255):
-                #if sum(im[i,start:(start+m)]) == 0:
-                    #newim[i,start:(start+m)] = 0
-                    #im[i,start:(start+m)] = 255
+            #for i in range(0, im.shape[0]):
+                ## just check the outside
+                #if (im[i,start-1] == 255) and (im[i,start+m] == 255):
+                    #if sum(im[i,start:(start+m)]) == 0:
+                        #newim[i,start:(start+m)] = 0
+                        #im[i,start:(start+m)] = 255
 
     if dim == 0:
         im = np.transpose(im)
@@ -260,6 +246,22 @@ def explore_r(arr,i,j,trackmap):
 
     return trackmap
 
+def extract_features(arrs):
+    print('extracting..')
+    coms = extract_components(arrs)
+    trim_images(coms)
+
+    cut_linking_lines(coms)
+    coms2 = extract_components(coms)
+    trim_images(coms2)
+    while len(coms2) > len(coms):
+        print('coms: %d, coms2: %d'%(len(coms),len(coms2)))
+        coms = coms2
+        cut_linking_lines(coms)
+        coms2 = extract_components(coms)
+        trim_images(coms2)
+    return coms2
+
 
 def extract_components(arrs):
     submaps = []
@@ -282,7 +284,7 @@ def extract_components(arrs):
 
     return submaps
 
-def separate_rectangle(arr):
+def separate_rectangle_out(arr):
     #squ = arr['contour'][:]
     squ = get_outer_rect(arr['img'],arr['contour'])
     #grow_rect_by_one(squ)
@@ -294,10 +296,37 @@ def separate_rectangle(arr):
     outside = wrap_image(outside,arr)
     return outside
 
+def separate_rectangle_in(arr):
+    squ = get_inner_rect(arr['img'],arr['contour'])
+
+    outside = np.zeros(arr['img'].shape).astype(arr['img'].dtype)
+    inside = np.zeros(arr['img'].shape).astype(arr['img'].dtype)
+
+    cv2.fillPoly(inside, [squ], 1)
+    outside = (inside != 1) * 255
+    inside = ((inside == 1) * 255).astype(arr['img'].dtype)
+
+    result = cv2.bitwise_and(arr['img'], inside)
+
+    outside = wrap_image((result + outside).astype(arr['img'].dtype),arr)
+    return outside
+
+
 def separate_rectangles(inp):
     outsides = []
     for x in inp:
-        outsides.append(separate_rectangle(x))
+        outsides.append(separate_rectangle_out(x))
+        outsides.append(separate_rectangle_in(x))
     return outsides
+
+def rotate_right(inp):
+    for x in inp:
+        x['img'] = cv2.rotate(x['img'], cv2.ROTATE_90_CLOCKWISE)
+        x['rotated'] = True
+
+def rotate_left(inp):
+    for x in inp:
+        x['img'] = cv2.rotate(x['img'], cv2.ROTATE_90_COUNTERCLOCKWISE)
+        x['rotated'] = True
 
 

@@ -34,7 +34,7 @@ def pass_lines(rects):
 
         #if x['aspect-ratio'] > 10:
             #lines.append(x)
-        if (x['aspect-ratio'] > .9) and (score > .7) and (distinct < 4):
+        if (x['aspect-ratio'] > 1.1) and (score > .7) and (distinct < 3):
             lines.append(x)
         else:
             leftover.append(x)
@@ -83,7 +83,6 @@ def pass_ocr(inp):
         else:
             bad.append(x)
     return good,bad
-
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

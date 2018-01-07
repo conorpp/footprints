@@ -28,6 +28,7 @@ def wrap_image(im,parent=None):
             'length-area-ratio':0,
             'vertical':0,
             'sum':{'score':0.0, 'distinct':0, 'mode':[0,0], 'sum':[]},
+            'rotated': False
             }
 
     counter = counter + 1
@@ -157,6 +158,8 @@ def save_history(x):
         name = 'img%d-%d.png' % (x['id'],i)
         save(y['img'],'hist/'+name)
     print_img(x,'current')
+    name = 'img%d-%d.png' % (x['id'],i+1)
+    save(y['img'],'hist/'+name)
 
 
 def polarize(arr):
