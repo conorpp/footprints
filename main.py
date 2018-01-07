@@ -163,7 +163,7 @@ if __name__ == '__main__':
     for x in (leftover):
         x['cl'] = False
     if 0:
-        for x in sorted(triangles, key=lambda x: x['id']):
+        for x in sorted(leftover, key=lambda x: x['id']):
             print_img(x)
             cpy = np.copy(orig)
             cv2.drawContours(cpy,[x['line']],0,[255,0,0],1,offset=tuple(x['offset']))
@@ -206,7 +206,7 @@ if __name__ == '__main__':
     save(orig,'output.png')
     for x in sorted(leftover + rectangles + lines + triangles + ocr, key = lambda x:x['id']):
 
-        #if x['id'] == 284:
+        #if x['id'] == 478:
         #if x in triangles:
             #save_history(x)
         #if x in rectangles:

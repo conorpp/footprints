@@ -496,7 +496,7 @@ def cut_linking_line(arr):
         # look at center min_line_length points
         off = int(l/2)
         min_line_h = int(min_line_length/2)
-        uni = np.unique( indexs[x[0] + off - min_line_h:x[0] - off + min_line_h] )
+        uni = np.unique( indexs[x[0] + off - min_line_h:x[1] - off + min_line_h] )
         if len(uni) < variation:
             locs2.append(x)
 
