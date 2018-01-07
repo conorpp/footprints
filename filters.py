@@ -26,32 +26,19 @@ def pass_rectangles(rects):
 def pass_lines(rects):
     lines = []
     leftover = []
-    #rects = sorted(rects, key = lambda x : x['line-conf'])
+    # TODO connect this with `contains_line` to prevent infinite loops
     for x in rects:
-        #if (x['line-conf'] > .3) and (x['aspect-ratio'] > 3):
-            #lines.append(x)
-        #elif (x['line-conf'] > .9) and (x['aspect-ratio'] > 1.5):
-            #lines.append(x)
         score = x['sum']['score']
-        ran   = x['sum']['range']
+        distinct = x['sum']['distinct']
 
-        if x['aspect-ratio'] > .9:
-            if score > .7 and ran < 4:
-                lines.append(x)
-            else:
-                leftover.append(x)
+
+        #if x['aspect-ratio'] > 10:
+            #lines.append(x)
+        if (x['aspect-ratio'] > .9) and (score > .7) and (distinct < 4):
+            lines.append(x)
         else:
             leftover.append(x)
     return lines,leftover
-    #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
-    #for x in rects:
-        #tlc = x['contour'][2]
-        #brc = x['contour'][0]
-        #w = brc[0] - tlc[0]
-        #h = brc[1] - tlc[1]
-        #if w < 4 or h < 4:
-            #lines.append(x)
-    #return lines
 
 def contains_line(spec):
     s = spec['sum']

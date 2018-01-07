@@ -223,12 +223,10 @@ def analyze_line(spec):
     #colsum = scan_trim(colsum)
 
     spec['sum']['mode'] = stats.mode(rowsum_trim)
-    spec['sum']['range'] = np.ptp(rowsum)
+
+    spec['sum']['distinct'] = len(np.unique(rowsum_trim))
     spec['sum']['score'] = float(spec['sum']['mode'][1])/len(rowsum_trim)
 
-    #spec['colsum']['mode'] = stats.mode(colsum)
-    #spec['colsum']['range'] = np.ptp(colsum)
-    #spec['colsum']['score'] = float(spec['colsum']['mode'][1])/len(colsum)
     return spec
 
 
@@ -288,6 +286,18 @@ def shift_line(im, pts,dim,perc,direc):
         pts[1][dim] += direc
 
     return pts
+
+def block_clipped_components(inp):
+    good = []
+    for x in inp:
+        im = x['img']
+        if 0 not in im[:,0]:
+            if 0 not in im[:,im.shape[1]-1]:
+                if 0 not in im[im.shape[0]-1,:]:
+                    if 0 not in im[0,:]:
+                        good.append(x)
+
+    return good
 
 
 def get_inner_rect(im,c):

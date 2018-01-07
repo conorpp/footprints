@@ -27,7 +27,7 @@ def wrap_image(im,parent=None):
             'line-length':0,
             'length-area-ratio':0,
             'vertical':0,
-            'sum':{'score':0.0, 'range':0, 'mode':[0,0], 'sum':[]},
+            'sum':{'score':0.0, 'distinct':0, 'mode':[0,0], 'sum':[]},
             }
 
     counter = counter + 1
@@ -138,10 +138,10 @@ def encircle(img,cnt,**kwargs):
     cv2.circle(img,center,int(radius * 3),(0,255,0),2)
 
 def print_img(x, itr=None):
-    s = '%d: %.3f, ar: %.2f, vert: %d, score: %.2f, sum-len: %d, range: %d, mode: %d, pixels: %d, wxh: %dx%d %s' % (
+    s = '%d: %.3f, ar: %.2f, vert: %d, score: %.2f, sum-len: %d, distinct: %d, mode: %d, pixels: %d, wxh: %dx%d %s' % (
             x['id'], x['line-conf'], x['aspect-ratio'], 
             x['vertical'], x['sum']['score'],
-            len(x['sum']['sum']), x['sum']['range'],
+            len(x['sum']['sum']), x['sum']['distinct'],
             x['sum']['mode'][0], count_black(x['img']),
             x['width'],x['height'],
             x['comment']

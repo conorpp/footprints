@@ -27,6 +27,7 @@ if __name__ == '__main__':
     snapshot_imgs(submaps,'before trim')
 
     trim_images(submaps)
+    submaps = block_clipped_components(submaps)
     snapshot_imgs(submaps,'after trim')
 
     analyze_rectangles(submaps)
@@ -78,6 +79,11 @@ if __name__ == '__main__':
         lines += lines2
         leftover += leftover2   # not lines
         #break
+        if it > 5:
+            print('infinite loop detected')
+            for x in potential_lines:
+                save_history(x)
+            sys.exit(1)
     
     analyze_triangles(leftover)
     triangles,leftover = pass_triangles(leftover)
