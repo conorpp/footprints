@@ -486,8 +486,22 @@ def cut_linking_line(arr):
     #plt.show()
 
     locs = get_mode_locations(lines,1)
-    locs = [x for x in locs if ((x[1] - x[0]) >= min_line_length)]
-    locs = [x for x in locs if (len(np.unique( indexs[x[0]:x[1]] )) < variation)]
+
+    locs2 = []
+    for x in locs:
+        l = x[1] - x[0]
+        if l < min_line_length:
+            continue
+
+        # look at center min_line_length points
+        off = int(l/2)
+        min_line_h = int(min_line_length/2)
+        uni = np.unique( indexs[x[0] + off - min_line_h:x[0] - off + min_line_h] )
+        if len(uni) < variation:
+            locs2.append(x)
+
+    locs = locs2
+    #locs = [x for x in locs if (len(np.unique( indexs[x[0]:x[1]] )) < variation)]
     row_cut_points = center_locs(locs)
     for x in row_cut_points:
         if (arr.shape[1] - np.sum(arr[x,:])/255) < 5:

@@ -111,19 +111,12 @@ def extract(im, y,m,dim):
         if start > -1:
             extend_locs(im,locs,m,start)
             locs = get_line_locations(im,y,start,m)
-            locs = [x for x in locs if (x[1] - x[0] > 3)]
+            locs = [x for x in locs if ((x[1] - x[0]) > 2)]
             for loc in locs:
                 for i in range(loc[0],loc[1]):
                     newim[i,start:(start+m)] = 0
                     im[i,start:(start+m)] = 255
 
-
-            #for i in range(0, im.shape[0]):
-                ## just check the outside
-                #if (im[i,start-1] == 255) and (im[i,start+m] == 255):
-                    #if sum(im[i,start:(start+m)]) == 0:
-                        #newim[i,start:(start+m)] = 0
-                        #im[i,start:(start+m)] = 255
 
     if dim == 0:
         im = np.transpose(im)
@@ -260,6 +253,8 @@ def extract_features(arrs):
         cut_linking_lines(coms)
         coms2 = extract_components(coms)
         trim_images(coms2)
+
+    print('coms2: %d'%(len(coms2)))
     return coms2
 
 

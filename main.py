@@ -10,6 +10,26 @@ from filters import *
 from analyzers import *
 from processors import *
 
+def add_feature(im, feat):
+    if type(im) == type({}):
+        im = im['img']
+
+    off = feat['offset']
+    feat = feat['img']
+
+    for i in range(0,feat.shape[0]):
+        for j in range(0,feat.shape[1]):
+            im[i+off[1],j+off[0]] = feat[i,j]
+
+def die(submaps,comment):
+    for x in submaps:
+        debug = np.zeros(orig.shape,dtype=np.uint8) + 255
+        add_feature(debug,x)
+        save(debug,'out/%sitem%d.png' % (comment,x['id']))
+        print('debugging',x['id'])
+    sys.exit(1)
+
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
@@ -45,6 +65,7 @@ if __name__ == '__main__':
     #snapshot_imgs(rectangles,'after analyze_rectangles')
 
     rectangles,leftover = pass_rectangles(submaps)
+
 
     outsides = separate_rectangles(rectangles)
     submaps = extract_features(outsides)
@@ -103,13 +124,18 @@ if __name__ == '__main__':
         snapshot_imgs(potential_lines,'passed for potential line')
         print('there\'s %d possible lines and %d not containing lines' % (len(potential_lines), len(leftover2)))
 
+        #if it == 2:
+            #die(submaps,'leftover')
+
+        leftover += leftover2   # not lines
 
         if len(lines2) == 0:
             print('no more lines to find')
             break
 
         lines += lines2
-        leftover += leftover2   # not lines
+
+
     
     analyze_triangles(leftover)
     triangles,leftover = pass_triangles(leftover)
