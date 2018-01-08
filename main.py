@@ -118,35 +118,52 @@ if __name__ == '__main__':
     it = 0
     print('fresh')
     while len(potential_lines):
-        newitems = separate_lines(potential_lines)
-        snapshot_imgs(newitems,'after line separation')
-        it += 1
-        submaps = extract_features(newitems)
+        while len(potential_lines):
+            newitems = separate_lines(potential_lines)
+            snapshot_imgs(newitems,'after line separation')
+            it += 1
+            submaps = extract_features(newitems)
 
-        submaps = block_dots(submaps)
-        snapshot_imgs(submaps,'after extraction')
+            submaps = block_dots(submaps)
+            snapshot_imgs(submaps,'after extraction')
 
-        #trim_images(submaps)
-        snapshot_imgs(submaps,'after trim')
-        analyze_rectangles(submaps)
-        analyze_lines(submaps)
-        lines2,leftover2 = pass_lines(submaps)
-        print('pass %d.  found %d lines and %d more leftover' % (it,len(lines2), len(leftover2)))
-        potential_lines,leftover2 = pass_potential_lines(leftover2)
-        snapshot_imgs(potential_lines,'passed for potential line')
-        print('there\'s %d possible lines and %d not containing lines' % (len(potential_lines), len(leftover2)))
-
-
-        leftover += leftover2   # not lines
-
-        if len(lines2) == 0:
-            print('no more lines to find')
-            break
-
-        lines += lines2
+            #trim_images(submaps)
+            snapshot_imgs(submaps,'after trim')
+            analyze_rectangles(submaps)
+            analyze_lines(submaps)
+            lines2,leftover2 = pass_lines(submaps)
+            print('pass %d.  found %d lines and %d more leftover' % (it,len(lines2), len(leftover2)))
+            potential_lines,leftover2 = pass_potential_lines(leftover2)
+            snapshot_imgs(potential_lines,'passed for potential line')
+            print('there\'s %d possible lines and %d not containing lines' % (len(potential_lines), len(leftover2)))
 
 
-    
+            leftover += leftover2
+
+            if len(lines2) == 0:
+                print('no more lines to find')
+                leftover += potential_lines
+                break
+
+            lines += lines2
+
+        new_rectangles, leftover = pass_rectangles(leftover)
+        potential_lines = []
+        while len(new_rectangles):
+            rectangles += new_rectangles
+
+            outsides = separate_rectangles(new_rectangles)
+            submaps = extract_features(outsides)
+
+            outsides = block_dots(submaps)
+            analyze_rectangles(outsides)
+
+            new_rectangles, new_leftover = pass_rectangles(outsides)
+            potential_lines += new_leftover
+
+        analyze_lines(potential_lines)
+
+
     analyze_triangles(leftover)
     triangles,leftover = pass_triangles(leftover)
 
@@ -173,7 +190,7 @@ if __name__ == '__main__':
     for x in (leftover):
         x['cl'] = False
     if 0:
-        for x in sorted(leftover, key=lambda x: x['id']):
+        for x in sorted(leftover+lines+ocr, key=lambda x: x['id']):
             print_img(x)
             cpy = np.copy(orig)
             cv2.drawContours(cpy,[x['line']],0,[255,0,0],1,offset=tuple(x['offset']))
@@ -183,8 +200,8 @@ if __name__ == '__main__':
             [xx,yy] = xx+x['offset'][0],yy+x['offset'][1]
             cv2.rectangle(cpy,(xx,yy),(xx+w,yy+h),(0,0,255),2)
             postfix = 'C' if x['cl'] else 'U'
-            #save(cpy,'out/line%c%d.png' % (postfix,x['id']))
-            save(x,'out/item%c%d.png' % (postfix,x['id']))
+            save(cpy,'out/line%c%d.png' % (postfix,x['id']))
+            #save(x,'out/item%c%d.png' % (postfix,x['id']))
 
 
     print('%d rectangles' % len(rectangles))
@@ -216,9 +233,9 @@ if __name__ == '__main__':
     save(orig,'output.png')
     for x in sorted(leftover + rectangles + lines + triangles + ocr, key = lambda x:x['id']):
 
-        #if x['id'] == 478:
+        if x['id'] == 497:
         #if x in triangles:
-            #save_history(x)
+            save_history(x)
         #if x in rectangles:
             #save_history(x)
         #print('saving %d' % (x['id'],) )

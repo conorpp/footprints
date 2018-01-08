@@ -94,7 +94,7 @@ def get_line_locations(im,y,line_start,m):
                 start = None
     return locs
 
-
+faulty_id = 0
 def extract(im, y,m,dim):
     if dim == 0:
         im = np.transpose(im)
@@ -116,6 +116,11 @@ def extract(im, y,m,dim):
                 for i in range(loc[0],loc[1]):
                     newim[i,start:(start+m)] = 0
                     im[i,start:(start+m)] = 255
+        else:
+            global faulty_id
+            faulty_id +=1
+            print('faulty image',faulty_id)
+            save(im,'out/fault%d.png'%faulty_id)
 
 
     if dim == 0:
