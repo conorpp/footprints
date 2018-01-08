@@ -179,6 +179,12 @@ if __name__ == '__main__':
     rotate_left(leftover)
     #
 
+    # remove slashes
+    slashes, ocr = pass_slashes(ocr)
+    leftover += slashes
+
+
+
     polish_rectangles(rectangles)
     #lines += lines2
     #print('%d classified lines.  %d from second pass' % (len(lines),len(lines2)))
@@ -215,13 +221,13 @@ if __name__ == '__main__':
 
     print('%d triangles' % len(triangles))
     for x in triangles:
-        cv2.drawContours(orig,[x['triangle']],0,[0,0,255],2, offset=tuple(x['offset']))
+        cv2.drawContours(orig,[x['triangle']],0,[0,0,255],1, offset=tuple(x['offset']))
 
     print('%d characters' % len(ocr))
     for x in ocr:
         cv2.drawContours(orig,[x['ocontour']],0,[0,255,255],2, offset=tuple(x['offset']))
-        #print('%d == %s (%d%%)' % (x['id'],x['symbol'],x['ocr-conf']))
-        #save(x,'out/ocr%d.png' % x['id'])
+        print('%d == %s (%d%%)' % (x['id'],x['symbol'],x['ocr-conf']))
+        save(x,'out/ocr%d.png' % x['id'])
 
     print('%d unclassified items' % len(leftover))
     for x in leftover:
@@ -229,13 +235,14 @@ if __name__ == '__main__':
             cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
         else:
             cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=tuple(x['offset']))
+            cv2.drawContours(orig,[x['triangle']],0,[255,0,255],1, offset=tuple(x['offset']))
 
     save(orig,'output.png')
     for x in sorted(leftover + rectangles + lines + triangles + ocr, key = lambda x:x['id']):
 
-        if x['id'] == 497:
+        #if x['id'] == 497:
         #if x in triangles:
-            save_history(x)
+            #save_history(x)
         #if x in rectangles:
             #save_history(x)
         #print('saving %d' % (x['id'],) )

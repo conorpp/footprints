@@ -120,7 +120,7 @@ def extract(im, y,m,dim):
             global faulty_id
             faulty_id +=1
             print('faulty image',faulty_id)
-            save(im,'out/fault%d.png'%faulty_id)
+            #save(im,'out/fault%d.png'%faulty_id)
 
 
     if dim == 0:

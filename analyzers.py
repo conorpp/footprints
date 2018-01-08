@@ -250,6 +250,7 @@ def analyze_triangles(rects):
         x['triangle'] = np.round(tri).astype(np.int32)
         x['triangle-area'] = area
         x['triangle-area-ratio'] = count_black(x['img'])/area
+        x['triangle-perimeter'] = cv2.arcLength(tri,True)
 
 def analyze_ocr(inp):
     for x in inp:

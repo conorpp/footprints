@@ -3,9 +3,11 @@ from PIL import Image
 from utils import *
 import sys
 
+ABCs = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 
+WHITELIST = "1234567890.,X()/\\" + ABCs
 OCR_API = PyTessBaseAPI()
 OCR_API.SetVariable('tessedit_pageseg_mode',"7")
-OCR_API.SetVariable('tessedit_char_whitelist',"1234567890.,X()")
+OCR_API.SetVariable('tessedit_char_whitelist',WHITELIST)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -22,7 +24,7 @@ if __name__ == '__main__':
 
     with PyTessBaseAPI() as api:
         api.SetVariable('tessedit_pageseg_mode',"7")
-        api.SetVariable('tessedit_char_whitelist',"1234567890.,X()")
+        api.SetVariable('tessedit_char_whitelist',WHITELIST)
 
         for x in sorted(sys.argv[1:], key=lambda x:num_from_name(x)):
             im = load_image(x)

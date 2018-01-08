@@ -6,6 +6,7 @@ import cv2
 import matplotlib.pyplot as plt
 from scipy import stats
 
+import analyzers
 from utils import *
 from analyzers import *
 
@@ -66,8 +67,9 @@ def block_dots(fresh):
 def pass_triangles(inp):
     tris = []
     notris = []
+    dim = min(analyzers.PARAMS['imageh'],analyzers.PARAMS['imagew'])/2
     for x in inp:
-        if x['triangle-area-ratio']>.5:
+        if (x['triangle-area-ratio']>.5) and (x['triangle-perimeter'] < dim):
             tris.append(x)
         else:
             notris.append(x)
@@ -83,6 +85,16 @@ def pass_ocr(inp):
         else:
             bad.append(x)
     return good,bad
+
+def pass_slashes(inp):
+    slash =[]
+    nope = []
+    for x in inp:
+        if x['symbol'] in '\\/':
+            slash.append(x)
+        else:
+            nope.append(x)
+    return slash,nope
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
