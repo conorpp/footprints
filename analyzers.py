@@ -72,7 +72,6 @@ def grow_rect_by_one(square):
 
 def analyze_rectangle(arr):
 
-    # TODO
     num_pixels = float(PARAMS['imageh']*PARAMS['imagew'])
 
     mat = np.copy(arr['img'])
@@ -522,13 +521,12 @@ if __name__ == '__main__':
     #rowsum = scan_dim(arr,0)
     #colsum = scan_dim(arr,1)
     
-    cut_linking_line(arr)
+    #cut_linking_line(arr)
 
-    #arr = color(arr)
 
-    #arr = wrap_image(arr)
+    arr = wrap_image(arr)
 
-    #analyze_rectangle(arr)
+    analyze_rectangle(arr)
 
     ##cv2.drawContours(arr['img'],[arr['contour'][0:2]],0,[0,255,255],1)
     ##cv2.drawContours(arr['img'],[arr['contour'][1:3]],0,[0,255,0],1)
@@ -545,9 +543,10 @@ if __name__ == '__main__':
 
     #cv2.drawContours(arr['img'],[inner_sq],0,[255,255,0],1)
     #cv2.drawContours(arr['img'],[outer_sq],0,[0,0,255],1)
-    #cv2.drawContours(arr['img'],[center_sq],0,[255,255,255],1)
     
     #cv2.fillPoly(arr['img'], [inner_sq], [255]*3)
+    arr['img'] = color(arr['img'])
+    cv2.drawContours(arr['img'],[arr['contour']],0,[255,0,0],1)
 
     save(arr,'output.png')
 

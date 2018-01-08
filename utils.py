@@ -94,10 +94,14 @@ def load_image(name):
 
 #def preprocess(im):
 
+# checks two points and their midpoint
 def still_inside(c,p1,p2):
     p1 = (p1[0],p1[1])
     p2 = (p2[0],p2[1])
-    return (cv2.pointPolygonTest(c, p1,0) > 0 ) and (cv2.pointPolygonTest(c, p2,0) > 0 )
+    p3 = ((p1[0] + p2[0])/2,(p1[1] + p2[1])/2)
+    corners = (cv2.pointPolygonTest(c, p1,0) > 0 ) and (cv2.pointPolygonTest(c, p2,0) > 0 )
+    with_mid = corners and (cv2.pointPolygonTest(c, p3,0) > 0 )
+    return with_mid
 
 def centroid(c):
     moms = cv2.moments(c)
@@ -138,15 +142,26 @@ def encircle(img,cnt,**kwargs):
     radius = int(radius)
     cv2.circle(img,center,int(radius * 3),(0,255,0),2)
 
-def print_img(x, itr=None):
-    s = '%d: %.3f, ar: %.2f, vert: %d, score: %.2f, sum-len: %d, distinct: %d, mode: %d, pixels: %d, wxh: %dx%d %s' % (
-            x['id'], x['line-conf'], x['aspect-ratio'], 
-            x['vertical'], x['sum']['score'],
-            len(x['sum']['sum']), x['sum']['distinct'],
-            x['sum']['mode'][0], count_black(x['img']),
-            x['width'],x['height'],
-            x['comment']
-            )
+def print_img(x, itr=None, **kwargs):
+    ty = kwargs.get('shape','line')
+    if ty == 'rect':
+        s = '%d: %.3f, a1: %d, a2: %d, area-ratio: %.4f, contour-area: %.4f wxh: %dx%d %s' % (
+                x['id'], x['conf'], x['a1'], 
+                x['a2'], x['area-ratio'], x['contour-area'],
+                x['width'],x['height'],
+                x['comment']
+                )
+ 
+    else:
+        s = '%d: %.3f, ar: %.2f, vert: %d, score: %.2f, sum-len: %d, distinct: %d, mode: %d, pixels: %d, wxh: %dx%d %s' % (
+                x['id'], x['line-conf'], x['aspect-ratio'], 
+                x['vertical'], x['sum']['score'],
+                len(x['sum']['sum']), x['sum']['distinct'],
+                x['sum']['mode'][0], count_black(x['img']),
+                x['width'],x['height'],
+                x['comment']
+                )
+
     if itr is not None:
         s = '('+str(itr)+') ' + s
     print(s)

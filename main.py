@@ -64,8 +64,19 @@ if __name__ == '__main__':
     analyze_rectangles(submaps)
     #snapshot_imgs(rectangles,'after analyze_rectangles')
 
+    #print('bad rects')
+    #for x in submaps:
+        #if x['id'] in [168,169,170]:
+            #print_img(x,shape='rect')
+
     rectangles,leftover = pass_rectangles(submaps)
 
+    #print('good rects')
+    #for x in rectangles:
+        #print_img(x,shape='rect')
+
+
+    #die(submaps,'rects')
 
     outsides = separate_rectangles(rectangles)
     submaps = extract_features(outsides)
@@ -98,6 +109,7 @@ if __name__ == '__main__':
     #snapshot_imgs(lines,'after analyze_lines')
 
     lines,leftover = pass_lines(leftover)
+    #die(lines,'leftover')
     
     potential_lines,leftover = pass_potential_lines(leftover)
     snapshot_imgs(potential_lines,'after potential line pass')
@@ -124,8 +136,6 @@ if __name__ == '__main__':
         snapshot_imgs(potential_lines,'passed for potential line')
         print('there\'s %d possible lines and %d not containing lines' % (len(potential_lines), len(leftover2)))
 
-        #if it == 2:
-            #die(submaps,'leftover')
 
         leftover += leftover2   # not lines
 
