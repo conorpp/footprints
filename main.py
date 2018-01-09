@@ -167,6 +167,9 @@ if __name__ == '__main__':
     analyze_triangles(leftover)
     triangles,leftover = pass_triangles(leftover)
 
+    analyze_circles(leftover)
+    circles,leftover = pass_circles(leftover)
+
     analyze_ocr(leftover)
     ocr, leftover = pass_ocr(leftover)
 
@@ -182,6 +185,9 @@ if __name__ == '__main__':
     # remove slashes
     slashes, ocr = pass_slashes(ocr)
     leftover += slashes
+
+    rects2 = pass_rectangles(ocr)
+    print('rects 2:',len(rects2))
 
 
 
@@ -226,8 +232,15 @@ if __name__ == '__main__':
     print('%d characters' % len(ocr))
     for x in ocr:
         cv2.drawContours(orig,[x['ocontour']],0,[0,255,255],2, offset=tuple(x['offset']))
-        print('%d == %s (%d%%)' % (x['id'],x['symbol'],x['ocr-conf']))
-        save(x,'out/ocr%d.png' % x['id'])
+        #print('%d == %s (%d%%)' % (x['id'],x['symbol'],x['ocr-conf']))
+        #save(x,'out/ocr%d.png' % x['id'])
+
+    print('%d circles' % len(circles))
+    for x in circles:
+        off = x['offset']
+        xp = off[0] + x['circle'][0][0]
+        yp = off[1] + x['circle'][0][1]
+        cv2.circle(orig,(xp,yp),x['circle'][1],(255,0x8c,0),2 )
 
     print('%d unclassified items' % len(leftover))
     for x in leftover:
@@ -235,7 +248,7 @@ if __name__ == '__main__':
             cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
         else:
             cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=tuple(x['offset']))
-            cv2.drawContours(orig,[x['triangle']],0,[255,0,255],1, offset=tuple(x['offset']))
+            cv2.drawContours(orig,[x['triangle']],0,[255,0,128],1, offset=tuple(x['offset']))
 
     save(orig,'output.png')
     for x in sorted(leftover + rectangles + lines + triangles + ocr, key = lambda x:x['id']):

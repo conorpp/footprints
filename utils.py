@@ -135,6 +135,17 @@ def rect_confidence(im,con):
     s,t = trace_sum(im,con)
     return float(s)/t
 
+def circle_confidence(im,con):
+    mask = np.zeros(im.shape[:2],np.uint8)
+    cv2.circle(mask,con[0],con[1],255,1)
+    pixelpoints = np.transpose(np.nonzero(mask))
+
+    total = 0
+    for i,j in pixelpoints:
+        total += (im[i,j] == 0)
+
+    return float(total)/len(pixelpoints)
+
 def encircle(img,cnt,**kwargs):
     (x,y),radius = cv2.minEnclosingCircle(cnt)
     offset = kwargs.get('offset',[0,0])

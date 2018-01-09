@@ -24,6 +24,17 @@ def pass_rectangles(rects):
             left.append(x)
     return filtered,left
 
+def pass_potential_rectangles(rects):
+    filtered = []
+    left = []
+    for x in rects:
+        if x['area-ratio'] > 0.001:
+            filtered.append(x)
+        else:
+            left.append(x)
+    return filtered,left
+
+
 def pass_lines(rects):
     lines = []
     leftover = []
@@ -95,6 +106,17 @@ def pass_slashes(inp):
         else:
             nope.append(x)
     return slash,nope
+
+def pass_circles(inp):
+    good = []
+    bad = []
+    for x in inp:
+        if x['circle-conf'] > .94 and (x['circle'][1] > 4):
+            good.append(x)
+        else:
+            bad.append(x)
+    return good,bad
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

@@ -193,7 +193,6 @@ def explore_r(arr,i,j,trackmap):
     imax = arr.shape[0]-1
     jmax = arr.shape[1]-1
 
-
     nodes_to_visit = [(i,j)]
 
     def checkout(i,j):
@@ -215,24 +214,24 @@ def explore_r(arr,i,j,trackmap):
             checkout(i,j+1)
 
             # bottom-right
-            if (i+1) <= imax:
-                checkout(i+1,j+1)
+            #if (i+1) <= imax:
+                #checkout(i+1,j+1)
 
             # top-right
-            if (i-1) >= 0:
-                checkout(i-1,j+1)
+            #if (i-1) >= 0:
+                #checkout(i-1,j+1)
 
         # left
         if (j-1) >= 0:
             checkout(i,j-1)
 
             # bottom-right
-            if (i+1) <= imax:
-                checkout(i+1,j-1)
+            #if (i+1) <= imax:
+                #checkout(i+1,j-1)
 
             # top-right
-            if (i-1) >= 0:
-                checkout(i-1,j-1)
+            #if (i-1) >= 0:
+                #checkout(i-1,j-1)
 
         # top
         if (i - 1) >= 0:
@@ -328,5 +327,64 @@ def rotate_left(inp):
     for x in inp:
         x['img'] = cv2.rotate(x['img'], cv2.ROTATE_90_COUNTERCLOCKWISE)
         x['rotated'] = True
+
+
+def cut_linking_lines(arrs):
+    for arr in arrs:
+        img = arr['img']
+        cut_linking_line(img)
+
+def cut_linking_line(arr):
+    #TODO derive these from something
+    perpendicular_line_length = 10
+    min_line_length = 10
+    variation = 3
+
+    lines,indexs = sum_crossings(arr,0)
+    sums = scan_dim(arr,0)
+    lines = lines + (sums > perpendicular_line_length )
+
+    lines = trim_crossings(lines)
+    locs = get_mode_locations(lines,1)
+    locs = [x for x in locs if ((x[1] - x[0]) >= min_line_length)]
+
+    locs = [x for x in locs if (len(np.unique( indexs[x[0]:x[1]] )) < variation)]
+
+    col_cut_points = center_locs(locs)
+    for x in col_cut_points:
+        if (arr.shape[0] - np.sum(arr[:,x])/255) < 5:
+            arr[:,x] = 255
+
+
+    lines,indexs = sum_crossings(arr,1)
+    sums = scan_dim(arr,1)
+    lines = lines + (sums > perpendicular_line_length )
+    lines = trim_crossings(lines)
+
+    #plt.plot(lines)
+    #plt.show()
+
+    locs = get_mode_locations(lines,1)
+
+    locs2 = []
+    for x in locs:
+        l = x[1] - x[0]
+        if l < min_line_length:
+            continue
+
+        # look at center min_line_length points
+        off = int(l/2)
+        min_line_h = int(min_line_length/2)
+        uni = np.unique( indexs[x[0] + off - min_line_h:x[1] - off + min_line_h] )
+        if len(uni) < variation:
+            locs2.append(x)
+
+    locs = locs2
+    #locs = [x for x in locs if (len(np.unique( indexs[x[0]:x[1]] )) < variation)]
+    row_cut_points = center_locs(locs)
+    for x in row_cut_points:
+        if (arr.shape[1] - np.sum(arr[x,:])/255) < 5:
+            arr[x,:] = 255
+
 
 

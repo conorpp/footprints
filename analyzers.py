@@ -18,18 +18,36 @@ def init(x):
     PARAMS['imagew'] = x['img'].shape[1]
     print(PARAMS)
 
-def grow_rect(c):
-    x,y = centroid(c)
+def grow_rect(c,p):
+    [x,y] = p
+
     square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
+    inc = 1
 
     # right side
     while still_inside(c, square[0], square[1]):
         square[0][0] += 1
         square[1][0] += 1
         square[4][0] += 1
-    square[0][0] -= 1
-    square[1][0] -= 1
-    square[4][0] -= 1
+        inc += 1
+
+    dec = min(3,inc)
+    square[0][0] -= dec
+    square[1][0] -= dec
+    square[4][0] -= dec
+    inc = 1
+
+
+    # left side
+    while still_inside(c, square[2], square[3]):
+        square[2][0] -= 1
+        square[3][0] -= 1
+        inc += 1
+
+    dec = min(3,inc)
+    square[2][0] += dec
+    square[3][0] += dec
+
 
     # top side
     while still_inside(c, square[1], square[2]):
@@ -37,13 +55,6 @@ def grow_rect(c):
         square[2][1] -= 1
     square[1][1] += 1
     square[2][1] += 1
-
-    # left side
-    while still_inside(c, square[2], square[3]):
-        square[2][0] -= 1
-        square[3][0] -= 1
-    square[2][0] += 1
-    square[3][0] += 1
 
     # bottom side
     while still_inside(c, square[3], square[4]):
@@ -53,6 +64,29 @@ def grow_rect(c):
     square[3][1] -= 1
     square[4][1] -= 1
     square[0][1] -= 1
+
+    # do left/right again
+
+    # right side
+    while still_inside(c, square[0], square[1]):
+        square[0][0] += 1
+        square[1][0] += 1
+        square[4][0] += 1
+
+    square[0][0] -= 1
+    square[1][0] -= 1
+    square[4][0] -= 1
+
+
+    # left side
+    while still_inside(c, square[2], square[3]):
+        square[2][0] -= 1
+        square[3][0] -= 1
+
+    square[2][0] += 1
+    square[3][0] += 1
+
+
     return square
 
 def grow_rect_by_one(square):
@@ -81,17 +115,23 @@ def analyze_rectangle(arr):
     if len(contours)>1:
         #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
         #try:
-        square = grow_rect(contours[1])
-        #except:
-            #save_history(arr)
-            #sys.exit(1)
-        conf = rect_confidence(tmp, square)
-        arr['conf'] = conf
-        arr['a1'] = cv2.contourArea(square)
-        arr['contour'] = square
-
-
-        arr['area-ratio'] = cv2.contourArea(square)/num_pixels
+        output = cv2.connectedComponentsWithStats(tmp, 4)
+        squares = []
+        for x,y in output[3]:
+            p = (int(x), int(y))
+            if (cv2.pointPolygonTest(contours[1], p, 0) > 0 ):
+                squ = grow_rect(contours[1],p)
+                squares.append([squ, cv2.contourArea(squ), p])
+        
+        if len(squares):
+            squares = sorted(squares, key = lambda x:x[1], reverse = True )
+            square = squares[0]
+            conf = rect_confidence(tmp, square[0])
+            arr['conf'] = conf
+            arr['center'] = square[2]
+            arr['a1'] = square[1]
+            arr['contour'] = square[0]
+            arr['area-ratio'] = square[1]/num_pixels
 
         arr['contour-area'] = cv2.contourArea(contours[1])
         arr['ocontour'] = contours[1]
@@ -104,6 +144,7 @@ def analyze_rectangle(arr):
         print('warning, no contours')
         save_history(arr)
         sys.exit(1)
+
 
 def move_point(im,p,i,di,expected):
     count = 0
@@ -296,13 +337,19 @@ def shift_line(im, pts,dim,perc,direc):
 
 def block_clipped_components(inp):
     good = []
-    for x in inp:
-        im = x['img']
-        if 0 not in im[:,0]:
-            if 0 not in im[:,im.shape[1]-1]:
-                if 0 not in im[im.shape[0]-1,:]:
-                    if 0 not in im[0,:]:
-                        good.append(x)
+    try:
+        for x in inp:
+            im = x['img']
+            if 0 not in im[:,0]:
+                if 0 not in im[:,im.shape[1]-1]:
+                    if 0 not in im[im.shape[0]-1,:]:
+                        if 0 not in im[0,:]:
+                            good.append(x)
+    except:
+        print('err')
+        print(x['img'])
+        print(x['img'].shape)
+        sys.exit(1)
 
     return good
 
@@ -450,62 +497,45 @@ def get_mode_locations(y,val):
                 start = None
     return locs
 
-def cut_linking_lines(arrs):
-    for arr in arrs:
-        img = arr['img']
-        cut_linking_line(img)
+def analyze_circle(arr):
+    squ = arr['contour']
+    c = arr['ocontour']
+    def inside_circle(c,p,r):
+        total = 0
+        x = p[0]
+        y = p[1]
+        pts = []
+        for i in range(0,12):
+            v = 2*math.pi * i/12.
+            t = (cv2.pointPolygonTest(c, (x + math.cos(v) * r,y + math.sin(v) * r), 0) > 0 )
+            if t:
+                total += 1
 
-def cut_linking_line(arr):
-    #TODO derive these from something
-    perpendicular_line_length = 10
-    min_line_length = 10
-    variation = 3
+        return total
 
-    lines,indexs = sum_crossings(arr,0)
-    sums = scan_dim(arr,0)
-    lines = lines + (sums > perpendicular_line_length )
+    arr['circle'] = [(0,0),1]
+    arr['circle-conf'] = 0
 
-    lines = trim_crossings(lines)
-    locs = get_mode_locations(lines,1)
-    locs = [x for x in locs if ((x[1] - x[0]) >= min_line_length)]
+    if (type(squ) != type(0)):
+        x = int((squ[0][0] + squ[2][0])/2)
+        y = int((squ[0][1] + squ[1][1])/2)
+        if (cv2.pointPolygonTest(c, (x,y), 0) > 0 ):
+            r = 1
+            pts1 = inside_circle(c,(x,y),r)
+            pts2 = 1
+            while pts2:
+                r += 1
+                pts2 = inside_circle(c,(x,y),r)
+                if pts2 < pts1:
+                    break
+            r -= 1
+            cir = [(x,y),r]
+            arr['circle'] = cir
+            arr['circle-conf'] = circle_confidence(arr['img'],cir)
 
-    locs = [x for x in locs if (len(np.unique( indexs[x[0]:x[1]] )) < variation)]
-
-    col_cut_points = center_locs(locs)
-    for x in col_cut_points:
-        if (arr.shape[0] - np.sum(arr[:,x])/255) < 5:
-            arr[:,x] = 255
-
-
-    lines,indexs = sum_crossings(arr,1)
-    sums = scan_dim(arr,1)
-    lines = lines + (sums > perpendicular_line_length )
-    lines = trim_crossings(lines)
-
-    #plt.plot(lines)
-    #plt.show()
-
-    locs = get_mode_locations(lines,1)
-
-    locs2 = []
-    for x in locs:
-        l = x[1] - x[0]
-        if l < min_line_length:
-            continue
-
-        # look at center min_line_length points
-        off = int(l/2)
-        min_line_h = int(min_line_length/2)
-        uni = np.unique( indexs[x[0] + off - min_line_h:x[1] - off + min_line_h] )
-        if len(uni) < variation:
-            locs2.append(x)
-
-    locs = locs2
-    #locs = [x for x in locs if (len(np.unique( indexs[x[0]:x[1]] )) < variation)]
-    row_cut_points = center_locs(locs)
-    for x in row_cut_points:
-        if (arr.shape[1] - np.sum(arr[x,:])/255) < 5:
-            arr[x,:] = 255
+def analyze_circles(inp):
+    for x in inp:
+        analyze_circle(x)
 
 
 
@@ -524,30 +554,26 @@ if __name__ == '__main__':
     
     #cut_linking_line(arr)
 
-
+    import processors
     arr = wrap_image(arr)
-
+    arr = processors.extract_components([arr])
+    arr =block_dots(arr)[0]
     analyze_rectangle(arr)
 
-    ##cv2.drawContours(arr['img'],[arr['contour'][0:2]],0,[0,255,255],1)
-    ##cv2.drawContours(arr['img'],[arr['contour'][1:3]],0,[0,255,0],1)
-    ##cv2.drawContours(arr['img'],[arr['contour'][2:4]],0,[255,0,0],1)
-    ##cv2.drawContours(arr['img'],[arr['contour'][3:5]],0,[255,0,255],1)
     
-    #outer_sq = get_outer_rect(arr['img'],arr['contour'])
-    #inner_sq = get_inner_rect(arr['img'],arr['contour'])
-    #center_sq = get_center_rect(outer_sq,inner_sq)
+    output = cv2.connectedComponentsWithStats((arr['img']), 4)
 
-    #print('out:',outer_sq)
-    #print('cen:',center_sq)
-    #print('in:',inner_sq)
+    analyze_circle(arr)
+    print('circle conf: ', arr['circle-conf'])
 
-    #cv2.drawContours(arr['img'],[inner_sq],0,[255,255,0],1)
-    #cv2.drawContours(arr['img'],[outer_sq],0,[0,0,255],1)
-    
-    #cv2.fillPoly(arr['img'], [inner_sq], [255]*3)
+
     arr['img'] = color(arr['img'])
-    cv2.drawContours(arr['img'],[arr['contour']],0,[255,0,0],1)
+    cv2.drawContours(arr['img'],[arr['ocontour']],0,[255,0,0],1)
+    cv2.drawContours(arr['img'],[arr['contour']],0,[255,0,255],1)
+
+    #for x,y in output[3][2:]:
+    cv2.circle(arr['img'],arr['circle'][0],arr['circle'][1],(0,255,0),2)
+
 
     save(arr,'output.png')
 
