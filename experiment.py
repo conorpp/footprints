@@ -53,6 +53,26 @@ def line_exists(arr,line):
 
     return s == 0
 
+def line_trace(arr,line,padding,dim):
+    x1 = min(line[0][0],line[1][0])
+    x2 = max(line[0][0],line[1][0])
+    y1 = min(line[0][1],line[1][1])
+    y2 = max(line[0][1],line[1][1])
+
+    if y1==y2:
+        y1 -= padding
+        if y1 < 0: y1 = 0
+        y2 += padding
+        s = np.sum(arr[y1:y2+1,x1:x2+1],axis=dim)
+    if x1==x2:
+        x1 -= padding
+        if x1 < 0: x1 = 0
+        x2 += padding
+        s = np.sum(arr[y1:y2+1,x1:x2+1],axis=dim)
+
+    return s
+
+
 def set_line(arr,line):
     x1 = min(line[0][0],line[1][0])
     x2 = max(line[0][0],line[1][0])
@@ -292,6 +312,7 @@ if __name__ == '__main__':
 
     # block redundant rectangles and detect overlapping rects
     rectangles = np.array(rectangles)
+    t1 = timestamp()
 
     for x in rectangles:
         count = 0
@@ -310,6 +331,7 @@ if __name__ == '__main__':
     rectangles = rectangle_filter
     rectangle_filter = []
     overlap_pairs = []
+    rejects = []
 
     # get the offending pair for each rect
     for r in overlapping_rects:
@@ -319,11 +341,66 @@ if __name__ == '__main__':
         for r2 in rectangles:
             if (side == r2[(i[0] + 2) % 4:(i[1] + 2) % 4]).all():
                 overlap_pairs.append((rect,r2))
+                rectangles.remove(r2)
             elif (side == np.flip(r2[(i[0] + 2) % 4:(i[1] + 2) % 4],0)).all():
                 overlap_pairs.append((rect,r2))
+                rectangles.remove(r2)
+
+    t2 = timestamp()
+    print('overlaps time: %d ms' % (t2-t1))
 
 
-    print(len(overlap_pairs),' pairs')
+    
+    t1 = timestamp()
+
+    inv = (arr==0)
+    r1means = np.zeros(4)
+    r2means = np.zeros(4)
+    r1vars = np.zeros(4)
+    r2vars = np.zeros(4)
+    for r1,r2 in overlap_pairs:
+        for i in range(1,10):
+            r1t = [line_trace(inv,r1[x:x+2],i,x&1) for x in range(0,4)]
+            r2t = [line_trace(inv,r2[x:x+2],i,x&1) for x in range(0,4)]
+
+            for i,x in enumerate(r1t):
+                r1means[i] = np.mean(x)
+                r1vars[i] = np.var(x)
+            for i,x in enumerate(r2t):
+                r2means[i] = np.mean(x)
+                r2vars[i] = np.var(x)
+
+            r1svar = np.var(r1means)
+            r2svar = np.var(r2means)
+
+            r1smean = np.mean(r1means)
+            r2smean = np.mean(r2means)
+            rej = None
+
+            if r1svar == 0 or r2svar == 0:
+                if r1svar > .1:
+                    rej = r1
+                if r2svar > .1:
+                    rej = r2
+            if abs(r1smean - r2smean) >= 1.5:
+                if r1smean < r2smean:
+                    rej = r1
+                else:
+                    rej = r2
+
+            if rej is not None:
+                rejects.append(rej)
+                if rej is r1:
+                    rectangles.append(r2)
+                else:
+                    rectangles.append(r1)
+                break
+
+    t2 = timestamp()
+    print('find rejects time: %d ms' % (t2-t1))
+
+
+    print(len(rejects),' rejects')
 
 
     for i,x in enumerate(xlocs):
@@ -356,9 +433,9 @@ if __name__ == '__main__':
     for i,r in enumerate(rectangles):
         cv2.drawContours(orig,[r],0,[255,0,255],2)
 
-    for i,r in enumerate(overlap_pairs):
-        cv2.drawContours(orig,[np.array(r[0])],0,[128,0,255],2)
-        cv2.drawContours(orig,[np.array(r[1])],0,[128,0,255],2)
+    for i,r in enumerate(rejects):
+        cv2.drawContours(orig,[np.array(r)],0,[255,0,0],2)
+        #cv2.drawContours(orig,[np.array(r[1])],0,[128,0,255],2)
 
     save(orig,'output.png')
     #for x in sorted(leftover + rectangles, key = lambda x:x['id']):
