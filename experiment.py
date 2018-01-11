@@ -1,4 +1,4 @@
-import sys,os,json,argparse
+import sys,os,json,argparse,time
 from PIL import Image, ImageDraw
 from random import randint
 
@@ -43,6 +43,34 @@ def butter_highpass_filter(data, cutoff, fs, order=5):
     y = signal.filtfilt(b, a, data)
     return y
 
+def line_exists(arr,line):
+    x1 = min(line[0][0],line[1][0])
+    x2 = max(line[0][0],line[1][0])
+    y1 = min(line[0][1],line[1][1])
+    y2 = max(line[0][1],line[1][1])
+
+    s = np.sum(arr[y1:y2+1,x1:x2+1])
+
+    return s == 0
+
+def set_line(arr,line):
+    x1 = min(line[0][0],line[1][0])
+    x2 = max(line[0][0],line[1][0])
+    y1 = min(line[0][1],line[1][1])
+    y2 = max(line[0][1],line[1][1])
+
+    arr[y1:y2+1,x1:x2+1] = 0
+
+def rect_area(r):
+    #r = [tl[1],tr[1],br[1],bl[1],tl[1]]
+    dx = abs(r[0][0] - r[2][0])
+    dy = abs(r[0][1] - r[2][1])
+    return dx * dy
+
+
+
+def timestamp(): return int(round(time.time() * 1000))
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('usage: %s <input.png>' % sys.argv[0])
@@ -71,28 +99,32 @@ if __name__ == '__main__':
     #analyzers.init(arr)
     #print(arr['img'].shape)
 
-
     # detect circles in the image
     #circles = cv2.HoughCircles(arr['img'], cv2.HOUGH_GRADIENT, 1, 50,
             #param1=255, param2=25, minRadius=0, maxRadius=100)
 
     #lines = cv2.HoughLinesP(255-arr['img'], 1, np.pi/180, 150, 35)
+    t1 = timestamp()
     y1 = scan_dim(im,0)
+    y1mean = np.mean(y1)
     y1 = butter_highpass_filter(y1,1,25)
     y2 = scan_dim(im,1)
+    y2mean = np.mean(y2)
     y2 = butter_highpass_filter(y2,1,25)
+    t2 = timestamp()
     #print('dim is ',len(y1),'long')
     #plt.subplot(211,title='columns collapsed')
     #plt.plot(y1)
-    #plt.plot([np.mean(y1)]*len(y1))
+    #plt.plot([y1mean]*len(y1))
     #plt.subplot(212,title='rows collapsed') # creates 2nd subplot with yellow background
     #plt.plot(y2)
-    #plt.plot([np.mean(y2)]*len(y2))
+    #plt.plot([y2mean]*len(y2))
     #save(im,'output.png')
     #plt.show()
     #sys.exit(0)
     y1 = y1 > (im.shape[0]*.06)
     y2 = y2 > (im.shape[1]*.06)
+    print('filter time: %d ms' % (t2-t1))
 
 
 
@@ -130,10 +162,17 @@ if __name__ == '__main__':
 
     potential_corners = []
     potential_lines = []
-    corners = []
+    tlcorners = []
+    trcorners = []
+    blcorners = []
+    brcorners = []
+    rectangles = []
     lines = []
 
+
+
     # intersects over black pixel
+    t1 = timestamp()
     for i,x in enumerate(xlocs):
         for j,y in enumerate(ylocs):
             if arr[y,x] == 0:
@@ -144,58 +183,148 @@ if __name__ == '__main__':
     for y in range(0,len(ylocs)):
         for x in range(0,len(xlocs)-1):
             if corner_map[x,y] and corner_map[x+1,y]:
-                l = np.array([(xlocs[x],ylocs[y]),(xlocs[x+1],ylocs[y])])
+                l = [(xlocs[x],ylocs[y]),(xlocs[x+1],ylocs[y])]
                 potential_lines.append(l)
 
-                c1,c2 = trace_sum(arr,l)
-                if c1 == c2:
+                if line_exists(arr,l):
                     lines.append(l)
                     line_map_h[x,y] = 1
 
     for y in range(0,len(ylocs)-1):
         for x in range(0,len(xlocs)):
             if corner_map[x,y] and corner_map[x,y+1]:
-                l = np.array([(xlocs[x],ylocs[y]),(xlocs[x],ylocs[y+1])])
+                l = [(xlocs[x],ylocs[y]),(xlocs[x],ylocs[y+1])]
                 potential_lines.append(l)
 
-                c1,c2 = trace_sum(arr,l)
-                if c1 == c2:
+                if line_exists(arr,l):
                     lines.append(l)
                     line_map_v[x,y] = 1
+
+    t2 = timestamp()
+    print('lines time: %d ms' % (t2-t1))
+
+    t1 = timestamp()
 
     # detect the corners
     for y in range(0,len(ylocs)-1):
         for x in range(0,len(xlocs)-1):
             if line_map_h[x,y]:
+                # top left corners
                 if line_map_v[x,y]:
                     p1 = (xlocs[x],ylocs[y+1])
                     p2 = (xlocs[x],ylocs[y])
                     p3 = (xlocs[x+1],ylocs[y])
-                    corners.append([p1,p2,p3])
+                    tlcorners.append([p1,p2,p3])
 
+                # top right corners
                 if line_map_v[x+1,y]:
                     p1 = (xlocs[x],ylocs[y])
                     p2 = (xlocs[x+1],ylocs[y])
                     p3 = (xlocs[x+1],ylocs[y+1])
-                    corners.append([p1,p2,p3])
+                    trcorners.append([p1,p2,p3])
 
     for y in range(len(ylocs)-2,-1,-1):
         for x in range(len(xlocs)-2,-1,-1):
             if line_map_h[x,y+1]:
+                # bot right corners
                 if line_map_v[x+1,y]:
                     p1 = (xlocs[x+1],ylocs[y])
                     p2 = (xlocs[x+1],ylocs[y+1])
                     p3 = (xlocs[x],ylocs[y+1])
-                    corners.append([p1,p2,p3])
+                    brcorners.append([p1,p2,p3])
 
+                # bot left corners
                 if line_map_v[x,y]:
                     p1 = (xlocs[x+1],ylocs[y+1])
                     p2 = (xlocs[x],ylocs[y+1])
                     p3 = (xlocs[x],ylocs[y])
-                    corners.append([p1,p2,p3])
+                    blcorners.append([p1,p2,p3])
+
+    t2 = timestamp()
+    print('corners time: %d ms' % (t2-t1))
+
+    t1 = timestamp()
+
+    # detect the rectangles
+    for tl in tlcorners:
+        for tr in trcorners:
+            if tl[1][1] != tr[1][1] or tl[1][0] == tr[1][0]:
+                continue
+
+            if not line_exists(arr,([tl[1],tr[1]]) ):
+                continue
+
+            for br in brcorners:
+                if br[1][0] != tr[1][0] or br[1][1] == tr[1][1]:
+                    continue
+
+                if not line_exists(arr,([br[1],tr[1]]) ):
+                    continue
 
 
+                for bl in blcorners:
+                    if br[1][1] != bl[1][1] or br[1][0] == bl[1][0]:
+                        continue
+
+                    if tl[1][0] != bl[1][0] or tl[1][1] == bl[1][1]:
+                        continue
+
+                    if not line_exists(arr,([br[1],bl[1]]) ):
+                        continue
+                    if not line_exists(arr,([tl[1],bl[1]]) ):
+                        continue
+
+
+                    r = [tl[1],tr[1],br[1],bl[1],tl[1]]
+                    rectangles.append(r)
+
+    t2 = timestamp()
+    print('rectangles time: %d ms' % (t2-t1))
+
+
+    corners = blcorners + brcorners + tlcorners + trcorners
     corners = np.array(corners)
+    rectangles = sorted(rectangles,key = lambda x: rect_area(x))
+    #rectangles = sorted(rectangles,key = lambda x: rect_area(x), reverse=True)
+    rect_map = np.zeros(arr.shape)+1
+    rectangle_filter = []
+    overlapping_rects = []
+
+    # block redundant rectangles and detect overlapping rects
+    rectangles = np.array(rectangles)
+
+    for x in rectangles:
+        count = 0
+        for i in range(0,4):
+            side = x[0+i:2+i]
+            if line_exists(rect_map,side):
+                count += 1
+                last_side = (i,2+i)
+            else:
+                set_line(rect_map,side)
+        if count <= 1:
+            if count: overlapping_rects.append([x,last_side])
+            else:
+                rectangle_filter.append(x)
+
+    rectangles = rectangle_filter
+    rectangle_filter = []
+    overlap_pairs = []
+
+    # get the offending pair for each rect
+    for r in overlapping_rects:
+        rect = r[0]
+        i = r[1]
+        side = rect[i[0]:i[1]]
+        for r2 in rectangles:
+            if (side == r2[(i[0] + 2) % 4:(i[1] + 2) % 4]).all():
+                overlap_pairs.append((rect,r2))
+            elif (side == np.flip(r2[(i[0] + 2) % 4:(i[1] + 2) % 4],0)).all():
+                overlap_pairs.append((rect,r2))
+
+
+    print(len(overlap_pairs),' pairs')
+
 
     for i,x in enumerate(xlocs):
         orig[:,x] = [255,255,0]
@@ -215,7 +344,7 @@ if __name__ == '__main__':
     print(len(lines),' solid lines')
     for l in lines:
         cv2.line(orig,tuple(l[0]),tuple(l[1]), (0,255,0),1)
-
+    
     print(len(corners),'solid corners')
     for c in corners:
         cv2.line(orig,tuple(c[0]),tuple(c[1]), (0,255,255),1)
@@ -223,6 +352,13 @@ if __name__ == '__main__':
         cv2.circle(orig,tuple(c[1]),10,(255,0,255),2 )
 
 
+    print(len(rectangles),'rectangles')
+    for i,r in enumerate(rectangles):
+        cv2.drawContours(orig,[r],0,[255,0,255],2)
+
+    for i,r in enumerate(overlap_pairs):
+        cv2.drawContours(orig,[np.array(r[0])],0,[128,0,255],2)
+        cv2.drawContours(orig,[np.array(r[1])],0,[128,0,255],2)
 
     save(orig,'output.png')
     #for x in sorted(leftover + rectangles, key = lambda x:x['id']):
