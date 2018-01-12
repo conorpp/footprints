@@ -339,10 +339,10 @@ if __name__ == '__main__':
         i = r[1]
         side = rect[i[0]:i[1]]
         for r2 in rectangles:
-            if (side == r2[(i[0] + 2) % 4:(i[1] + 2) % 4]).all():
+            if (side == r2[(i[0] + 2) % 4:(i[1] ) % 4 + 2]).all():
                 overlap_pairs.append((rect,r2))
                 rectangles.remove(r2)
-            elif (side == np.flip(r2[(i[0] + 2) % 4:(i[1] + 2) % 4],0)).all():
+            elif (side == np.flip(r2[(i[0] + 2) % 4:(i[1] ) % 4 + 2],0)).all():
                 overlap_pairs.append((rect,r2))
                 rectangles.remove(r2)
 
@@ -413,8 +413,8 @@ if __name__ == '__main__':
     for x,y in intersects:
         orig[y,x] = [0,0,255]
 
-    for p in potential_corners:
-        cv2.circle(orig,p,10,(255,0x8c,0),2 )
+    #for p in potential_corners:
+        #cv2.circle(orig,p,10,(255,0x8c,0),2 )
     for l in potential_lines:
         cv2.line(orig,tuple(l[0]),tuple(l[1]), (255,200,0),1)
 
