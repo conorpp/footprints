@@ -232,13 +232,6 @@ def line_confidence(im,c):
     blackpixels = im.shape[0] * im.shape[1] - np.count_nonzero(im)
     return float(s)/blackpixels
 
-def scan_dim(im,dim):
-    return np.sum(im == 0,axis=dim)
-
-def scan_trim(arr):
-    return np.trim_zeros(arr)
-
-
 def analyze_line(spec):
     #try:
     c = spec['ocontour']

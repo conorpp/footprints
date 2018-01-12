@@ -194,3 +194,10 @@ def polarize(arr):
     return arr
 
 
+def scan_dim(im,dim):
+    return np.sum(im == 0,axis=dim)
+
+def scan_trim(arr):
+    return np.trim_zeros(arr)
+
+
