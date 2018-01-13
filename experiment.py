@@ -138,8 +138,8 @@ if __name__ == '__main__':
             #print('len exceeded')
             #break
 
-    #rectangles, bad= remove_side_rects(arr,rectangles)
-    #rejects += bad
+    rectangles, bad= remove_side_rects(arr,rectangles)
+    rejects += bad
 
 
     for i,x in enumerate(xlocs):
