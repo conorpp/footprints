@@ -1,4 +1,5 @@
 import sys,os,json,argparse,time,math
+from random import randint
 import cv2
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
@@ -560,38 +561,32 @@ if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('usage: %s <input.png>' % sys.argv[0])
         sys.exit(1)
-
+    import processors
     arr = load_image(sys.argv[1])
     if len(arr.shape) > 2:
         arr = polarize(arr)
+    
+    #arr[:,:120]=255
+    #arr[:,-630:]=255
+    #arr[:120,:]=255
+    #arr[-360:,:]=255
 
     print(arr.shape)
-    #rowsum = scan_dim(arr,0)
-    #colsum = scan_dim(arr,1)
     
-    #cut_linking_line(arr)
+    t1 = timestamp()
+    outsides = processors.get_isolated_images(arr)
+    t2 = timestamp()
+    print('time %d ms' % (t2-t1))
 
-    import processors
-    arr = wrap_image(arr)
-    arr = processors.extract_components([arr])
-    arr =block_dots(arr)[0]
-    analyze_rectangle(arr)
 
+    #arr =color(arr)
+    #for i,insides in (outsides):
+        #color = [randint(0,255) for x in range(0,3)]
+        #cv2.drawContours(arr,[i],0,color,1)
+        ##print(len(insides),'inside')
+        #for j in insides:
+            #cv2.drawContours(arr,[j],0,color,1)
     
-    output = cv2.connectedComponentsWithStats((arr['img']), 4)
-
-    analyze_circle(arr)
-    print('circle conf: ', arr['circle-conf'])
-
-
-    arr['img'] = color(arr['img'])
-    cv2.drawContours(arr['img'],[arr['ocontour']],0,[255,0,0],1)
-    cv2.drawContours(arr['img'],[arr['contour']],0,[255,0,255],1)
-
-    #for x,y in output[3][2:]:
-    cv2.circle(arr['img'],arr['circle'][0],arr['circle'][1],(0,255,0),2)
-
-
     save(arr,'output.png')
 
 

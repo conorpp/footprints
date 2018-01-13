@@ -33,7 +33,6 @@ def die(submaps,comment):
         print('debugging',x['id'])
     sys.exit(1)
 
-def timestamp(): return int(round(time.time() * 1000))
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

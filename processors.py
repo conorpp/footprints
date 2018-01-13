@@ -246,17 +246,17 @@ def explore_r(arr,i,j,trackmap):
 def extract_features(arrs):
     print('extracting..')
     coms = extract_components(arrs)
-    trim_images(coms)
+    #trim_images(coms)
 
     cut_linking_lines(coms)
     coms2 = extract_components(coms)
-    trim_images(coms2)
-    while len(coms2) > len(coms):
-        print('coms: %d, coms2: %d'%(len(coms),len(coms2)))
-        coms = coms2
-        cut_linking_lines(coms)
-        coms2 = extract_components(coms)
-        trim_images(coms2)
+    #trim_images(coms2)
+    #while len(coms2) > len(coms):
+        #print('coms: %d, coms2: %d'%(len(coms),len(coms2)))
+        #coms = coms2
+        #cut_linking_lines(coms)
+        #coms2 = extract_components(coms)
+        #trim_images(coms2)
 
     print('coms2: %d'%(len(coms2)))
     return coms2
@@ -266,22 +266,100 @@ def extract_components(arrs):
     submaps = []
     for arr in arrs:
         img = arr['img']
-        track_map = np.zeros(img.shape[:2],dtype=np.uint8)
-        for i in range(0,img.shape[0]):
-            for j in range(0,img.shape[1]):
-                if img[i][j] == 0:
-                    if not track_map[i,j]:
-                        track_map[i,j] = 1
-                        submap = explore(img,i,j)
-                        track_map += submap
-                        def mapping2greyscale(mapping):
-                            mapping = np.array((mapping == 0) * 255, dtype=np.uint8)
-                            return mapping
-                        submap = mapping2greyscale(submap)
-                        submap = wrap_image(submap,arr)
-                        submaps.append( submap )
+        #track_map = np.zeros(img.shape[:2],dtype=np.uint8)
+        _submaps = get_isolated_images(img)
+        submaps += [wrap_image(x[0],arr,x[1]) for x in _submaps]
+        #for i in range(0,img.shape[0]):
+            #for j in range(0,img.shape[1]):
+                #if img[i][j] == 0:
+                    #if not track_map[i,j]:
+                        #track_map[i,j] = 1
+                        #submap = explore(img,i,j)
+                        #track_map += submap
+                        #def mapping2greyscale(mapping):
+                            #mapping = np.array((mapping == 0) * 255, dtype=np.uint8)
+                            #return mapping
+                        #submap = mapping2greyscale(submap)
+                        #submap = wrap_image(submap,arr)
+                        #submaps.append( submap )
 
     return submaps
+
+# all black connected components
+def get_isolated_contours(arr):
+    try:
+        wtfwhy = np.array(np.copy(arr).tolist(),dtype=np.uint8)
+        mat, contours, hier = cv2.findContours(wtfwhy, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    except Exception as e:
+        print('exception',e)
+        print(arr.shape)
+        print(arr.dtype)
+        print(arr[:,arr.shape[1]-3])
+        save(arr,'output.png')
+        sys.exit(1)
+    #for i,x in enumerate(hier[0]):
+        #print(i,x)
+    if len(contours) < 2:
+        return []
+    new_starts= [1]
+    outsides = []
+    while len(new_starts):
+        i = new_starts.pop(0)
+        new_outsides = []
+        while i > -1:
+            new_outsides.append([i,[]])
+            i = hier[0][i][0]
+
+        for out in new_outsides:
+            i = hier[0][out[0]][2]
+            if i > -1:
+                while i > -1:
+                    out[1].append(i)
+                    if hier[0][i][2] > -1:
+                        new_starts.append(hier[0][i][2])
+                    i = hier[0][i][0]
+
+        outsides += new_outsides
+    ret = []
+    for out,insides in outsides:
+        oc = contours[out]
+        ins = [contours[i] for i in insides]
+        ret.append([oc,ins])
+
+    return ret
+
+# return [[im, offset from parent],...]
+def get_isolated_images(arr):
+    iso = []
+    outsides = get_isolated_contours(arr)
+
+    for i,(c,insides) in enumerate(outsides):
+        x,y,w,h = cv2.boundingRect(c)
+        x-=1
+        y-=1
+        w = min(w+2,arr.shape[1]-x)
+        h = min(h+2,arr.shape[0]-y)
+        if x<0: 
+            x=0
+        if y<0: 
+            y=0
+
+        #print(y,x,w,h)
+        trim = arr[y:y+h,x:x+w]
+        newim = np.zeros((h,w),dtype=np.uint8)
+        mask = np.zeros((h,w),dtype=np.uint8)+1
+        cv2.fillPoly(mask,pts = [c] + insides, color=0, offset=(-x,-y), lineType=4)
+        #print(trim,y,x,w,h)
+        #try:
+        newim = (255 - (trim == mask)*255).astype(np.uint8)
+        #except:
+            #save(arr,'output.png')
+            #sys.exit(1)
+        offset = [x,y]
+        iso.append((newim,offset))
+
+    return iso
+
 
 def separate_rectangle_out(arr):
     #squ = arr['contour'][:]

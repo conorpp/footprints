@@ -1,4 +1,4 @@
-
+import time
 from PIL import Image, ImageDraw
 import cv2
 import numpy as np
@@ -6,7 +6,7 @@ import numpy as np
 
 # wraps np array image with metadata
 counter = 0
-def wrap_image(im,parent=None):
+def wrap_image(im,parent=None,offset=None):
     global counter
     specs = {
             'conf':0,           # % of pixels that are black under contour
@@ -14,7 +14,7 @@ def wrap_image(im,parent=None):
             'a1':0,             # number of pixels in contour
             'a2':0,             # number of pixels
             'contour':0,        # inside rectangle growth
-            'offset':[0,0],     # offset with respect to parent
+            'offset':[0,0],    # offset with respect to parent
             'img': im,          # image
             'height': 1,        # bounding rect height and width
             'width':1,
@@ -34,6 +34,10 @@ def wrap_image(im,parent=None):
     counter = counter + 1
     if parent is not None:
         snapshot_img(specs,'parent',parent)
+
+    if offset is not None:
+        specs['offset'][0] += offset[0]
+        specs['offset'][1] += offset[1]
 
     return specs
 
@@ -239,3 +243,4 @@ def line_sum(arr,line):
 
 
 
+def timestamp(): return int(round(time.time() * 1000))

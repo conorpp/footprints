@@ -561,6 +561,10 @@ def separate_largest_rectangle(arr, rectangles, *args):
 
 
 def preprocess(arr,*args):
+    arr[:,:2]=255
+    arr[:,-2:]=255
+    arr[:2,:]=255
+    arr[-2:,:]=255
 
     analyzers.init(arr)
 
