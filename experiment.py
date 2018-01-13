@@ -113,15 +113,27 @@ if __name__ == '__main__':
 
     rectangles = islands
 
-    rectangles, bad= remove_side_rects(arr,rectangles)
+    rectangles, bad = remove_side_rects(arr,rectangles)
     rejects += bad
+
+    rectangles = [convert_rect_contour(x) for x in rectangles]
 
     groups = group_rects(rectangles, line_thickness * 6)
     rectangles = []
     print('%d groups' % len(groups))
+    t1 = timestamp()
     for xdim,ydim,gro in groups:
         print('  group of %d rects: %dx%d' % (len(gro), xdim,ydim))
         rectangles += gro
+        # cutout rectangle groups
+        if len(gro) > 1:
+            for x in gro:
+                outer = analyzers.get_outer_rect(arr,x)
+                cv2.drawContours(orig,[outer],0,[255,255,255],1)
+
+    t2 = timestamp()
+    print('outer rect time: %d ms' % (t2-t1))
+
 
     for i,x in enumerate(xlocs):
         orig[:,x] = [255,255,0]
@@ -164,6 +176,14 @@ if __name__ == '__main__':
         cv2.drawContours(orig,[np.array(r)],0,[255,0,0],2)
         #print('rejct',r)
         #cv2.drawContours(orig,[np.array(r[1])],0,[128,0,255],2)
+
+    for xdim,ydim,gro in groups:
+        if len(gro) > 1:
+            for x in gro:
+                outer = analyzers.get_outer_rect(arr,x)
+                cv2.drawContours(orig,[outer],0,[255,255,255],1)
+
+
 
     save(orig,'output.png')
     #for x in sorted(leftover + rectangles, key = lambda x:x['id']):
