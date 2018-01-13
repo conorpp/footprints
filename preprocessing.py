@@ -1,4 +1,4 @@
-import sys,os,json,argparse,time
+import sys,os,json,argparse,time,math
 
 from scipy import signal
 import numpy as np
@@ -48,6 +48,10 @@ def line_overlaps(arr,line,ref):
 
     return s == 0
 
+def line_len(line):
+    p0 = line[0]
+    p1 = line[1]
+    return math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
 
 
 def line_trace(arr,line,padding,dim):
@@ -67,6 +71,7 @@ def line_trace(arr,line,padding,dim):
         x2 += padding
         s = np.sum(arr[y1:y2+1,x1:x2+1],axis=dim)
 
+
     return s
 
 
@@ -85,26 +90,13 @@ def rect_area(r):
     return dx * dy
 
 
-
-def get_intersects(y1,y2,margin1,margin2):
-    y1 = y1 > margin1
-    y2 = y2 > margin2
-    xlocs = np.where(y1)[0]
-    xlocs = np.split(xlocs, np.where(np.diff(xlocs) != 1)[0]+1)
-    xlocs = [x[int(round(len(x)/2.))] for x in xlocs]
-
-    ylocs = np.where(y2)[0]
-    ylocs = np.split(ylocs, np.where(np.diff(ylocs) != 1)[0]+1)
-    ylocs = [x[int(round(len(x)/2.))] for x in ylocs]
-    return xlocs,ylocs
-
-def get_line_signals(im):
+def get_intersects(im,margin1,margin2):
     y1 = scan_dim(im,0)
     y1mean = np.mean(y1)
-    y1 = butter_highpass_filter(y1,1,25)
+    y1f = butter_highpass_filter(y1,1,25)
     y2 = scan_dim(im,1)
     y2mean = np.mean(y2)
-    y2 = butter_highpass_filter(y2,1,25)
+    y2f = butter_highpass_filter(y2,1,25)
 
     #print('dim is ',len(y1),'long')
     #plt.subplot(211,title='columns collapsed')
@@ -117,6 +109,39 @@ def get_line_signals(im):
     #plt.show()
     #sys.exit(0)
 
+    y1f = y1f > margin1
+    y2f = y2f > margin2
+    xlocs = np.where(y1f)[0]
+    xlocs = np.split(xlocs, np.where(np.diff(xlocs) != 1)[0]+1)
+    tmp = []
+    for i,v in enumerate(xlocs):
+        m = 0
+        mi = v[0]
+        for x in v:
+            if y1[x] > m:
+                m = y1[x]
+                mi = x
+        tmp.append(mi)
+    xlocs = tmp
+
+    ylocs = np.where(y2f)[0]
+    ylocs = np.split(ylocs, np.where(np.diff(ylocs) != 1)[0]+1)
+    tmp = []
+    for i,v in enumerate(ylocs):
+        m = 0
+        mi = v[0]
+        for x in v:
+            if y2[x] > m:
+                m = y2[x]
+                mi = x
+        tmp.append(mi)
+    ylocs = tmp
+
+    return xlocs,ylocs
+
+
+
+def get_line_signals(im):
 
     return y1,y2
 
@@ -236,32 +261,34 @@ def get_rectangles(arr,tlcorners, trcorners, brcorners, blcorners):
     return rectangles
 
 
-def detect_overlap(arr,rectangles):
+def detect_overlap(arr,rectangles,ref):
     skips = 0
     rect_map = np.zeros(arr.shape)+1
     rects = []
     overlaps = []
+
+    #print('ref')
+    #print(ref)
+
     for x in rectangles:
         count = 0
+        #print('x')
+        #print(x)
+
         for i in range(0,4):
-            side = x[0+i:2+i]
-            if line_exists(rect_map,side):
-                count += 1
-                last_side = (i,2+i)
-            else:
-                set_line(rect_map,side)
-        #if count <= 1:
-        if count: 
-            np_rm(rectangles,x)
-            #print('last_side: ', last_side2)
-            return [x,last_side]
-        #else:
-            #np_rm(rectangles,x)
-            #skips += 1
-            #print('dump overlap')
-            #pass
-    #print('blocked',skips,' overlapping rectangles')
-    #return rects, overlaps
+            side_ref = ref[i:2+i]
+            side = x[(i + 2) % 4:(i + 2 ) % 4 + 2]
+            #print((i,i+2), 'vs', ((i+2)%4, (i+2)%4 +2))
+            #print(side_ref[0],side_ref[1],'vs',side[0],side[1],)
+            if (side == side_ref).all():
+                np_rm(rectangles,x)
+                return x
+
+            elif (side == np.flip(side_ref,0)).all():
+                np_rm(rectangles,x)
+                return x
+     
+    return None
 
 def np_rm(l,item):
     for i,v in enumerate(l):
@@ -294,31 +321,54 @@ def remove_super_rects(arr,rectangles):
                         break
     return good
 
+#order shouldnt matter
+def remove_side_rects(arr,rectangles):
+    good = []
+    bad = []
+    rect_map = np.zeros(arr.shape)
+    
+    while len(rectangles):
+        rect_map[:,:] = 1
+        ref = rectangles.pop(0)
+        add = True
+
+        for i in range(0,4):
+            side = ref[0+i:2+i]
+            set_line(rect_map,side)
+
+        for x in rectangles:
+            if not add: break
+            count = 0
+            for i in range(0,4):
+                side = x[0+i:2+i]
+                side_ref = ref[0+i:2+i]
+                if line_overlaps(rect_map,side,side_ref):
+                    if line_len(side_ref) > line_len(side):
+                        np_rm(rectangles,x)
+                        bad.append(x)
+                    else:
+                        add = False
+                    break
+        if add:
+            good.append(ref)
+        else:
+            bad.append(ref)
+
+    return good,bad
+
 def take_match(rectangles, overlap):
 
     r = overlap
     rect = r[0]
     i = r[1]
     side = rect[i[0]:i[1]]
-    #print ((i[0] ) ,(i[1] ) )
-    #print ((i[0] + 2) % 1,(i[1] ) % 4 + 2)
-    #print('side',side)
     for r2 in rectangles:
-        #r2 = r2[:4]
-        #print(len(r2))
-        #assert(len(r2) == 4)
         if (side == r2[(i[0] + 2) % 4:(i[1] ) % 4 + 2]).all():
             np_rm(rectangles,r2)
             return (rect,r2)
-            #overlapping_rects.remove(r)
-            #np_rm(overlapping_rects,r)
-            #rectangles.remove(r2)
         elif (side == np.flip(r2[(i[0] + 2) % 4:(i[1] ) % 4 + 2],0)).all():
             np_rm(rectangles,r2)
             return (rect,r2)
-            #overlapping_rects.remove(r)
-            #np_rm(overlapping_rects,r)
-            #rectangles.remove(r2)
 
 
 def reconcile_overlaps(arr,rectangles,overlap_pair):
@@ -329,9 +379,11 @@ def reconcile_overlaps(arr,rectangles,overlap_pair):
     r1vars = np.zeros(4)
     r2vars = np.zeros(4)
     r1,r2 = overlap_pair
-    for i in range(1,10):
-        r1t = [line_trace(inv,r1[x:x+2],i,x&1) for x in range(0,4)]
-        r2t = [line_trace(inv,r2[x:x+2],i,x&1) for x in range(0,4)]
+    r1singlemean = None
+    r2singlemean = None
+    for ii in range(1,10):
+        r1t = [line_trace(inv,r1[x:x+2],ii,x&1) for x in range(0,4)]
+        r2t = [line_trace(inv,r2[x:x+2],ii,x&1) for x in range(0,4)]
 
         for i,x in enumerate(r1t):
             r1means[i] = np.mean(x)
@@ -345,6 +397,9 @@ def reconcile_overlaps(arr,rectangles,overlap_pair):
 
         r1smean = np.mean(r1means)
         r2smean = np.mean(r2means)
+
+        #print('means',r1smean,r2smean)
+        #print('vars',r1svar,r2svar)
         rej = None
 
         if r1svar == 0 or r2svar == 0:
@@ -357,14 +412,32 @@ def reconcile_overlaps(arr,rectangles,overlap_pair):
                 rej = r1
             else:
                 rej = r2
-
+        #print('i',ii)
         if rej is not None:
+            #print('REJECTED-----------')
             rejects.append(rej)
             if rej is r1:
+                #print(' mean between sides: %.2f' % (r1smean))
+                #print(' var between sides: %.2f' % (r1svar))
                 rectangles.append(r2)
             else:
+                #print(' mean between sides: %.2f' % (r2smean))
+                #print(' var between sides: %.2f' % (r2svar))
+
                 rectangles.append(r1)
             break
+
+        if ii == 1:
+            r1singlemean = r1smean
+            r2singlemean = r2smean
+        else:
+            #print('r1single', r1singlemean * ii * .7, )
+            #print('r2single', r2singlemean * ii * .7)
+            if (r1singlemean * ii * .7) > r1smean and (r2singlemean * ii * .7) > r2smean:
+                #print('stopping early')
+                break
+
+
 
     if rej is None:
         verts = np.concatenate((r1,r2))
@@ -385,9 +458,21 @@ def reconcile_overlaps(arr,rectangles,overlap_pair):
         tr = vmaxx[np.where(vmaxx_y == np.max(vmaxx_y))][0]
         br = vmaxx[np.where(vmaxx_y == np.min(vmaxx_y))][0]
 
-        print('merged rect: ', tl, tr, br, bl)
+        #print('merged rect: ', tl, tr, br, bl)
         rectangles.append(np.array([tl,tr,br,bl,tl]))
  
     return rejects
 
+
+def block_small_rects(arr,rectangles):
+    good = []
+    a2 = arr.shape[0] * arr.shape[1]
+    rects = [x for x in rectangles if rect_area(x)/a2 > .0002]
+    # block rects with few pixel dim or less
+    for x in rects:
+        xdim = abs(x[0][0] - x[2][0])
+        ydim = abs(x[0][1] - x[2][1])
+        if xdim > 5 and ydim > 5:
+            good.append(x)
+    return good
 

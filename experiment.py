@@ -44,8 +44,9 @@ if __name__ == '__main__':
     arr = remove_alpha(arr)
 
 
-    #arr[:,360:] = 255
-    #arr[300:,:] = 255
+    #arr[:,320:] = 255
+    #arr[:200,:] = 255
+    #arr[304:,:] = 255
     #arr[:190,:] = 255
     #arr[:,:250] = 255
 
@@ -54,13 +55,16 @@ if __name__ == '__main__':
     im = np.copy(arr)
 
 
-    t1 = timestamp()
-    y1,y2 = get_line_signals(im)
 
+    t1 = timestamp()
+    xlocs, ylocs = get_intersects(arr, (im.shape[0]*.03), (im.shape[1]*.03))
     t2 = timestamp()
     print('filter time: %d ms' % (t2-t1))
 
-    xlocs, ylocs = get_intersects(y1,y2,(im.shape[0]*.03), (im.shape[1]*.03))
+
+    intersects = [[x,y] for x in xlocs for y in ylocs]
+    #for x,y in intersects:
+        #arr[y,x] = 0
 
 
     corner_map = get_corner_map(arr,xlocs,ylocs)
@@ -88,40 +92,55 @@ if __name__ == '__main__':
     rejects = []
     last_len = -1
     rectangles = [np.array(x) for x in rectangles]
+    rectangles = block_small_rects(arr,rectangles)
     rectangles = sorted(rectangles,key = lambda x: rect_area(x))
     print(len(rectangles),'rectangles before')
     rectangles = remove_super_rects(arr,rectangles)
     print(len(rectangles),'rectangles after')
 
-    over_lap = detect_overlap(arr,rectangles)
+    #over_lap = detect_overlap(arr,rectangles)
+    islands = []
+    while len(rectangles):
+        r = rectangles.pop(0)
+        adj_r = detect_overlap(arr,rectangles,r)
+
+        if adj_r is None:
+            islands.append(r)
+            continue
+        print('reconciling..')
+        rejects += reconcile_overlaps(arr,rectangles,(r,adj_r))
+
+    rectangles = islands
     merged = []
-    while over_lap is not None:
-        overlap_pair = take_match(rectangles, over_lap)
-        if overlap_pair is None:
-            print('no pair found..')
-            rejects.append(over_lap[0])
-            #rectangles = sorted(rectangles,key = lambda x: rect_area(x))
-            #over_lap = detect_overlap(arr,rectangles)
-            break
-        print('%d rectangles'% (len(rectangles)))
-        print('%d pair' %(len(overlap_pair)))
-        rejects += reconcile_overlaps(arr,rectangles,overlap_pair)
-        #rej = reconcile_overlaps(arr,merged,overlap_pair)
-
-        #rectangles += [x[0] for x in overlapping_rects]
-
-        #rectangles, overlapping_rects = detect_overlap(arr,rectangles)
-        rectangles = sorted(rectangles,key = lambda x: rect_area(x))
-        over_lap = detect_overlap(arr,rectangles)
-
-        #if not len(overlapping_rects):
+    #while over_lap is not None:
+        #overlap_pair = take_match(rectangles, over_lap)
+        #if overlap_pair is None:
+            #print('no pair found..')
+            #print(over_lap)
+            #rejects.append(over_lap[0])
+            ##rectangles = sorted(rectangles,key = lambda x: rect_area(x))
+            ##over_lap = detect_overlap(arr,rectangles)
             #break
-        last_len += 1
-        if last_len > 20:
-            print('len exceeded')
-            break
+        #print('%d rectangles'% (len(rectangles)))
+        #print('%d pair' %(len(overlap_pair)))
+        ##rej = reconcile_overlaps(arr,merged,overlap_pair)
 
-    print('over_lap is ', over_lap)
+        ##rectangles += [x[0] for x in overlapping_rects]
+
+        ##rectangles, overlapping_rects = detect_overlap(arr,rectangles)
+        #rectangles = sorted(rectangles,key = lambda x: rect_area(x))
+        #over_lap = detect_overlap(arr,rectangles)
+
+        ##if not len(overlapping_rects):
+            ##break
+        #last_len += 1
+        #if last_len > 20:
+            #print('len exceeded')
+            #break
+
+    #rectangles, bad= remove_side_rects(arr,rectangles)
+    #rejects += bad
+
 
     for i,x in enumerate(xlocs):
         orig[:,x] = [255,255,0]
@@ -142,11 +161,11 @@ if __name__ == '__main__':
     #for l in lines:
         #cv2.line(orig,tuple(l[0]),tuple(l[1]), (0,255,0),1)
     
-    print(len(corners),'solid corners')
-    for c in corners:
-        cv2.line(orig,tuple(c[0]),tuple(c[1]), (0,255,255),1)
-        cv2.line(orig,tuple(c[1]),tuple(c[2]), (0,255,255),1)
-        cv2.circle(orig,tuple(c[1]),10,(255,0,255),2 )
+    #print(len(corners),'solid corners')
+    #for c in corners:
+        #cv2.line(orig,tuple(c[0]),tuple(c[1]), (0,255,255),1)
+        #cv2.line(orig,tuple(c[1]),tuple(c[2]), (0,255,255),1)
+        #cv2.circle(orig,tuple(c[1]),10,(255,0,255),2 )
 
 
     print(len(rectangles),'rectangles')
@@ -162,7 +181,7 @@ if __name__ == '__main__':
 
     for i,r in enumerate(rejects):
         cv2.drawContours(orig,[np.array(r)],0,[255,0,0],2)
-        print('rejct',r)
+        #print('rejct',r)
         #cv2.drawContours(orig,[np.array(r[1])],0,[128,0,255],2)
 
     save(orig,'output.png')
