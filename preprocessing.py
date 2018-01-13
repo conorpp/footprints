@@ -1,6 +1,6 @@
 import sys,os,json,argparse,time,math
 
-from scipy import signal
+from scipy import signal,stats
 import numpy as np
 import cv2
 
@@ -463,6 +463,27 @@ def reconcile_overlaps(arr,rectangles,overlap_pair):
  
     return rejects
 
+# group together rectangles of close-to-same dimensions
+def group_rects(rects,margin=12):
+    # [ [xdim,ydim,[rects,...] ],... ]
+    groups = []
+
+    for r in rects:
+        xdim = abs(r[0][0] - r[2][0])
+        ydim = abs(r[0][1] - r[2][1])
+        added = False
+        for dx,dy,gro in groups:
+            if xdim < (dx+margin) and xdim > (dx-margin):
+                if ydim < (dy+margin) and ydim > (dy-margin):
+                    gro.append(r)
+                    added = True
+                    break
+        if not added:
+            groups.append([xdim,ydim,[r]])
+
+    return groups
+
+
 
 def block_small_rects(arr,rectangles):
     good = []
@@ -476,3 +497,29 @@ def block_small_rects(arr,rectangles):
             good.append(x)
     return good
 
+
+def sample_line_thickness(arr):
+    samples = []
+    for col in range(0, arr.shape[1], 10):
+        col = arr[:,col]
+
+        locs_col = np.where(col == 0)[0]
+        if len(locs_col):
+            locs_col = np.split(locs_col, np.where(np.diff(locs_col) != 1)[0]+1)
+            locs_col = [x.shape[0] for x in locs_col]
+
+            samples += locs_col
+
+
+    for row in range(0, arr.shape[0], 10):
+        row = arr[row,:]
+
+        locs_row = np.where(row == 0)[0]
+        if len(locs_row):
+            locs_row = np.split(locs_row, np.where(np.diff(locs_row) != 1)[0]+1)
+
+            locs_row = [x.shape[0] for x in locs_row]
+
+            samples += locs_row
+
+    return stats.mode(samples)[0][0]

@@ -54,7 +54,11 @@ if __name__ == '__main__':
     arr = polarize(arr)
     im = np.copy(arr)
 
-
+    t1 = timestamp()
+    line_thickness = sample_line_thickness(arr)
+    t2 = timestamp()
+    print('line sampling time: %d ms' % (t2-t1))
+    print('line thickness: %d pixels' % (line_thickness))
 
     t1 = timestamp()
     xlocs, ylocs = get_intersects(arr, (im.shape[0]*.03), (im.shape[1]*.03))
@@ -62,9 +66,6 @@ if __name__ == '__main__':
     print('filter time: %d ms' % (t2-t1))
 
 
-    intersects = [[x,y] for x in xlocs for y in ylocs]
-    #for x,y in intersects:
-        #arr[y,x] = 0
 
 
     corner_map = get_corner_map(arr,xlocs,ylocs)
@@ -111,36 +112,16 @@ if __name__ == '__main__':
         rejects += reconcile_overlaps(arr,rectangles,(r,adj_r))
 
     rectangles = islands
-    merged = []
-    #while over_lap is not None:
-        #overlap_pair = take_match(rectangles, over_lap)
-        #if overlap_pair is None:
-            #print('no pair found..')
-            #print(over_lap)
-            #rejects.append(over_lap[0])
-            ##rectangles = sorted(rectangles,key = lambda x: rect_area(x))
-            ##over_lap = detect_overlap(arr,rectangles)
-            #break
-        #print('%d rectangles'% (len(rectangles)))
-        #print('%d pair' %(len(overlap_pair)))
-        ##rej = reconcile_overlaps(arr,merged,overlap_pair)
-
-        ##rectangles += [x[0] for x in overlapping_rects]
-
-        ##rectangles, overlapping_rects = detect_overlap(arr,rectangles)
-        #rectangles = sorted(rectangles,key = lambda x: rect_area(x))
-        #over_lap = detect_overlap(arr,rectangles)
-
-        ##if not len(overlapping_rects):
-            ##break
-        #last_len += 1
-        #if last_len > 20:
-            #print('len exceeded')
-            #break
 
     rectangles, bad= remove_side_rects(arr,rectangles)
     rejects += bad
 
+    groups = group_rects(rectangles, line_thickness * 6)
+    rectangles = []
+    print('%d groups' % len(groups))
+    for xdim,ydim,gro in groups:
+        print('  group of %d rects: %dx%d' % (len(gro), xdim,ydim))
+        rectangles += gro
 
     for i,x in enumerate(xlocs):
         orig[:,x] = [255,255,0]
