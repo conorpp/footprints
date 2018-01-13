@@ -248,8 +248,8 @@ def extract_features(arrs):
     coms = extract_components(arrs)
     #trim_images(coms)
 
-    cut_linking_lines(coms)
-    coms2 = extract_components(coms)
+    #cut_linking_lines(coms)
+    #coms = extract_components(coms)
     #trim_images(coms2)
     #while len(coms2) > len(coms):
         #print('coms: %d, coms2: %d'%(len(coms),len(coms2)))
@@ -258,8 +258,8 @@ def extract_features(arrs):
         #coms2 = extract_components(coms)
         #trim_images(coms2)
 
-    print('coms2: %d'%(len(coms2)))
-    return coms2
+    #print('coms2: %d'%(len(coms2)))
+    return coms
 
 
 def extract_components(arrs):
