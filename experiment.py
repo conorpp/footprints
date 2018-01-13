@@ -54,92 +54,23 @@ if __name__ == '__main__':
     arr = polarize(arr)
     im = np.copy(arr)
 
-    t1 = timestamp()
-    line_thickness = sample_line_thickness(arr)
-    t2 = timestamp()
-    print('line sampling time: %d ms' % (t2-t1))
-    print('line thickness: %d pixels' % (line_thickness))
+    analyzers.init(arr)
 
-    t1 = timestamp()
-    xlocs, ylocs = get_intersects(arr, (im.shape[0]*.03), (im.shape[1]*.03))
-    t2 = timestamp()
-    print('filter time: %d ms' % (t2-t1))
+    rectangles = get_rectangles(arr)
 
+    rectangles = coalesce_rectangles(arr, rectangles)
 
-
-
-    corner_map = get_corner_map(arr,xlocs,ylocs)
-
-
-    # dual of corner map
-    line_map_h, line_map_v = get_line_map(arr,corner_map,xlocs,ylocs)
-
-    # intersects over black pixel
-    tlcorners, trcorners, brcorners, blcorners = get_corners(line_map_h,line_map_v,xlocs,ylocs)
-
-
-    # detect the rectangles
-    rectangles = get_rectangles(arr,tlcorners, trcorners, brcorners, blcorners)
-
-
-
-
-    corners = blcorners + brcorners + tlcorners + trcorners
-    corners = np.array(corners)
-
-    # block redundant rectangles and detect overlapping rects
-    
-
-    rejects = []
-    last_len = -1
-    rectangles = [np.array(x) for x in rectangles]
-    rectangles = block_small_rects(arr,rectangles)
-    rectangles = sorted(rectangles,key = lambda x: rect_area(x))
-    print(len(rectangles),'rectangles before')
-    rectangles = remove_super_rects(arr,rectangles)
-    print(len(rectangles),'rectangles after')
-
-    #over_lap = detect_overlap(arr,rectangles)
-    islands = []
-    while len(rectangles):
-        r = rectangles.pop(0)
-        adj_r = detect_overlap(arr,rectangles,r)
-
-        if adj_r is None:
-            islands.append(r)
-            continue
-        print('reconciling..')
-        rejects += reconcile_overlaps(arr,rectangles,(r,adj_r))
-
-    rectangles = islands
-
-    rectangles, bad = remove_side_rects(arr,rectangles)
-    rejects += bad
-
+    # ordered rectangle points different in preprocessing oops..
     rectangles = [convert_rect_contour(x) for x in rectangles]
 
-    groups = group_rects(rectangles, line_thickness * 6)
-    rectangles = []
-    print('%d groups' % len(groups))
-    t1 = timestamp()
-    for xdim,ydim,gro in groups:
-        print('  group of %d rects: %dx%d' % (len(gro), xdim,ydim))
-        rectangles += gro
-        # cutout rectangle groups
-        if len(gro) > 1:
-            for x in gro:
-                outer = analyzers.get_outer_rect(arr,x)
-                cv2.drawContours(orig,[outer],0,[255,255,255],1)
+    separate_grouped_rectangles(arr, rectangles, orig)
+    separate_largest_rectangle(arr, rectangles, orig)
 
-    t2 = timestamp()
-    print('outer rect time: %d ms' % (t2-t1))
+    #for i,x in enumerate(xlocs):
+        #orig[:,x] = [255,255,0]
 
-
-    for i,x in enumerate(xlocs):
-        orig[:,x] = [255,255,0]
-
-    for i,x in enumerate(ylocs):
-        orig[x,:] = [255,255,0]
+    #for i,x in enumerate(ylocs):
+        #orig[x,:] = [255,255,0]
 
 
     #for x,y in intersects:
@@ -165,23 +96,17 @@ if __name__ == '__main__':
     for i,r in enumerate(rectangles):
         r = np.array(r)
         #if i == 3:
-        cv2.drawContours(orig,[r],0,[255,0,255],2)
+        #cv2.drawContours(orig,[r],0,[255,0,255],1)
         #print(r)
     #for i,r in enumerate(blocked_rects):
         #if i == 1:
             #cv2.drawContours(orig,[r],0,[0,0,255],1)
 
 
-    for i,r in enumerate(rejects):
-        cv2.drawContours(orig,[np.array(r)],0,[255,0,0],2)
+    #for i,r in enumerate(rejects):
+        #cv2.drawContours(orig,[np.array(r)],0,[255,0,0],2)
         #print('rejct',r)
         #cv2.drawContours(orig,[np.array(r[1])],0,[128,0,255],2)
-
-    for xdim,ydim,gro in groups:
-        if len(gro) > 1:
-            for x in gro:
-                outer = analyzers.get_outer_rect(arr,x)
-                cv2.drawContours(orig,[outer],0,[255,255,255],1)
 
 
 

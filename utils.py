@@ -202,7 +202,9 @@ def scan_trim(arr):
 
 
 def convert_rect_contour(c):
-    return [c[2], c[1], c[0], c[3], c[2]]
+    # preproc: [tl,tr,br,bl,tl]
+    # old:     [br,tr,tl,bl,br]
+    return np.copy([c[2], c[1], c[0], c[3], c[2]])
 
 
 def set_line(arr,line):

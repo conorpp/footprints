@@ -14,8 +14,9 @@ from ocr import OCR_API
 PARAMS = {'imageh':100,'imagew':100}
 
 def init(x):
-    PARAMS['imageh'] = x['img'].shape[0]
-    PARAMS['imagew'] = x['img'].shape[1]
+    PARAMS['imageh'] = x.shape[0]
+    PARAMS['imagew'] = x.shape[1]
+    PARAMS['line-thickness'] = sample_line_thickness(x)
     print(PARAMS)
 
 def grow_rect(c,p):
@@ -319,6 +320,7 @@ def shift_line(im, pts,dim,perc,direc):
     # right side
     while True:
         pixels = line_sum(blacks,pts)
+        print('pixels %d vs %.2f' % (pixels,(perc * abs(pts[0][udim] - pts[1][udim]) )))
         if pixels < (perc * abs(pts[0][udim] - pts[1][udim])):
             break
         pts[0][dim] += direc
@@ -377,7 +379,9 @@ def get_outer_rect(im,c):
     square[0:2] = shift_line(im, square[0:2], 0, .9, 1)
     
     # top side
+    print('-topside-')
     square[1:3] = shift_line(im, square[1:3], 1, .9, -1)
+    print('--------')
 
     # left side
     square[2:4] = shift_line(im, square[2:4], 0, .9, -1)
@@ -529,6 +533,31 @@ def analyze_circles(inp):
         analyze_circle(x)
 
 
+def sample_line_thickness(arr):
+    samples = []
+    for col in range(0, arr.shape[1], 10):
+        col = arr[:,col]
+
+        locs_col = np.where(col == 0)[0]
+        if len(locs_col):
+            locs_col = np.split(locs_col, np.where(np.diff(locs_col) != 1)[0]+1)
+            locs_col = [x.shape[0] for x in locs_col]
+
+            samples += locs_col
+
+
+    for row in range(0, arr.shape[0], 10):
+        row = arr[row,:]
+
+        locs_row = np.where(row == 0)[0]
+        if len(locs_row):
+            locs_row = np.split(locs_row, np.where(np.diff(locs_row) != 1)[0]+1)
+
+            locs_row = [x.shape[0] for x in locs_row]
+
+            samples += locs_row
+
+    return stats.mode(samples)[0][0]
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

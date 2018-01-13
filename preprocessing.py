@@ -18,16 +18,6 @@ def butter_highpass_filter(data, cutoff, fs, order=5):
     y = signal.filtfilt(b, a, data)
     return y
 
-def line_exists(arr,line):
-    x1 = min(line[0][0],line[1][0])
-    x2 = max(line[0][0],line[1][0])
-    y1 = min(line[0][1],line[1][1])
-    y2 = max(line[0][1],line[1][1])
-
-    s = np.sum(arr[y1:y2+1,x1:x2+1])
-
-    return s == 0
-
 def line_overlaps(arr,line,ref):
     x1 = min(line[0][0],line[1][0])
     x2 = max(line[0][0],line[1][0])
@@ -73,15 +63,6 @@ def line_trace(arr,line,padding,dim):
 
 
     return s
-
-
-def set_line(arr,line):
-    x1 = min(line[0][0],line[1][0])
-    x2 = max(line[0][0],line[1][0])
-    y1 = min(line[0][1],line[1][1])
-    y2 = max(line[0][1],line[1][1])
-
-    arr[y1:y2+1,x1:x2+1] = 0
 
 def rect_area(r):
     #r = [tl[1],tr[1],br[1],bl[1],tl[1]]
@@ -225,7 +206,7 @@ def get_corners(line_map_h,line_map_v,xlocs,ylocs):
     return tlcorners, trcorners, brcorners, blcorners
 
 
-def get_rectangles(arr,tlcorners, trcorners, brcorners, blcorners):
+def merge_corners(arr,tlcorners, trcorners, brcorners, blcorners):
     rectangles = []
     for tl in tlcorners:
         for tr in trcorners:
@@ -451,12 +432,12 @@ def reconcile_overlaps(arr,rectangles,overlap_pair):
         vminx = verts[vminxloc]
 
         vminx_y = vminx[:,1]
-        tl = vminx[np.where(vminx_y == np.max(vminx_y))][0]
-        bl = vminx[np.where(vminx_y == np.min(vminx_y))][0]
+        bl = vminx[np.where(vminx_y == np.max(vminx_y))][0]
+        tl = vminx[np.where(vminx_y == np.min(vminx_y))][0]
         
         vmaxx_y = vmaxx[:,1]
-        tr = vmaxx[np.where(vmaxx_y == np.max(vmaxx_y))][0]
-        br = vmaxx[np.where(vmaxx_y == np.min(vmaxx_y))][0]
+        br = vmaxx[np.where(vmaxx_y == np.max(vmaxx_y))][0]
+        tr = vmaxx[np.where(vmaxx_y == np.min(vmaxx_y))][0]
 
         #print('merged rect: ', tl, tr, br, bl)
         rectangles.append(np.array([tl,tr,br,bl,tl]))
@@ -497,29 +478,89 @@ def block_small_rects(arr,rectangles):
             good.append(x)
     return good
 
+# must call analyzers.init first
+def get_rectangles(arr):
+    xlocs, ylocs = get_intersects(arr, (arr.shape[0]*.03), (arr.shape[1]*.03))
 
-def sample_line_thickness(arr):
-    samples = []
-    for col in range(0, arr.shape[1], 10):
-        col = arr[:,col]
+    corner_map = get_corner_map(arr,xlocs,ylocs)
 
-        locs_col = np.where(col == 0)[0]
-        if len(locs_col):
-            locs_col = np.split(locs_col, np.where(np.diff(locs_col) != 1)[0]+1)
-            locs_col = [x.shape[0] for x in locs_col]
+    # dual of corner map
+    line_map_h, line_map_v = get_line_map(arr,corner_map,xlocs,ylocs)
 
-            samples += locs_col
+    # intersects over black pixel
+    tlcorners, trcorners, brcorners, blcorners = get_corners(line_map_h,line_map_v,xlocs,ylocs)
+
+    # detect the rectangles
+    rectangles = merge_corners(arr,tlcorners, trcorners, brcorners, blcorners)
+
+    rectangles = [np.array(x) for x in rectangles]
+
+    return rectangles
 
 
-    for row in range(0, arr.shape[0], 10):
-        row = arr[row,:]
+def coalesce_rectangles(arr, rectangles):
+    #rejects = []
+    last_len = -1
 
-        locs_row = np.where(row == 0)[0]
-        if len(locs_row):
-            locs_row = np.split(locs_row, np.where(np.diff(locs_row) != 1)[0]+1)
+    rectangles = block_small_rects(arr,rectangles)
 
-            locs_row = [x.shape[0] for x in locs_row]
+    rectangles = sorted(rectangles,key = lambda x: rect_area(x))
 
-            samples += locs_row
+    rectangles = remove_super_rects(arr,rectangles)
 
-    return stats.mode(samples)[0][0]
+    islands = []
+    while len(rectangles):
+        r = rectangles.pop(0)
+        adj_r = detect_overlap(arr,rectangles,r)
+
+        if adj_r is None:
+            islands.append(r)
+            continue
+
+        #rejects += reconcile_overlaps(arr,rectangles,(r,adj_r))
+        reconcile_overlaps(arr,rectangles,(r,adj_r))
+
+    rectangles = islands
+
+    rectangles, bad = remove_side_rects(arr,rectangles)
+    #rejects += bad
+
+    return rectangles
+
+def separate_grouped_rectangles(arr, rectangles, *args):
+
+    line_thickness = analyzers.PARAMS['line-thickness']
+
+    groups = group_rects(rectangles, line_thickness * 6)
+    rectangles = []
+
+    for xdim,ydim,gro in groups:
+        rectangles += gro
+        # cutout rectangle groups
+        if len(gro) > 1:
+            for x in gro:
+                outer = analyzers.get_outer_rect(arr,x)
+                inner = analyzers.get_inner_rect(arr,x)
+                print(outer)
+                cv2.drawContours(arr,[outer],0,255,1)
+                cv2.drawContours(arr,[inner],0,255,1)
+                for y in args:
+                    print(x)
+                    cv2.drawContours(y,[outer],0,[255,255,255],1)
+                    cv2.drawContours(y,[inner],0,[255,255,255],1)
+
+def separate_largest_rectangle(arr, rectangles, *args):
+    r = max(rectangles, key = lambda x : rect_area(x))
+    #print(r)
+    outer = analyzers.get_outer_rect(arr,r)
+    inner = analyzers.get_inner_rect(arr,r)
+    cv2.drawContours(arr,[outer],0,255,1)
+    cv2.drawContours(arr,[inner],0,255,1)
+    for y in args:
+        cv2.drawContours(y,[outer],0,[255,255,255],1)
+        cv2.drawContours(y,[inner],0,[255,255,255],1)
+
+
+
+
+
