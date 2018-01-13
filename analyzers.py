@@ -314,13 +314,11 @@ def polish_rectangles(rects):
         x['rectangle'] = cen
 
 def shift_line(im, pts,dim,perc,direc):
-    _zeros = np.zeros(im.shape)
+    blacks = (im == 0)
     udim = (dim + 1) & 1
     # right side
     while True:
-        _zeros[:] = 1
-        cv2.drawContours(_zeros,[pts],0,0,1)
-        pixels = np.sum(_zeros==im)
+        pixels = line_sum(blacks,pts)
         if pixels < (perc * abs(pts[0][udim] - pts[1][udim])):
             break
         pts[0][dim] += direc

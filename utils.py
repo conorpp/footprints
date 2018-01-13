@@ -201,3 +201,39 @@ def scan_trim(arr):
     return np.trim_zeros(arr)
 
 
+def convert_rect_contour(c):
+    return [c[2], c[1], c[0], c[3], c[2]]
+
+
+def set_line(arr,line):
+    x1 = min(line[0][0],line[1][0])
+    x2 = max(line[0][0],line[1][0])
+    y1 = min(line[0][1],line[1][1])
+    y2 = max(line[0][1],line[1][1])
+
+    arr[y1:y2+1,x1:x2+1] = 0
+
+def line_exists(arr,line):
+    x1 = min(line[0][0],line[1][0])
+    x2 = max(line[0][0],line[1][0])
+    y1 = min(line[0][1],line[1][1])
+    y2 = max(line[0][1],line[1][1])
+
+    s = np.sum(arr[y1:y2+1,x1:x2+1])
+
+    return s == 0
+
+def line_sum(arr,line):
+    x1 = min(line[0][0],line[1][0])
+    x2 = max(line[0][0],line[1][0])
+    y1 = min(line[0][1],line[1][1])
+    y2 = max(line[0][1],line[1][1])
+
+    s = np.sum(arr[y1:y2+1,x1:x2+1])
+
+    return s
+
+
+
+
+
