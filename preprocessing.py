@@ -541,11 +541,9 @@ def separate_grouped_rectangles(arr, rectangles, *args):
             for x in gro:
                 outer = analyzers.get_outer_rect(arr,x)
                 inner = analyzers.get_inner_rect(arr,x)
-                print(outer)
                 cv2.drawContours(arr,[outer],0,255,1)
                 cv2.drawContours(arr,[inner],0,255,1)
                 for y in args:
-                    print(x)
                     cv2.drawContours(y,[outer],0,[255,255,255],1)
                     cv2.drawContours(y,[inner],0,[255,255,255],1)
 
@@ -562,5 +560,16 @@ def separate_largest_rectangle(arr, rectangles, *args):
 
 
 
+def preprocess(arr,*args):
 
+    analyzers.init(arr)
 
+    rectangles = get_rectangles(arr)
+
+    rectangles = coalesce_rectangles(arr, rectangles)
+
+    rectangles = [convert_rect_contour(x) for x in rectangles]
+
+    separate_grouped_rectangles(arr, rectangles, *args)
+    separate_largest_rectangle(arr, rectangles, *args)
+    return arr

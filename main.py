@@ -9,6 +9,7 @@ from utils import *
 from filters import *
 from analyzers import *
 from processors import *
+import preprocessing
 
 def add_feature(im, feat):
     if type(im) == type({}):
@@ -50,10 +51,13 @@ if __name__ == '__main__':
 
     orig = np.copy(arr)
     arr = polarize(arr)
+
+    analyzers.init(arr)
+
+    arr = preprocessing.preprocess(arr)
     arr = wrap_image(arr)
     #trim_images([arr])
 
-    analyzers.init(arr)
     print(arr['img'].shape)
 
     submaps = extract_features([arr])

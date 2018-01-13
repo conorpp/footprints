@@ -320,7 +320,6 @@ def shift_line(im, pts,dim,perc,direc):
     # right side
     while True:
         pixels = line_sum(blacks,pts)
-        print('pixels %d vs %.2f' % (pixels,(perc * abs(pts[0][udim] - pts[1][udim]) )))
         if pixels < (perc * abs(pts[0][udim] - pts[1][udim])):
             break
         pts[0][dim] += direc
@@ -379,9 +378,7 @@ def get_outer_rect(im,c):
     square[0:2] = shift_line(im, square[0:2], 0, .9, 1)
     
     # top side
-    print('-topside-')
     square[1:3] = shift_line(im, square[1:3], 1, .9, -1)
-    print('--------')
 
     # left side
     square[2:4] = shift_line(im, square[2:4], 0, .9, -1)
