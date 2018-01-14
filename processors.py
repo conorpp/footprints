@@ -15,9 +15,10 @@ def separate_lines(inp):
     for x in inp:
         #try:
             new,old = extract(x['img'],x['sum']['sum'], x['sum']['mode'][0], x['vertical'])
-            new = wrap_image(new,x)
+            if new is not None:
+                new = wrap_image(new,x)
+                out.append(new)
             old = wrap_image(old,x)
-            out.append(new)
             out.append(old)
         #except Exception as e:
             #print('execption',e)
@@ -119,13 +120,14 @@ def extract(im, y,m,dim):
         else:
             global faulty_id
             faulty_id +=1
-            print('faulty image',faulty_id)
+            #print('faulty image',faulty_id)
+            newim = None
             #save(im,'out/fault%d.png'%faulty_id)
 
 
     if dim == 0:
         im = np.transpose(im)
-        newim = np.transpose(newim)
+        if newim is not None: newim = np.transpose(newim)
 
     return newim,im
 
@@ -464,5 +466,125 @@ def cut_linking_line(arr):
         if (arr.shape[1] - np.sum(arr[x,:])/255) < 5:
             arr[x,:] = 255
 
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
 
+def angle_between(v1, v2):
+    """ Returns the angle in radians between vectors 'v1' and 'v2'::
+
+            >>> angle_between((1, 0, 0), (0, 1, 0))
+            1.5707963267948966
+            >>> angle_between((1, 0, 0), (1, 0, 0))
+            0.0
+            >>> angle_between((1, 0, 0), (-1, 0, 0))
+            3.141592653589793
+    """
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0)) * 180.0/math.pi
+
+def get_partial_lines_from_contour(contour):
+    def segment(c,i):
+        return np.reshape(c[i:i+2],(2,2))
+
+    c = contour
+    traces = []
+    for i in range(0,len(c)-1):
+        traces.append(segment(c,i))
+    traces.append(np.array([c[-1][0],c[0][0]]))
+    #for x in traces:
+        #print('c',x,line_len(x))
+    #print()
+    #print(c[-1][0])
+    #print(c[0][0])
+    
+    lastp1,lastp2 = traces[-1]
+    lastslopdiff = 1
+    route = []
+    for i,(p1,p2) in enumerate(traces):
+        ni = p2[0] - p1[0]
+        nj = p2[1] - p1[1]
+        nk = 0
+
+        li = lastp2[0] - lastp1[0]
+        lj = lastp2[1] - lastp1[1]
+        lk = 0
+        
+        #if ni != 0:
+        slopdiff = (nj)
+        if slopdiff == 0:
+            slopdiff = lastslopdiff
+        else:
+            slopdiff = (1 if slopdiff > 0 else -1)
+        #else: slopdiff= 1
+        lastslopdiff = slopdiff
+
+        dist1 = line_len((lastp1,lastp2))
+        dist2 = line_len((p1,p2))
+        ang = angle_between((li,lj,0),(ni,nj,0)) * slopdiff
+        route.append([dist1,dist2,ang,(lastp1,lastp2),(p1,p2)])
+        #print('%d -> %d, %d deg' % (dist1,dist2,ang))
+
+        lastp1 = p1
+        lastp2 = p2
+    traces = []
+
+    route_prepend = []
+    if route[0][0] < 10:
+        ang_accum = 0
+        for i in range(len(route)-1,-1,-1):
+            r = route[i]
+            route_prepend = [r] + route_prepend
+            if r[0] >= 10:
+                break
+            if abs(ang_accum) >= 180:
+                break
+            ang_accum += r[2]
+
+    route = route_prepend + route
+
+    lastdist = 0.0
+    for offset in range(0,len(route)):
+        #offset = 7
+        dist1 = route[offset][0]
+        ang_accum = 0.0
+        ang_dist = 0.0
+        hist = []
+        print('dist1: %.2f:' % (dist1,))
+        for _,dist2,ang,l1,l2 in route[offset:]:
+            ang_accum += ang
+            hist.append(l1)
+            hist.append(l2)
+            print('+dist: %.2f, +ang: %.2f (%.2f)' % (dist2,ang,ang_accum))
+
+            if abs(int(ang_accum)) == 180 or abs(int(ang_accum)) == 0:
+                if min(dist1,dist2) > 5 and ang_dist < 25:  # min line length
+                    traces += hist
+                    print('DETECTED LINE')
+                break
+            elif abs(ang_accum) > 180:
+                break
+            ang_dist += dist2
+        
+        #traces += hist
+        print('dist1: %.2f, dist2: %.2f, ang_dist %.2f' % (dist1,dist2,ang_dist))
+        #break
+        
+    return traces
+
+
+
+def navigate_lines(lines):
+    
+    def segment(c,i):
+        return np.reshape(t['ocontour'][i:i+2],(2,2))
+
+    for x in lines:
+        print(x['img'].shape)
+        #x['target'] = False
+        x['target'] = True
+        x['traces'] = get_partial_lines_from_contour(x['ocontour'])
+    #lines[0]['target'] = True
+    #lines[0]['traces'] = get_partial_lines_from_contour(lines[0]['ocontour'])
 

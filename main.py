@@ -56,31 +56,17 @@ if __name__ == '__main__':
 
     arr = preprocessing.preprocess(arr)
     arr = wrap_image(arr)
-    #trim_images([arr])
 
     print(arr['img'].shape)
 
     submaps = extract_features([arr])
 
-    #trim_images(submaps)
     submaps = block_clipped_components(submaps)
 
     analyze_rectangles(submaps)
-    #snapshot_imgs(rectangles,'after analyze_rectangles')
 
-    #print('bad rects')
-    #for x in submaps:
-        #if x['id'] in [168,169,170]:
-            #print_img(x,shape='rect')
 
     rectangles,leftover = pass_rectangles(submaps)
-
-    #print('good rects')
-    #for x in rectangles:
-        #print_img(x,shape='rect')
-
-
-    #die(submaps,'rects')
 
     outsides = separate_rectangles(rectangles)
     submaps = extract_features(outsides)
@@ -105,15 +91,10 @@ if __name__ == '__main__':
 
 
 
-    #snapshot_imgs(rectangles,'im a rectangle')
-    #snapshot_imgs(leftover,'im not a rectangle')
-
     analyze_lines(leftover)
 
-    #snapshot_imgs(lines,'after analyze_lines')
 
     lines,leftover = pass_lines(leftover)
-    #die(lines,'leftover')
     
     potential_lines,leftover = pass_potential_lines(leftover)
     snapshot_imgs(potential_lines,'after potential line pass')
@@ -194,12 +175,12 @@ if __name__ == '__main__':
     print('rects 2:',len(rects2))
 
 
-
     polish_rectangles(rectangles)
-    #lines += lines2
-    #print('%d classified lines.  %d from second pass' % (len(lines),len(lines2)))
-    #leftover += leftover2
-    #print('%d unclassified items. %d from second pass' % (len(leftover), len(leftover2)))
+
+    potential_lines,_ = pass_potential_lines(leftover)
+    navigate_lines(potential_lines)
+    print(len(potential_lines),'potential lines left')
+
 
     for x in (lines + rectangles + triangles + ocr):
         x['cl'] = True
@@ -249,7 +230,17 @@ if __name__ == '__main__':
     print('%d unclassified items' % len(leftover))
     for x in leftover:
         if contains_line(x):
-            cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
+            if x['target']:
+                cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
+                for t in x['traces']:
+                    #print(t)
+                    p1x = t[0][0] + x['offset'][0]
+                    p1y = t[0][1] + x['offset'][1]
+                    p2x = t[1][0] + x['offset'][0]
+                    p2y = t[1][1] + x['offset'][1]
+                    cv2.line(orig,tuple([p1x,p1y]),tuple([p2x,p2y]),[253,0x8c,0],1)
+
+
         else:
             cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=tuple(x['offset']))
             cv2.drawContours(orig,[x['triangle']],0,[255,0,128],1, offset=tuple(x['offset']))

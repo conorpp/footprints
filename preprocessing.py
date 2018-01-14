@@ -38,12 +38,6 @@ def line_overlaps(arr,line,ref):
 
     return s == 0
 
-def line_len(line):
-    p0 = line[0]
-    p1 = line[1]
-    return math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
-
-
 def line_trace(arr,line,padding,dim):
     x1 = min(line[0][0],line[1][0])
     x2 = max(line[0][0],line[1][0])

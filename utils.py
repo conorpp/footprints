@@ -1,4 +1,4 @@
-import time
+import time,math
 from PIL import Image, ImageDraw
 import cv2
 import numpy as np
@@ -239,6 +239,12 @@ def line_sum(arr,line):
 
     return s
 
+
+
+def line_len(line):
+    p0 = line[0]
+    p1 = line[1]
+    return math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
 
 
 
