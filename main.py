@@ -178,7 +178,14 @@ if __name__ == '__main__':
     polish_rectangles(rectangles)
 
     potential_lines,_ = pass_potential_lines(leftover)
+
+    t1 = timestamp()
     navigate_lines(potential_lines)
+    estlines = estimate_lines(potential_lines)
+    t2 = timestamp()
+
+    print('origin-dist line detection: %d ms' %(t2-t1))
+    print(len(estlines),'ests')
     print(len(potential_lines),'potential lines left')
 
 
@@ -232,18 +239,24 @@ if __name__ == '__main__':
         if contains_line(x):
             cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
             if x['target']:
-                for t in x['traces']:
-                    #print(t)
-                    p1x = t[0][0] + x['offset'][0]
-                    p1y = t[0][1] + x['offset'][1]
-                    p2x = t[1][0] + x['offset'][0]
-                    p2y = t[1][1] + x['offset'][1]
-                    cv2.line(orig,tuple([p1x,p1y]),tuple([p2x,p2y]),[253,0x8c,0],1)
+                for tset in x['traces']:
+                    for t in tset:
+                        #print(t)
+                        p1x = t[0][0] + x['offset'][0]
+                        p1y = t[0][1] + x['offset'][1]
+                        p2x = t[1][0] + x['offset'][0]
+                        p2y = t[1][1] + x['offset'][1]
+                        cv2.line(orig,tuple([p1x,p1y]),tuple([p2x,p2y]),[253,0x8c,0],1)
 
 
         else:
             cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=tuple(x['offset']))
             cv2.drawContours(orig,[x['triangle']],0,[255,0,128],1, offset=tuple(x['offset']))
+
+    for x in estlines:
+        x = np.array(x[0])
+        cv2.drawContours(orig,[x],0,[255,0,0],1)
+
 
     save(orig,'output.png')
     for x in sorted(leftover + rectangles + lines + triangles + ocr, key = lambda x:x['id']):

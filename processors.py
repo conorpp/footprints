@@ -568,18 +568,18 @@ def get_partial_lines_from_contour(contour):
     def segment(c,i):
         return np.reshape(c[i:i+2],(2,2))
 
+
     c = contour
     cx,cy = centroid(contour)
 
-    #cx *= 2
-    #cy *= 2
-    print('ORIGIN:',cx,cy)
+    #print('ORIGIN:',cx,cy)
     traces = []
     for i in range(0,len(c)-1):
         traces.append(segment(c,i))
     traces.append(np.array([c[-1][0],c[0][0]]))
 
     #traces = traces[:len(traces)]+traces[len(traces):]
+    # TODO do this better
     traces = traces[int(len(traces)/2):]+traces[:int(len(traces)/2)]
     #traces.reverse()
 
@@ -590,25 +590,23 @@ def get_partial_lines_from_contour(contour):
     # calculate distance from origin for each contour point
     for i,(p1,p2) in enumerate(traces):
 
-        ni = p2[0] - lastp2[0]
-        nj = p2[1] - lastp2[1]
-        nk = 0
+        #ni = p2[0] - lastp2[0]
+        #nj = p2[1] - lastp2[1]
+        #nk = 0
 
-        li = p2[0] - lastp2[0]
-        lj = p2[1] - lastp2[1]
-        lk = 0
+        #li = p2[0] - lastp2[0]
+        #lj = p2[1] - lastp2[1]
+        #lk = 0
 
-        dist1 = line_len((lastp1,lastp2))
-        dist2 = line_len((p1,p2))
-        ang = angle_between((li,lj,0),(ni,nj,0))
-        route.append([dist1,dist2,ang,(lastp1,lastp2),(p1,p2),line_len((p1,(cx,cy)))])
-
-        lastp1 = p1
-        lastp2 = p2
+        #dist1 = line_len((lastp1,lastp2))
+        #dist2 = line_len((p1,p2))
+        #ang = angle_between((li,lj,0),(ni,nj,0))
+        #route.append([dist1,dist2,ang,(lastp1,lastp2),(p1,p2),line_len((p1,(cx,cy)))])
+        route.append(line_len((p1,(cx,cy))))
 
     origin_dists = np.zeros(len(route))
     for i in range(0,len(route)):
-        origin_dists[i] = route[i][5]
+        origin_dists[i] = route[i]
 
     origin_dists = smooth(origin_dists)
 
@@ -644,7 +642,7 @@ def get_partial_lines_from_contour(contour):
                 line = traces[center-i+1:center+i]
                 line[-1] = np.copy(line[-1])
                 line[-1][1] = line[0][0]
-                good_traces += line
+                good_traces.append(line)
                 #print('good diff len', len(diffs), 'mode %',count/len(diffs))
             #else:
                 #print('bad diff len', len(diffs), 'mode %',count/len(diffs))
@@ -706,15 +704,47 @@ def get_partial_lines_from_contour(contour):
 
 
 def navigate_lines(lines):
-    
-    def segment(c,i):
-        return np.reshape(t['ocontour'][i:i+2],(2,2))
-
     for x in lines:
-        print(x['img'].shape)
         #x['target'] = False
-        x['target'] = False
-        #x['traces'] = get_partial_lines_from_contour(x['ocontour'])
-    lines[1]['target'] = True
-    lines[1]['traces'] = get_partial_lines_from_contour(lines[1]['ocontour'])
+        x['target'] = True
+        x['traces'] = get_partial_lines_from_contour(x['ocontour'])
+    #lines[1]['target'] = True
+    #lines[1]['traces'] = get_partial_lines_from_contour(lines[1]['ocontour'])
+
+# line of best fit to set of contour points
+def estimate_lines(lines):
+    ests = []
+    for x in lines:
+        xoff,yoff = x['offset']
+        for ii,tset in enumerate(x['traces']):
+            #if ii != 5: continue
+            pts = np.array([t[0] for t in tset])
+            line = cv2.fitLine(pts,cv2.DIST_L12,0,.01,.01)
+            xlim1,ylim1,xlim2,ylim2 = cv2.boundingRect(pts)
+            xlim2+=xlim1
+            ylim2+=ylim1
+            vx,vy,x0,y0 = line
+            m = vy[0]/vx[0]
+            b = y0[0] - m*x0[0]
+
+            y2 = m * xlim2 + b
+            y1 = m * xlim1 + b
+            if abs(y2-y1) < (ylim2 - ylim1):
+                p1 = (int(xlim1 + xoff), int(y1 + yoff))
+                p2 = (int(xlim2 + xoff), int(y2 + yoff))
+            else:
+                x1 = (ylim1 - b)/m
+                x2 = (ylim2 - b)/m
+                p1 = (int(x1 + xoff), int(ylim1 + yoff))
+                p2 = (int(x2 + xoff), int(ylim2 + yoff))
+
+            ests.append([(p1,p2),m])
+
+
+    return ests
+
+    #lines[1]['target'] = True
+    #lines[1]['traces'] = get_partial_lines_from_contour(lines[1]['ocontour'])
+
+
 
