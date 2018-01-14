@@ -1,4 +1,5 @@
 import sys,os,json,argparse
+from scipy.signal import argrelextrema
 from PIL import Image, ImageDraw
 
 import numpy as np
@@ -484,94 +485,223 @@ def angle_between(v1, v2):
     v2_u = unit_vector(v2)
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0)) * 180.0/math.pi
 
+def smooth(data):
+    return smooth_avg(data,5)
+def smooth_avg(y, window):
+    box = np.ones(window)/window
+    y_smooth = np.convolve(y, box, mode='same')
+    return y_smooth
+def savitzky_golay(y, window_size, order, deriv=0, rate=1):
+    r"""Smooth (and optionally differentiate) data with a Savitzky-Golay filter.
+    The Savitzky-Golay filter removes high frequency noise from data.
+    It has the advantage of preserving the original shape and
+    features of the signal better than other types of filtering
+    approaches, such as moving averages techniques.
+    Parameters
+    ----------
+    y : array_like, shape (N,)
+        the values of the time history of the signal.
+    window_size : int
+        the length of the window. Must be an odd integer number.
+    order : int
+        the order of the polynomial used in the filtering.
+        Must be less then `window_size` - 1.
+    deriv: int
+        the order of the derivative to compute (default = 0 means only smoothing)
+    Returns
+    -------
+    ys : ndarray, shape (N)
+        the smoothed signal (or it's n-th derivative).
+    Notes
+    -----
+    The Savitzky-Golay is a type of low-pass filter, particularly
+    suited for smoothing noisy data. The main idea behind this
+    approach is to make for each point a least-square fit with a
+    polynomial of high order over a odd-sized window centered at
+    the point.
+    Examples
+    --------
+    t = np.linspace(-4, 4, 500)
+    y = np.exp( -t**2 ) + np.random.normal(0, 0.05, t.shape)
+    ysg = savitzky_golay(y, window_size=31, order=4)
+    import matplotlib.pyplot as plt
+    plt.plot(t, y, label='Noisy signal')
+    plt.plot(t, np.exp(-t**2), 'k', lw=1.5, label='Original signal')
+    plt.plot(t, ysg, 'r', label='Filtered signal')
+    plt.legend()
+    plt.show()
+    References
+    ----------
+    .. [1] A. Savitzky, M. J. E. Golay, Smoothing and Differentiation of
+       Data by Simplified Least Squares Procedures. Analytical
+       Chemistry, 1964, 36 (8), pp 1627-1639.
+    .. [2] Numerical Recipes 3rd Edition: The Art of Scientific Computing
+       W.H. Press, S.A. Teukolsky, W.T. Vetterling, B.P. Flannery
+       Cambridge University Press ISBN-13: 9780521880688
+    """
+    import numpy as np
+    from math import factorial
+    
+    try:
+        window_size = np.abs(np.int(window_size))
+        order = np.abs(np.int(order))
+    except ValueError as msg:
+        raise ValueError("window_size and order have to be of type int")
+    if window_size % 2 != 1 or window_size < 1:
+        raise TypeError("window_size size must be a positive odd number")
+    if window_size < order + 2:
+        raise TypeError("window_size is too small for the polynomials order")
+    order_range = range(order+1)
+    half_window = (window_size -1) // 2
+    # precompute coefficients
+    b = np.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
+    m = np.linalg.pinv(b).A[deriv] * rate**deriv * factorial(deriv)
+    # pad the signal at the extremes with
+    # values taken from the signal itself
+    firstvals = y[0] - np.abs( y[1:half_window+1][::-1] - y[0] )
+    lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
+    y = np.concatenate((firstvals, y, lastvals))
+    return np.convolve( m[::-1], y, mode='valid')
+
+# requires contours to all be pixel-to-pixel
 def get_partial_lines_from_contour(contour):
     def segment(c,i):
         return np.reshape(c[i:i+2],(2,2))
 
     c = contour
+    cx,cy = centroid(contour)
+
+    #cx *= 2
+    #cy *= 2
+    print('ORIGIN:',cx,cy)
     traces = []
     for i in range(0,len(c)-1):
         traces.append(segment(c,i))
     traces.append(np.array([c[-1][0],c[0][0]]))
-    #for x in traces:
-        #print('c',x,line_len(x))
-    #print()
-    #print(c[-1][0])
-    #print(c[0][0])
-    
+
+    #traces = traces[:len(traces)]+traces[len(traces):]
+    traces = traces[int(len(traces)/2):]+traces[:int(len(traces)/2)]
+    #traces.reverse()
+
     lastp1,lastp2 = traces[-1]
-    lastslopdiff = 1
+    lastslop = 1
     route = []
+
+    # calculate distance from origin for each contour point
     for i,(p1,p2) in enumerate(traces):
-        ni = p2[0] - p1[0]
-        nj = p2[1] - p1[1]
+
+        ni = p2[0] - lastp2[0]
+        nj = p2[1] - lastp2[1]
         nk = 0
 
-        li = lastp2[0] - lastp1[0]
-        lj = lastp2[1] - lastp1[1]
+        li = p2[0] - lastp2[0]
+        lj = p2[1] - lastp2[1]
         lk = 0
-        
-        #if ni != 0:
-        slopdiff = (nj)
-        if slopdiff == 0:
-            slopdiff = lastslopdiff
-        else:
-            slopdiff = (1 if slopdiff > 0 else -1)
-        #else: slopdiff= 1
-        lastslopdiff = slopdiff
 
         dist1 = line_len((lastp1,lastp2))
         dist2 = line_len((p1,p2))
-        ang = angle_between((li,lj,0),(ni,nj,0)) * slopdiff
-        route.append([dist1,dist2,ang,(lastp1,lastp2),(p1,p2)])
-        #print('%d -> %d, %d deg' % (dist1,dist2,ang))
+        ang = angle_between((li,lj,0),(ni,nj,0))
+        route.append([dist1,dist2,ang,(lastp1,lastp2),(p1,p2),line_len((p1,(cx,cy)))])
 
         lastp1 = p1
         lastp2 = p2
-    traces = []
 
-    route_prepend = []
-    if route[0][0] < 10:
-        ang_accum = 0
-        for i in range(len(route)-1,-1,-1):
-            r = route[i]
-            route_prepend = [r] + route_prepend
-            if r[0] >= 10:
-                break
-            if abs(ang_accum) >= 180:
-                break
-            ang_accum += r[2]
+    origin_dists = np.zeros(len(route))
+    for i in range(0,len(route)):
+        origin_dists[i] = route[i][5]
 
-    route = route_prepend + route
+    origin_dists = smooth(origin_dists)
 
-    lastdist = 0.0
-    for offset in range(0,len(route)):
-        #offset = 7
-        dist1 = route[offset][0]
-        ang_accum = 0.0
-        ang_dist = 0.0
-        hist = []
-        print('dist1: %.2f:' % (dist1,))
-        for _,dist2,ang,l1,l2 in route[offset:]:
-            ang_accum += ang
-            hist.append(l1)
-            hist.append(l2)
-            print('+dist: %.2f, +ang: %.2f (%.2f)' % (dist2,ang,ang_accum))
+    maxlocs = argrelextrema(origin_dists, np.greater)
+    minlocs = argrelextrema(origin_dists, np.less)
+    locs = sorted(maxlocs[0].tolist() + minlocs[0].tolist())
+    # get locations for potential lines based on maxima
+    pot_lines = []
+    for i in range(1,len(locs)-1):
+        start = locs[i-1]
+        center = locs[i]
+        end = locs[i+1]
+        pot_lines.append([center,min(center-start,end-center)]) # center, scanning distance
 
-            if abs(int(ang_accum)) == 180 or abs(int(ang_accum)) == 0:
-                if min(dist1,dist2) > 5 and ang_dist < 25:  # min line length
-                    traces += hist
-                    print('DETECTED LINE')
-                break
-            elif abs(ang_accum) > 180:
-                break
-            ang_dist += dist2
-        
-        #traces += hist
-        print('dist1: %.2f, dist2: %.2f, ang_dist %.2f' % (dist1,dist2,ang_dist))
-        #break
-        
-    return traces
+    # filter potential lines based on "flat/thin-ness" at the start
+    good_traces = []
+    for center,dist in pot_lines:
+        diffs = []
+        for i in range(1, dist+1):
+            pl = traces[center-i][0]
+            pr = traces[center+i][0]
+            diff = line_len((pl,pr))
+            if diff > 6.5: break  # TODO normalize this
+            diffs.append(diff)
+
+        if len(diffs) > 9: # TODO normalize this
+            mode,count = stats.mode(diffs)
+            if count/len(diffs) > .45:
+                # trim the edges
+                while diffs[-1] != mode:
+                    diffs.pop()
+                    i -= 1
+                line = traces[center-i+1:center+i]
+                line[-1] = np.copy(line[-1])
+                line[-1][1] = line[0][0]
+                good_traces += line
+                #print('good diff len', len(diffs), 'mode %',count/len(diffs))
+            #else:
+                #print('bad diff len', len(diffs), 'mode %',count/len(diffs))
+
+    #print(traces)
+
+    #maxima = np.zeros(origin_dists.shape)
+    #maxima[minlocs] = -1
+    #maxima[maxlocs] = 1
+
+    #plt.plot(origin_dists/20 -5)
+    #plt.plot(maxima)
+    #plt.show()
+    #sys.exit(0)
+    return good_traces
+
+    # this method detects straight horizontal/vertical lines well
+    #route_prepend = []
+    #if route[0][0] < 10:
+        #ang_accum = 0
+        #for i in range(len(route)-1,-1,-1):
+            #r = route[i]
+            #route_prepend = [r] + route_prepend
+            #if r[0] >= 10:
+                #break
+            #if abs(ang_accum) >= 180:
+                #break
+            #ang_accum += r[2]
+
+    #route = route_prepend + route
+
+    #lastdist = 0.0
+    #for offset in range(0,len(route)):
+        ##offset = 7
+        #dist1 = route[offset][0]
+        #ang_accum = 0.0
+        #ang_dist = 0.0
+        #hist = []
+        #print('dist1: %.2f:' % (dist1,))
+        #for _,dist2,ang,l1,l2,m1,m2 in route[offset:]:
+            #ang_accum += ang
+            #hist.append(l1)
+            #hist.append(l2)
+            #print('+dist: %.2f, +ang: %.2f (%.2f)' % (dist2,ang,ang_accum))
+
+            #if abs(int(ang_accum)) == 180 or abs(int(ang_accum)) == 0:
+                #if min(dist1,dist2) > 5 and ang_dist < 25:  # min line length
+                    #traces += hist
+                    #print('DETECTED LINE')
+                #break
+            #elif abs(ang_accum) > 180:
+                #break
+            #ang_dist += dist2
+
+        ##traces += hist
+        #print('dist1: %.2f, dist2: %.2f, ang_dist %.2f' % (dist1,dist2,ang_dist))
+        ##break
 
 
 
@@ -583,8 +713,8 @@ def navigate_lines(lines):
     for x in lines:
         print(x['img'].shape)
         #x['target'] = False
-        x['target'] = True
-        x['traces'] = get_partial_lines_from_contour(x['ocontour'])
-    #lines[0]['target'] = True
-    #lines[0]['traces'] = get_partial_lines_from_contour(lines[0]['ocontour'])
+        x['target'] = False
+        #x['traces'] = get_partial_lines_from_contour(x['ocontour'])
+    lines[1]['target'] = True
+    lines[1]['traces'] = get_partial_lines_from_contour(lines[1]['ocontour'])
 

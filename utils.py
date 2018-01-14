@@ -1,4 +1,5 @@
 import time,math
+from scipy.signal import butter, lfilter, freqz
 from PIL import Image, ImageDraw
 import cv2
 import numpy as np
@@ -250,3 +251,18 @@ def line_len(line):
 
 
 def timestamp(): return int(round(time.time() * 1000))
+
+
+def butter_lowpass(cutoff, fs, order=5):
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return b, a
+
+def butter_lowpass_filter(data, cutoff, fs, order=5):
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+
+
+

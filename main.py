@@ -230,8 +230,8 @@ if __name__ == '__main__':
     print('%d unclassified items' % len(leftover))
     for x in leftover:
         if contains_line(x):
+            cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
             if x['target']:
-                cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
                 for t in x['traces']:
                     #print(t)
                     p1x = t[0][0] + x['offset'][0]
