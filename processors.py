@@ -752,16 +752,24 @@ def estimate_lines(lines):
 
 def extend_estlines(lines):
     def addpixlocs(img, tmplocs, it, dim, inc):
-        dimp = (dim + 1) & 1
-        k = 1 if inc > 0 else 0
-        #k = dim
-        while img[it[1] + (inc*dim)*k, it[0] + (inc*dimp)*k] == 0:
-            tmplocs.append(np.array((it[0] + (inc*dimp)*k, it[1] + (inc*dim)*k)))
-            k += 1
-            if k > 3: 
-                del tmplocs[:]
-                return k
-        return k
+        try:
+            dimp = (dim + 1) & 1
+            k = 1 if inc > 0 else 0
+
+            if it[dim]+k == img.shape[dimp]:
+                k = 0
+
+            while img[it[1] + (inc*dim)*k, it[0] + (inc*dimp)*k] == 0:
+                tmplocs.append(np.array((it[0] + (inc*dimp)*k, it[1] + (inc*dim)*k)))
+                k += 1
+                if k > 3: 
+                    del tmplocs[:]
+                    return k
+            return k
+        except Exception as e:
+            print(e)
+            save(img,'output.png')
+            sys.exit(1)
 
     for l in lines:
         img = l['img']
@@ -777,53 +785,52 @@ def extend_estlines(lines):
             goright = (start[0] < end[0])
             isvert = (abs(m)>1)
 
-            #start = start[::-1]
-            #print('start px:', img[start])
             it = np.copy(start)
-            pixels = []
-            xterminals = []
             lastlen = 0
             count = 0
             linelocs = []
             ksums = []
 
-            # vert
-            if isvert:
-                #continue
-                for j in range(0,int(line_len(((0,0),img.shape)))):
-                    if it[1] < 0 or it[1] >= img.shape[0]:
-                        break
+            for j in range(0,int(line_len(((0,0),img.shape)))):
+                if it[1] < 0 or it[1] >= img.shape[0]:
+                    break
+                if it[0] < 0 or it[0] >= img.shape[1]:
+                    break
 
-                    # go left
-                    tmplocs = []
-                    k1 = addpixlocs(img,tmplocs,it,0,-1)
-                   
-                    if k1 < 4:
-                        # go right
-                        k2 = addpixlocs(img,tmplocs,it,0,1)
-                        linelocs += tmplocs
-                        ksums.append(k1+k2)
 
-                    if len(tmplocs):
-                        lastlen = 1
-                        count += 1
-                    else:
-                        if lastlen:
-                            if count > 10:
-                                metric = len(set(ksums))/float(len(ksums))
-                                #print('metric: ',metric)
-                                #print('unique: %d, len: %d' % (len(set(ksums)),len(ksums)))
-                                #mod = stats.mode(ksums)
-                                #print('mode: %d, count: %d' % (mod[0], mod[1]))
+                # go left
+                tmplocs = []
+                dim = 0 if isvert else 1
+                k1 = addpixlocs(img,tmplocs,it,dim,-1)
+               
+                if k1 < 4:
+                    # go right
+                    k2 = addpixlocs(img,tmplocs,it,dim,1)
+                    linelocs += tmplocs
+                    ksums.append(k1+k2)
 
-                                if metric < .3: # TODO normalize
-                                    alllocs += linelocs
+                if len(tmplocs):
+                    lastlen = 1
+                    count += 1
+                else:
+                    if lastlen:
+                        if count > 10:
+                            metric = len(set(ksums))/float(len(ksums))
+                            #print('metric: ',metric)
+                            #print('unique: %d, len: %d' % (len(set(ksums)),len(ksums)))
+                            #mod = stats.mode(ksums)
+                            #print('mode: %d, count: %d' % (mod[0], mod[1]))
 
-                            linelocs = []
-                            ksums = []
-                        lastlen = 0
-                        count = 0
+                            if metric < .3: # TODO normalize
+                                alllocs += linelocs
 
+                        linelocs = []
+                        ksums = []
+                    lastlen = 0
+                    count = 0
+
+                # vert
+                if isvert:
                     if goup:
                         it[1] -= 1
                     else:
@@ -831,48 +838,13 @@ def extend_estlines(lines):
 
                     it[0] = int((it[1] - b) / m)
 
-
-            else:
-                for j in range(0,int(line_len(((0,0),img.shape)))):
-                    #if it[1] < 0 or it[1] >= img.shape[0]:
-                        #break
-                    if it[0] < 0 or it[0] >= img.shape[1]:
-                        break
-
-                    # go up
-                    tmplocs = []
-                    k1 = addpixlocs(img,tmplocs,it,1,-1)
-
-                    #linelocs += tmplocs
-                    if k1 < 4:
-                        k2 = addpixlocs(img,tmplocs,it,1,1)
-
-                        linelocs += tmplocs
-                        ksums.append(k1+k2)
-
-                    if len(tmplocs):
-                        lastlen = 1
-                        count += 1
-                    else:
-                        if lastlen:
-                            if count > 10:
-                                metric = len(set(ksums))/float(len(ksums))
-
-                                if metric < .3: # TODO normalize
-                                    alllocs += linelocs
-                            linelocs = []
-                            ksums = []
-                        lastlen = 0
-                        count = 0
-
+                else:
 
                     if goright:
                         it[0] += 1
                     else:
                         it[0] -= 1
                     it[1] = int(it[0] * m + b)
-
-            #alllocs += linelocs
 
 
         l['locs'] = alllocs
