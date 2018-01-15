@@ -623,6 +623,7 @@ def get_partial_lines_from_contour(contour):
 
     # filter potential lines based on "flat/thin-ness" at the start
     good_traces = []
+    good_traces_start_points = []
     for center,dist in pot_lines:
         diffs = []
         for i in range(1, dist+1):
@@ -643,6 +644,7 @@ def get_partial_lines_from_contour(contour):
                 line[-1] = np.copy(line[-1])
                 line[-1][1] = line[0][0]
                 good_traces.append(line)
+                good_traces_start_points.append(traces[center][0])
                 #print('good diff len', len(diffs), 'mode %',count/len(diffs))
             #else:
                 #print('bad diff len', len(diffs), 'mode %',count/len(diffs))
@@ -657,7 +659,8 @@ def get_partial_lines_from_contour(contour):
     #plt.plot(maxima)
     #plt.show()
     #sys.exit(0)
-    return good_traces
+    return (good_traces,good_traces_start_points)
+    #return (good_traces)
 
     # this method detects straight horizontal/vertical lines well
     #route_prepend = []
@@ -708,16 +711,15 @@ def navigate_lines(lines):
         #x['target'] = False
         x['target'] = True
         x['traces'] = get_partial_lines_from_contour(x['ocontour'])
+        #print(x['traces'][1])
     #lines[1]['target'] = True
     #lines[1]['traces'] = get_partial_lines_from_contour(lines[1]['ocontour'])
 
 # line of best fit to set of contour points
 def estimate_lines(lines):
-    ests = []
     for x in lines:
-        xoff,yoff = x['offset']
-        for ii,tset in enumerate(x['traces']):
-            #if ii != 5: continue
+        ests = []
+        for i,tset in enumerate(x['traces'][0]):
             pts = np.array([t[0] for t in tset])
             line = cv2.fitLine(pts,cv2.DIST_L12,0,.01,.01)
             xlim1,ylim1,xlim2,ylim2 = cv2.boundingRect(pts)
@@ -730,21 +732,151 @@ def estimate_lines(lines):
             y2 = m * xlim2 + b
             y1 = m * xlim1 + b
             if abs(y2-y1) < (ylim2 - ylim1):
-                p1 = (int(xlim1 + xoff), int(y1 + yoff))
-                p2 = (int(xlim2 + xoff), int(y2 + yoff))
+                p1 = (int(xlim1), int(y1))
+                p2 = (int(xlim2), int(y2))
             else:
                 x1 = (ylim1 - b)/m
                 x2 = (ylim2 - b)/m
-                p1 = (int(x1 + xoff), int(ylim1 + yoff))
-                p2 = (int(x2 + xoff), int(ylim2 + yoff))
+                p1 = (int(x1), int(ylim1))
+                p2 = (int(x2), int(ylim2))
+            
+            startp = x['traces'][1][i]
 
-            ests.append([(p1,p2),m])
+            # first point shall be "start of line"
+            if line_len((startp,p1)) > line_len((startp,p2)):
+                ests.append([(p2,p1),m,b,False])
+            else:
+                ests.append([(p1,p2),m,b,False])
+
+        x['line-estimates'] = ests
+
+def extend_estlines(lines):
+    def addpixlocs(img, tmplocs, it, dim, inc):
+        dimp = (dim + 1) & 1
+        k = 1 if inc > 0 else 0
+        #k = dim
+        while img[it[1] + (inc*dim)*k, it[0] + (inc*dimp)*k] == 0:
+            tmplocs.append(np.array((it[0] + (inc*dimp)*k, it[1] + (inc*dim)*k)))
+            k += 1
+            if k > 3: 
+                del tmplocs[:]
+                return k
+        return k
+
+    for l in lines:
+        img = l['img']
+        ests = l['line-estimates']
+        alllocs = []
+        for i in range(0,len(ests)):
+            start = ests[i][0][0]
+            end = ests[i][0][1]
+            m = ests[i][1]
+            b = ests[i][2]
+
+            goup = (start[1] > end[1])
+            goright = (start[0] < end[0])
+            isvert = (abs(m)>1)
+
+            #start = start[::-1]
+            #print('start px:', img[start])
+            it = np.copy(start)
+            pixels = []
+            xterminals = []
+            lastlen = 0
+            count = 0
+            linelocs = []
+            ksums = []
+
+            # vert
+            if isvert:
+                #continue
+                for j in range(0,int(line_len(((0,0),img.shape)))):
+                    if it[1] < 0 or it[1] >= img.shape[0]:
+                        break
+
+                    # go left
+                    tmplocs = []
+                    k1 = addpixlocs(img,tmplocs,it,0,-1)
+                   
+                    if k1 < 4:
+                        # go right
+                        k2 = addpixlocs(img,tmplocs,it,0,1)
+                        linelocs += tmplocs
+                        ksums.append(k1+k2)
+
+                    if len(tmplocs):
+                        lastlen = 1
+                        count += 1
+                    else:
+                        if lastlen:
+                            if count > 10:
+                                metric = len(set(ksums))/float(len(ksums))
+                                #print('metric: ',metric)
+                                #print('unique: %d, len: %d' % (len(set(ksums)),len(ksums)))
+                                #mod = stats.mode(ksums)
+                                #print('mode: %d, count: %d' % (mod[0], mod[1]))
+
+                                if metric < .3: # TODO normalize
+                                    alllocs += linelocs
+
+                            linelocs = []
+                            ksums = []
+                        lastlen = 0
+                        count = 0
+
+                    if goup:
+                        it[1] -= 1
+                    else:
+                        it[1] += 1
+
+                    it[0] = int((it[1] - b) / m)
 
 
-    return ests
+            else:
+                for j in range(0,int(line_len(((0,0),img.shape)))):
+                    #if it[1] < 0 or it[1] >= img.shape[0]:
+                        #break
+                    if it[0] < 0 or it[0] >= img.shape[1]:
+                        break
 
-    #lines[1]['target'] = True
-    #lines[1]['traces'] = get_partial_lines_from_contour(lines[1]['ocontour'])
+                    # go up
+                    tmplocs = []
+                    k1 = addpixlocs(img,tmplocs,it,1,-1)
 
+                    #linelocs += tmplocs
+                    if k1 < 4:
+                        k2 = addpixlocs(img,tmplocs,it,1,1)
+
+                        linelocs += tmplocs
+                        ksums.append(k1+k2)
+
+                    if len(tmplocs):
+                        lastlen = 1
+                        count += 1
+                    else:
+                        if lastlen:
+                            if count > 10:
+                                metric = len(set(ksums))/float(len(ksums))
+
+                                if metric < .3: # TODO normalize
+                                    alllocs += linelocs
+                            linelocs = []
+                            ksums = []
+                        lastlen = 0
+                        count = 0
+
+
+                    if goright:
+                        it[0] += 1
+                    else:
+                        it[0] -= 1
+                    it[1] = int(it[0] * m + b)
+
+            #alllocs += linelocs
+
+
+        l['locs'] = alllocs
+
+    return lines
 
 

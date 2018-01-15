@@ -181,11 +181,12 @@ if __name__ == '__main__':
 
     t1 = timestamp()
     navigate_lines(potential_lines)
-    estlines = estimate_lines(potential_lines)
+    estimate_lines(potential_lines)
+    extend_estlines(potential_lines)
     t2 = timestamp()
 
     print('origin-dist line detection: %d ms' %(t2-t1))
-    print(len(estlines),'ests')
+    #print(len(estlines),'ests')
     print(len(potential_lines),'potential lines left')
 
 
@@ -238,24 +239,37 @@ if __name__ == '__main__':
     for x in leftover:
         if contains_line(x):
             cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
-            if x['target']:
-                for tset in x['traces']:
-                    for t in tset:
-                        #print(t)
-                        p1x = t[0][0] + x['offset'][0]
-                        p1y = t[0][1] + x['offset'][1]
-                        p2x = t[1][0] + x['offset'][0]
-                        p2y = t[1][1] + x['offset'][1]
-                        cv2.line(orig,tuple([p1x,p1y]),tuple([p2x,p2y]),[253,0x8c,0],1)
+            #if x['target']:
+                #for i,tset in enumerate(x['traces'][0]):
+
+                    #for t in tset:
+                        ##print(t)
+                        #p1x = t[0][0] + x['offset'][0]
+                        #p1y = t[0][1] + x['offset'][1]
+                        #p2x = t[1][0] + x['offset'][0]
+                        #p2y = t[1][1] + x['offset'][1]
+                        #cv2.line(orig,tuple([p1x,p1y]),tuple([p2x,p2y]),[253,0x8c,0],1)
 
 
         else:
             cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=tuple(x['offset']))
             cv2.drawContours(orig,[x['triangle']],0,[255,0,128],1, offset=tuple(x['offset']))
 
-    for x in estlines:
-        x = np.array(x[0])
-        cv2.drawContours(orig,[x],0,[255,0,0],1)
+    for line in potential_lines:
+        for est in line['line-estimates']:
+            x = np.array(est[0])+ line['offset']
+            startp = x[0]
+            if est[2]:
+                # verticle
+                cv2.circle(orig,tuple(startp),3,(0,0x3c,0),2 )
+            else:
+                cv2.circle(orig,tuple(startp),3,(210,0x3c,0),2 )
+
+            #cv2.drawContours(orig,[x],0,[255,0,0],1)
+
+        for loc in line['locs']:
+            p = loc + line['offset']
+            orig[p[1],p[0]] = [255,0,255]
 
 
     save(orig,'output.png')
