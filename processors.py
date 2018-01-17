@@ -633,8 +633,8 @@ def get_partial_lines_from_contour(contour, center=None, headstart=True):
                     diffs.pop()
                     i -= 1
                 line = traces[center-i+1:center+i]
-                line = line[:i-3] + line[i+3:]
-                line = line[:len(line)-3]
+                #line = line[:i-3] + line[i+3:]
+                #line = line[:len(line)-3]
                 #line[-1] = np.copy(line[-1])
                 #line[-1][1] = line[0][0]
                 good_traces.append(line)
@@ -700,6 +700,26 @@ def get_partial_lines_from_contour(contour, center=None, headstart=True):
 
 
 def find_line_features(lines):
+    def neighboring_black_pixel(im,pt):
+        x,y = pt
+        if im[y-1,x] == 0:
+            return (x,y-1)
+        if im[y+1,x] == 0:
+            return (x,y+1)
+        if im[y,x-1] == 0:
+            return (x-1,y)
+        if im[y,x+1] == 0:
+            return (x+1,y)
+        if im[y-1,x-1] == 0:
+            return (x-1,y-1)
+        if im[y+1,x-1] == 0:
+            return (x-1,y+1)
+        if im[y-1,x+1] == 0:
+            return (x+1,y-1)
+        if im[y+1,x+1] == 0:
+            return (x+1,y+1)
+        raise RuntimeError('No neighboring black pixel')
+
     newims = []
     oldims = []
     for l in lines:
@@ -730,6 +750,7 @@ def find_line_features(lines):
 
             if len(traces) == 0:
                 l['line-scan-attempt'] = 1
+                oldims.append(l)
                 continue
 
         l['line-scan-attempt'] = scantype + 1
@@ -741,7 +762,30 @@ def find_line_features(lines):
             tset = traces[i]
             pts = np.array([t[0] for t in tset])
             startp = startpoints[i]
-            line_est = estimate_line(pts,startp)
+
+            blackp = neighboring_black_pixel(l['img'], startp)
+
+            # for horizontal or vertical lines
+            hv_line,vert = grow_line(l['img'],None,blackp)
+
+            if line_len(hv_line) > 9:
+                if line_len((hv_line[0], startp)) > line_len((hv_line[1], startp)):
+                    p1 = hv_line[1]
+                    p2 = hv_line[0]
+                else:
+                    p1 = hv_line[1]
+                    p2 = hv_line[0]
+                m = 0
+                if vert:
+                    m = (p2[1] - p1[1])*1000
+
+                b = p1[1] - m*p1[0]
+
+                line_est = [(p1,p2),m,b,False]
+            else:
+                # for other lines
+                line_est = estimate_line(pts,startp)
+
             ests.append(line_est)
 
         oldim = np.copy(l['img'])
@@ -752,7 +796,7 @@ def find_line_features(lines):
         features = []
         for e in ests:
             new_features = get_pixels_following_line(oldim,e)
-            print(len(new_features),'features')
+            #print(len(new_features),'features')
             features += new_features
             if len(new_features):
                 newim = np.zeros(oldim.shape,dtype=np.uint8) + 255
@@ -782,6 +826,7 @@ def assign_best_fit_lines(lines):
         #print(pts)
         l = estimate_line(pts)[0]
         x['line'] = np.array(((l[0][1],l[0][0],),(l[1][1],l[1][0],)))
+
 
 # line of best fit to set of contour points
 def estimate_line(pts, startp=None):
@@ -902,8 +947,6 @@ def get_pixels_following_line(img,est):
 
                     if metric < .3: # TODO normalize
                         alllocs.append(linelocs)
-                if len(alllocs) == 0:
-                    print('possible 2segmenter here!')
 
                 linelocs = []
                 ksums = []

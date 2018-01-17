@@ -194,36 +194,36 @@ if __name__ == '__main__':
     analyze_rectangles(leftover)
 
 
-    newlines,lineleftover = find_line_features(leftover)
-
+    newlines,leftover = find_line_features(leftover)
     line_submaps = extract_features(newlines)
     assign_best_fit_lines(line_submaps)
     lines += line_submaps
 
-    leftover = block_dots(lineleftover)
+    #leftover = block_dots(leftover)
     leftover = extract_features(leftover)
     analyze_rectangles(leftover)
 
 
-    newlines,lineleftover = find_line_features(leftover)
-
+    newlines,leftover = find_line_features(leftover)
     line_submaps = extract_features(newlines)
     assign_best_fit_lines(line_submaps)
     lines += line_submaps
 
-    leftover = block_dots(lineleftover)
     leftover = extract_features(leftover)
+    leftover = block_dots(leftover)
     analyze_rectangles(leftover)
 
 
-
+    analyze_triangles(leftover)
+    triangles2,leftover = pass_triangles(leftover)
+    triangles += triangles2
 
 
     t2 = timestamp()
 
-    for i,im in enumerate(lineleftover):
-        print('newim ',i)
-        save(im['img'],'out/newim%d.png' % i)
+    #for i,im in enumerate(lineleftover):
+        #print('newim ',i)
+        #save(im['img'],'out/newim%d.png' % i)
 
     print('origin-dist line detection: %d ms' %(t2-t1))
     #print(len(estlines),'ests')
@@ -277,34 +277,44 @@ if __name__ == '__main__':
 
     print('%d unclassified items' % len(leftover))
     for x in leftover:
-        if contains_line(x):
-            cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
-            #if x['target']:
-            for i,tset in enumerate(x['traces'][0]):
+        #if contains_line(x):
+            #cv2.drawContours(orig,[x['ocontour']],0,[255,255,0],1, offset=tuple(x['offset']))
+            ##if x['target']:
+            #for i,tset in enumerate(x['traces'][0]):
 
-                for t in tset:
-                    #print(t)
-                    p1x = t[0][0] + x['offset'][0]
-                    p1y = t[0][1] + x['offset'][1]
-                    p2x = t[1][0] + x['offset'][0]
-                    p2y = t[1][1] + x['offset'][1]
-                    cv2.line(orig,tuple([p1x,p1y]),tuple([p2x,p2y]),[253,0x8c,0],1)
+                #for t in tset:
+                    ##print(t)
+                    #p1x = t[0][0] + x['offset'][0]
+                    #p1y = t[0][1] + x['offset'][1]
+                    #p2x = t[1][0] + x['offset'][0]
+                    #p2y = t[1][1] + x['offset'][1]
+                    #cv2.line(orig,tuple([p1x,p1y]),tuple([p2x,p2y]),[253,0x8c,0],1)
 
 
-        else:
+        #else:
             cv2.drawContours(orig,[x['ocontour']],0,[255,0,0],1, offset=tuple(x['offset']))
             #cv2.drawContours(orig,[x['triangle']],0,[255,0,128],1, offset=tuple(x['offset']))
+
+
     for x in scanned_lines:
         if len(x['traces']):
             for i,tset in enumerate(x['traces'][0]):
 
+                #pts = np.array([t[0]+x['offset'] for t in tset])
+                #for d1,d2 in pts:
+                    #orig[d2,d1] = [255,255,0]
+
+
+                #x0,y0,w,h = cv2.boundingRect(pts)
+                #cv2.rectangle(orig, (x0,y0), (x0+w,y0+h), [0,0,255])
+
                 for t in tset:
                     #print(t)
                     p1x = t[0][0] + x['offset'][0]
                     p1y = t[0][1] + x['offset'][1]
                     p2x = t[1][0] + x['offset'][0]
                     p2y = t[1][1] + x['offset'][1]
-                    cv2.line(orig,tuple([p1x,p1y]),tuple([p2x,p2y]),[253,0x8c,0],1)
+                    #cv2.line(orig,tuple([p1x,p1y]),tuple([p2x,p2y]),[253,0x8c,0],1)
 
 
 

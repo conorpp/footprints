@@ -165,8 +165,11 @@ def move_point(im,p,i,di,expected):
     return count
 
 
-def grow_line(im,c):
-    x,y = centroid(c)
+def grow_line(im,c,startp=None):
+    if startp is None:
+        x,y = centroid(c)
+    else:
+        x,y = startp
     p = [x,y]
     
     dx,dy = x,y
