@@ -573,11 +573,11 @@ if __name__ == '__main__':
 
     print(arr.shape)
     
-    t1 = timestamp()
-    outsides = processors.get_isolated_images(arr)
-    t2 = timestamp()
-    print('time %d ms' % (t2-t1))
+    arr = wrap_image(arr)
+    analyze_rectangles([arr])
 
+
+    newlines,lineleftover = processors.find_line_features([arr])
 
     #arr =color(arr)
     #for i,insides in (outsides):

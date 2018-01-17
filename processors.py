@@ -247,21 +247,7 @@ def explore_r(arr,i,j,trackmap):
     return trackmap
 
 def extract_features(arrs):
-    print('extracting..')
     coms = extract_components(arrs)
-    #trim_images(coms)
-
-    #cut_linking_lines(coms)
-    #coms = extract_components(coms)
-    #trim_images(coms2)
-    #while len(coms2) > len(coms):
-        #print('coms: %d, coms2: %d'%(len(coms),len(coms2)))
-        #coms = coms2
-        #cut_linking_lines(coms)
-        #coms2 = extract_components(coms)
-        #trim_images(coms2)
-
-    #print('coms2: %d'%(len(coms2)))
     return coms
 
 
@@ -564,13 +550,16 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     return np.convolve( m[::-1], y, mode='valid')
 
 # requires contours to all be pixel-to-pixel
-def get_partial_lines_from_contour(contour):
+def get_partial_lines_from_contour(contour, center=None, headstart=True):
     def segment(c,i):
         return np.reshape(c[i:i+2],(2,2))
 
 
     c = contour
-    cx,cy = centroid(contour)
+    if center is None:
+        cx,cy = centroid(contour)
+    else:
+        cx,cy = center
 
     #print('ORIGIN:',cx,cy)
     traces = []
@@ -578,9 +567,11 @@ def get_partial_lines_from_contour(contour):
         traces.append(segment(c,i))
     traces.append(np.array([c[-1][0],c[0][0]]))
 
-    #traces = traces[:len(traces)]+traces[len(traces):]
-    # TODO do this better
-    traces = traces[int(len(traces)/2):]+traces[:int(len(traces)/2)]
+    if headstart:
+        traces = traces[:len(traces)]+traces[len(traces):]
+    else:
+        # TODO do this better
+        traces = traces[int(len(traces)/2):]+traces[:int(len(traces)/2)]
     #traces.reverse()
 
     lastp1,lastp2 = traces[-1]
@@ -635,14 +626,17 @@ def get_partial_lines_from_contour(contour):
 
         if len(diffs) > 9: # TODO normalize this
             mode,count = stats.mode(diffs)
+            # only take items with majority taken by mode
             if count/len(diffs) > .45:
                 # trim the edges
                 while diffs[-1] != mode:
                     diffs.pop()
                     i -= 1
                 line = traces[center-i+1:center+i]
-                line[-1] = np.copy(line[-1])
-                line[-1][1] = line[0][0]
+                line = line[:i-3] + line[i+3:]
+                line = line[:len(line)-3]
+                #line[-1] = np.copy(line[-1])
+                #line[-1][1] = line[0][0]
                 good_traces.append(line)
                 good_traces_start_points.append(traces[center][0])
                 #print('good diff len', len(diffs), 'mode %',count/len(diffs))
@@ -651,9 +645,9 @@ def get_partial_lines_from_contour(contour):
 
     #print(traces)
 
-    #maxima = np.zeros(origin_dists.shape)
-    #maxima[minlocs] = -1
-    #maxima[maxlocs] = 1
+    maxima = np.zeros(origin_dists.shape)
+    maxima[minlocs] = -1
+    maxima[maxlocs] = 1
 
     #plt.plot(origin_dists/20 -5)
     #plt.plot(maxima)
@@ -705,54 +699,140 @@ def get_partial_lines_from_contour(contour):
         ##break
 
 
+def find_line_features(lines):
+    newims = []
+    oldims = []
+    for l in lines:
+        #l['target'] = False
+        l['target'] = True
+        scantype = l['line-scan-attempt']
+        
+        if scantype == 1:
+            continue
 
-def navigate_lines(lines):
+        scan_points = [
+                None,
+                (0,0),
+                (-100,100),
+                (0,l['img'].shape[0]),
+                (l['img'].shape[1],0),
+                (l['img'].shape[1],l['img'].shape[0]),
+                ]
+
+        for i in range(0,5):
+            traces, startpoints = get_partial_lines_from_contour(l['ocontour'], scan_points[i])
+            if len(traces): break
+
+        if len(traces) == 0:
+            for i in range(0,5):
+                traces, startpoints = get_partial_lines_from_contour(l['ocontour'], scan_points[i],False)
+                if len(traces): break
+
+            if len(traces) == 0:
+                l['line-scan-attempt'] = 1
+                continue
+
+        l['line-scan-attempt'] = scantype + 1
+
+        l['traces'] = (traces,startpoints)
+
+        ests = []
+        for i in range(0, len(traces)):
+            tset = traces[i]
+            pts = np.array([t[0] for t in tset])
+            startp = startpoints[i]
+            line_est = estimate_line(pts,startp)
+            ests.append(line_est)
+
+        oldim = np.copy(l['img'])
+
+        # Sort from max to least so that larger features will include small ones
+        ests = sorted(ests, key = lambda x: line_len(x[0]), reverse = True)
+        l['line-estimates'] = ests
+        features = []
+        for e in ests:
+            new_features = get_pixels_following_line(oldim,e)
+            print(len(new_features),'features')
+            features += new_features
+            if len(new_features):
+                newim = np.zeros(oldim.shape,dtype=np.uint8) + 255
+                for feat in new_features:
+                    for x,y in feat:
+                        # remove from old image
+                        oldim[y,x] = 255
+                        # add to extracted image
+                        newim[y,x] = 0
+                newims.append(wrap_image(newim,l))
+
+        if len(features):
+            oldims.append(wrap_image(oldim,l))
+        else:
+            oldims.append(l)
+
+        l['features'] = features
+
+    return newims,oldims
+#def extract_line_features(line):
+    #oldim = 
+    #for feature in line['features']:
+        #newim = np.zeros()
+def assign_best_fit_lines(lines):
     for x in lines:
-        #x['target'] = False
-        x['target'] = True
-        x['traces'] = get_partial_lines_from_contour(x['ocontour'])
-        #print(x['traces'][1])
-    #lines[1]['target'] = True
-    #lines[1]['traces'] = get_partial_lines_from_contour(lines[1]['ocontour'])
+        pts = np.argwhere(x['img'] == 0)
+        #print(pts)
+        l = estimate_line(pts)[0]
+        x['line'] = np.array(((l[0][1],l[0][0],),(l[1][1],l[1][0],)))
 
 # line of best fit to set of contour points
-def estimate_lines(lines):
-    for x in lines:
-        ests = []
-        for i,tset in enumerate(x['traces'][0]):
-            pts = np.array([t[0] for t in tset])
-            line = cv2.fitLine(pts,cv2.DIST_L12,0,.01,.01)
-            xlim1,ylim1,xlim2,ylim2 = cv2.boundingRect(pts)
-            xlim2+=xlim1
-            ylim2+=ylim1
-            vx,vy,x0,y0 = line
-            m = vy[0]/vx[0]
-            b = y0[0] - m*x0[0]
+def estimate_line(pts, startp=None):
+    line = cv2.fitLine(pts,cv2.DIST_L12,0,.01,.01)
+    xlim1,ylim1,xlim2,ylim2 = cv2.boundingRect(pts)
+    xlim2+=xlim1
+    ylim2+=ylim1
+    vx,vy,x0,y0 = line
+    m = vy[0]/vx[0]
+    b = y0[0] - m*x0[0]
 
-            y2 = m * xlim2 + b
-            y1 = m * xlim1 + b
-            if abs(y2-y1) < (ylim2 - ylim1):
-                p1 = (int(xlim1), int(y1))
-                p2 = (int(xlim2), int(y2))
-            else:
-                x1 = (ylim1 - b)/m
-                x2 = (ylim2 - b)/m
-                p1 = (int(x1), int(ylim1))
-                p2 = (int(x2), int(ylim2))
-            
-            startp = x['traces'][1][i]
+    y2 = m * xlim2 + b
+    y1 = m * xlim1 + b
+    if abs(y2-y1) < (ylim2 - ylim1):
+        p1 = (int(xlim1), int(y1))
+        p2 = (int(xlim2), int(y2))
+    else:
+        x1 = (ylim1 - b)/m
+        x2 = (ylim2 - b)/m
+        p1 = (int(x1), int(ylim1))
+        p2 = (int(x2), int(ylim2))
 
-            # first point shall be "start of line"
-            if line_len((startp,p1)) > line_len((startp,p2)):
-                ests.append([(p2,p1),m,b,False])
-            else:
-                ests.append([(p1,p2),m,b,False])
+    if startp is None:
+        return [(p1,p2),m,b,False]
+    
+    # first point shall be "start of line"
+    if line_len((startp,p1)) > line_len((startp,p2)):
+        #ests.append([(p2,p1),m,b,False])
+        return [(p2,p1),m,b,False]
+    else:
+        return [(p1,p2),m,b,False]
 
-        x['line-estimates'] = ests
+def infinity_line(l):
+    p1,p2 = l
+    if (p2[0]-p1[0]) == 0:
+        m = 100
+    else:
+        m = (p2[1]-p1[1])/(p2[0]-p1[0])
 
-def extend_estlines(lines):
+    b = p1[1] - m*p1[0]
+
+    p1 = (1000 * -m, int(m * 1000 * -m + b))
+    p2 = (1000 * m, int(m * 1000 * m + b))
+
+    return np.array((p1,p2))
+
+
+
+def get_pixels_following_line(img,est):
     def addpixlocs(img, tmplocs, it, dim, inc):
-        try:
+        #try:
             dimp = (dim + 1) & 1
             k = 1 if inc > 0 else 0
 
@@ -766,89 +846,88 @@ def extend_estlines(lines):
                     del tmplocs[:]
                     return k
             return k
-        except Exception as e:
-            print(e)
-            save(img,'output.png')
-            sys.exit(1)
+        #except Exception as e:
+            #print(e)
+            #save(img,'output.png')
+            #sys.exit(1)
 
-    for l in lines:
-        img = l['img']
-        ests = l['line-estimates']
-        alllocs = []
-        for i in range(0,len(ests)):
-            start = ests[i][0][0]
-            end = ests[i][0][1]
-            m = ests[i][1]
-            b = ests[i][2]
+    alllocs = []
+    start = est[0][0]
+    end = est[0][1]
+    m = est[1]
+    b = est[2]
 
-            goup = (start[1] > end[1])
-            goright = (start[0] < end[0])
-            isvert = (abs(m)>1)
+    goup = (start[1] > end[1])
+    goright = (start[0] < end[0])
+    isvert = (abs(m)>1)
 
-            it = np.copy(start)
+    it = np.copy(start)
+    lastlen = 0
+    count = 0
+    gapdist = 0
+    linelocs = []
+    ksums = []
+    lastcount = 0
+
+    for j in range(0,int(line_len(((0,0),img.shape)))):
+        if it[1] < 0 or it[1] >= img.shape[0]:
+            break
+        if it[0] < 0 or it[0] >= img.shape[1]:
+            break
+
+        # go left
+        tmplocs = []
+        dim = 0 if isvert else 1
+        k1 = addpixlocs(img,tmplocs,it,dim,-1)
+       
+        if k1 < 4:
+            # go right
+            k2 = addpixlocs(img,tmplocs,it,dim,1)
+            linelocs += tmplocs
+            ksums.append(k1+k2)
+
+        if len(tmplocs):
+            lastlen = 1
+            count += 1
+            gapdist = 0
+        else:
+            if lastlen:
+                if count > 10 or (lastcount > 10 and gapdist < 5 and count):
+                #if count > 10 :
+                    metric = len(set(ksums))/float(len(ksums))
+                    #print('metric: ',metric)
+                    #print('unique: %d, len: %d' % (len(set(ksums)),len(ksums)))
+                    #mod = stats.mode(ksums)
+                    #print('mode: %d, count: %d' % (mod[0], mod[1]))
+
+                    if metric < .3: # TODO normalize
+                        alllocs.append(linelocs)
+                if len(alllocs) == 0:
+                    print('possible 2segmenter here!')
+
+                linelocs = []
+                ksums = []
             lastlen = 0
+            lastcount = count
             count = 0
-            linelocs = []
-            ksums = []
+            gapdist += 1
 
-            for j in range(0,int(line_len(((0,0),img.shape)))):
-                if it[1] < 0 or it[1] >= img.shape[0]:
-                    break
-                if it[0] < 0 or it[0] >= img.shape[1]:
-                    break
+        # vert
+        if isvert:
+            if goup:
+                it[1] -= 1
+            else:
+                it[1] += 1
 
+            it[0] = int(((it[1] - b) / m))
 
-                # go left
-                tmplocs = []
-                dim = 0 if isvert else 1
-                k1 = addpixlocs(img,tmplocs,it,dim,-1)
-               
-                if k1 < 4:
-                    # go right
-                    k2 = addpixlocs(img,tmplocs,it,dim,1)
-                    linelocs += tmplocs
-                    ksums.append(k1+k2)
+        else:
 
-                if len(tmplocs):
-                    lastlen = 1
-                    count += 1
-                else:
-                    if lastlen:
-                        if count > 10:
-                            metric = len(set(ksums))/float(len(ksums))
-                            #print('metric: ',metric)
-                            #print('unique: %d, len: %d' % (len(set(ksums)),len(ksums)))
-                            #mod = stats.mode(ksums)
-                            #print('mode: %d, count: %d' % (mod[0], mod[1]))
+            if goright:
+                it[0] += 1
+            else:
+                it[0] -= 1
+            it[1] = int((it[0] * m + b))
 
-                            if metric < .3: # TODO normalize
-                                alllocs += linelocs
-
-                        linelocs = []
-                        ksums = []
-                    lastlen = 0
-                    count = 0
-
-                # vert
-                if isvert:
-                    if goup:
-                        it[1] -= 1
-                    else:
-                        it[1] += 1
-
-                    it[0] = int((it[1] - b) / m)
-
-                else:
-
-                    if goright:
-                        it[0] += 1
-                    else:
-                        it[0] -= 1
-                    it[1] = int(it[0] * m + b)
-
-
-        l['locs'] = alllocs
-
-    return lines
-
+    return alllocs
 

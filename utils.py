@@ -29,7 +29,13 @@ def wrap_image(im,parent=None,offset=None):
             'length-area-ratio':0,
             'vertical':0,
             'sum':{'score':0.0, 'distinct':0, 'mode':[0,0], 'sum':[]},
-            'rotated': False
+            'rotated': False,
+
+            'line-scan-attempt': 0,
+            'line-estimates':[],
+            'features':[],
+            'traces':[],
+
             }
 
     counter = counter + 1

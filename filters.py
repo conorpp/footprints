@@ -54,7 +54,7 @@ def pass_lines(rects):
 
 def contains_line(spec):
     s = spec['sum']
-    return len(s['sum'])/s['mode'][0] > 15
+    return s['mode'][0] and (len(s['sum'])/s['mode'][0] > 15)
 
 def pass_potential_lines(inp):
     lines = []
