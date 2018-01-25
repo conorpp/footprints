@@ -153,7 +153,6 @@ def rect_confidence(im,con):
             lines.append(1.0 - float(s)/l)
 
     return np.array(lines)
-    #return 1.0-float(s1+s2+s3+s4)/(l1+l2+l3+l4+1)
 
 def circle_confidence(im,con):
     mask = np.zeros(im.shape[:2],np.uint8)
