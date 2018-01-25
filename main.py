@@ -34,7 +34,8 @@ def arguments():
     parser = argparse.ArgumentParser(description='drawing parser',
             epilog='extra annotations: ocontour,brect,rect,line,tri,circle,ocr\n')
     parser.add_argument('input_file')
-    parser.add_argument('--all',help='use all features for operation')
+    parser.add_argument('--all', action='store_true',help='use all features for operation')
+    parser.add_argument('--out', action='store_true',help='display outter contours for targets')
     parser.add_argument('--action', action='store',default='display',
             help='specify action to use on output. display[default],binary,redraw,none')
     parser.add_argument('--save-features', action='store_true', dest='save_features',
@@ -52,6 +53,8 @@ def arguments():
     parser.add_argument('-L', action='store_true',help='lines')
     parser.add_argument('-O', action='store_true',help='OCR')
     parser.add_argument('-X', action='store_true',help='leftovers')
+    
+    parser.add_argument('--bare', action='store_true',help='dont annotate targets')
 
     parser.add_argument('--save-type', default='large', action='store', dest='save_type',help='small,large,outlined')
     parser.add_argument('--bg', action='store_true', help='use original image as background for --save-type')
@@ -63,59 +66,77 @@ def arguments():
     return args
 
 def do_outputs(orig,outs):
+
+    args = arguments()
+
     print('%d triangles' % len(outs['triangles']))
     print('%d rectangles' % len(outs['rectangles']))
     print('%d OCR' % len(outs['ocr']))
     print('%d lines' % len(outs['lines']))
     print('%d leftover' % len(outs['leftover']))
+    for x in outs['leftover']:
+        x['type'] = 'leftover'
+    for x in outs['rectangles']:
+        x['type'] = 'rectangle'
+    for x in outs['triangles']:
+        x['type'] = 'triangle'
+    for x in outs['lines']:
+        x['type'] = 'line'
+    for x in outs['ocr']:
+        x['type'] = 'ocr'
+    for x in outs['circles']:
+        x['type'] = 'circle'
 
-    args = arguments()
-
-    def put_thing(im, x, color, offset=None):
+    def put_thing(im, x, color, offset=None, thickness = 1):
         if offset is not None: offset = tuple(offset)
-        cv2.drawContours(im,[x],0,color,1, offset=offset)
+        cv2.drawContours(im,[x],0,color,thickness, offset=offset)
 
-    def put_triangle(im, tri, offset=None):
-        put_thing(im,tri['triangle'],[0,0,255],offset)
+    def put_features(im, feats):
+        for x in feats:
+            if x['type'] == 'rectangle':
+                put_thing(im, x['rectangle'], [255,0,255], x['offset'])
+            elif x['type'] == 'triangle':
+                put_thing(im, x['triangle'], [0,0,255], x['offset'])
+            elif x['type'] == 'circle':
+                off = x['offset']
+                xp = off[0] + x['circle'][0][0]
+                yp = off[1] + x['circle'][0][1]
+                cv2.circle(im,(xp,yp),x['circle'][1],(255,0x8c,0),2 )
+            elif x['type'] == 'ocr':
+                put_thing(im, x['ocontour'], [0,255,255], x['offset'], 2)
+            elif x['type'] == 'line':
+                put_thing(im, x['line'], [0,128,0], x['offset'], 2)
+            elif x['type'] == 'leftover':
+                put_thing(im, x['ocontour'], [255,0,0], x['offset'])
+            else:
+                raise RuntimeError('Unclassified feature')
 
-    def put_triangles(im,triangles):
-        for x in triangles:
-            offset = tuple(x['offset'])
-            put_triangle(im,x,offset)
-    
-    def put_rectangles(im,rectangles):
-        for x in rectangles:
-            offset = tuple(x['offset'])
-            cv2.drawContours(im,[x['rectangle']],0,[255,0,255],1, offset=offset)
+    def put_outlines(im, feats):
+        for x in feats:
+            put_thing(im, x['ocontour'], [255,0,0], x['offset'])
 
-    def put_lines(im,lines):
-        for x in lines:
-            offset = tuple(x['offset'])
-            cv2.drawContours(im,[x['line']],0,[0,128,0],2, offset=offset)
-
-    def put_ocr(im,ocr):
-        for x in ocr:
-            offset = tuple(x['offset'])
-            cv2.drawContours(im,[x['ocontour']],0,[0,255,255],2, offset=offset)
-
-    def put_circles(im,circles):
-        for x in circles:
-            offset = x['offset']
-            off = offset
-            xp = off[0] + x['circle'][0][0]
-            yp = off[1] + x['circle'][0][1]
-            cv2.circle(im,(xp,yp),x['circle'][1],(255,0x8c,0),2 )
-
-    def put_leftover(im,circles):
-        for x in leftover:
-            offset = tuple(x['offset'])
-            cv2.drawContours(im,[x['ocontour']],0,[255,0,0],1, offset=offset)
 
     def save_things(things,bname='im',path='./out'):
         for i,x in enumerate(things):
             n = path +'/' + bname+('%d.png' % (i))
             print('saving ',n)
             save(x,n)
+
+    target_list = []
+    if args.t or args.all:
+        target_list += outs['triangles']
+    if args.r or args.all:
+        target_list += outs['rectangles']
+    if args.c or args.all:
+        target_list += outs['circles']
+    if args.l or args.all:
+        target_list += outs['lines']
+    if args.o or args.all:
+        target_list += outs['ocr']
+    if args.x or args.all:
+        target_list += outs['leftover']
+
+
     
     if args.action == 'display':
         pass
@@ -123,22 +144,23 @@ def do_outputs(orig,outs):
         orig = polarize(orig)
         orig = color(orig)
     elif args.action == 'redraw':
+        orig = np.zeros(orig.shape, dtype=np.uint8)+255
+        for x in target_list:
+            oldim = x['img']
+            oj,oi = x['offset']
+            for i in range(0,oldim.shape[0]):
+                for j in range(0,oldim.shape[1]):
+                    v = oldim[i,j]
+                    orig[i+oi,j+oj] = v
+
+
         pass #TODO
 
-    if args.action != 'none':
-        if args.t:
-            put_triangles(orig, outs['triangles'])
-        if args.r:
-            put_rectangles(orig, outs['rectangles'])
-        if args.c:
-            put_circles(orig, outs['circles'])
-        if args.l:
-            put_lines(orig, outs['lines'])
-        if args.o:
-            put_ocr(orig, outs['ocr'])
-        if args.x:
-            put_leftover(orig, outs['leftover'])
+    if args.action != 'none' and not args.bare:
+        put_features(orig,target_list)
 
+    if args.out:
+        put_outlines(orig,target_list)
 
     saving_list = []
     if args.T:

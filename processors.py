@@ -258,19 +258,6 @@ def extract_components(arrs):
         #track_map = np.zeros(img.shape[:2],dtype=np.uint8)
         _submaps = get_isolated_images(img)
         submaps += [wrap_image(x[0],arr,x[1]) for x in _submaps]
-        #for i in range(0,img.shape[0]):
-            #for j in range(0,img.shape[1]):
-                #if img[i][j] == 0:
-                    #if not track_map[i,j]:
-                        #track_map[i,j] = 1
-                        #submap = explore(img,i,j)
-                        #track_map += submap
-                        #def mapping2greyscale(mapping):
-                            #mapping = np.array((mapping == 0) * 255, dtype=np.uint8)
-                            #return mapping
-                        #submap = mapping2greyscale(submap)
-                        #submap = wrap_image(submap,arr)
-                        #submaps.append( submap )
 
     return submaps
 
@@ -333,11 +320,13 @@ def get_isolated_images(arr):
         if y<0: 
             y=0
 
+        if i == 85:
+            print('insides',len(insides))
         #print(y,x,w,h)
         trim = arr[y:y+h,x:x+w]
         newim = np.zeros((h,w),dtype=np.uint8)
         mask = np.zeros((h,w),dtype=np.uint8)+1
-        cv2.fillPoly(mask,pts = [c] + insides, color=0, offset=(-x,-y), lineType=4)
+        cv2.fillPoly(mask,pts = [c] + insides, color=0, offset=(-x,-y), lineType=8)
         #print(trim,y,x,w,h)
         #try:
         newim = (255 - (trim == mask)*255).astype(np.uint8)
@@ -345,7 +334,7 @@ def get_isolated_images(arr):
             #save(arr,'output.png')
             #sys.exit(1)
         offset = [x,y]
-        iso.append((newim,offset))
+        iso.append((newim,offset,c))
 
     return iso
 
@@ -477,77 +466,6 @@ def smooth_avg(y, window):
     box = np.ones(window)/window
     y_smooth = np.convolve(y, box, mode='same')
     return y_smooth
-def savitzky_golay(y, window_size, order, deriv=0, rate=1):
-    r"""Smooth (and optionally differentiate) data with a Savitzky-Golay filter.
-    The Savitzky-Golay filter removes high frequency noise from data.
-    It has the advantage of preserving the original shape and
-    features of the signal better than other types of filtering
-    approaches, such as moving averages techniques.
-    Parameters
-    ----------
-    y : array_like, shape (N,)
-        the values of the time history of the signal.
-    window_size : int
-        the length of the window. Must be an odd integer number.
-    order : int
-        the order of the polynomial used in the filtering.
-        Must be less then `window_size` - 1.
-    deriv: int
-        the order of the derivative to compute (default = 0 means only smoothing)
-    Returns
-    -------
-    ys : ndarray, shape (N)
-        the smoothed signal (or it's n-th derivative).
-    Notes
-    -----
-    The Savitzky-Golay is a type of low-pass filter, particularly
-    suited for smoothing noisy data. The main idea behind this
-    approach is to make for each point a least-square fit with a
-    polynomial of high order over a odd-sized window centered at
-    the point.
-    Examples
-    --------
-    t = np.linspace(-4, 4, 500)
-    y = np.exp( -t**2 ) + np.random.normal(0, 0.05, t.shape)
-    ysg = savitzky_golay(y, window_size=31, order=4)
-    import matplotlib.pyplot as plt
-    plt.plot(t, y, label='Noisy signal')
-    plt.plot(t, np.exp(-t**2), 'k', lw=1.5, label='Original signal')
-    plt.plot(t, ysg, 'r', label='Filtered signal')
-    plt.legend()
-    plt.show()
-    References
-    ----------
-    .. [1] A. Savitzky, M. J. E. Golay, Smoothing and Differentiation of
-       Data by Simplified Least Squares Procedures. Analytical
-       Chemistry, 1964, 36 (8), pp 1627-1639.
-    .. [2] Numerical Recipes 3rd Edition: The Art of Scientific Computing
-       W.H. Press, S.A. Teukolsky, W.T. Vetterling, B.P. Flannery
-       Cambridge University Press ISBN-13: 9780521880688
-    """
-    import numpy as np
-    from math import factorial
-    
-    try:
-        window_size = np.abs(np.int(window_size))
-        order = np.abs(np.int(order))
-    except ValueError as msg:
-        raise ValueError("window_size and order have to be of type int")
-    if window_size % 2 != 1 or window_size < 1:
-        raise TypeError("window_size size must be a positive odd number")
-    if window_size < order + 2:
-        raise TypeError("window_size is too small for the polynomials order")
-    order_range = range(order+1)
-    half_window = (window_size -1) // 2
-    # precompute coefficients
-    b = np.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
-    m = np.linalg.pinv(b).A[deriv] * rate**deriv * factorial(deriv)
-    # pad the signal at the extremes with
-    # values taken from the signal itself
-    firstvals = y[0] - np.abs( y[1:half_window+1][::-1] - y[0] )
-    lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
-    y = np.concatenate((firstvals, y, lastvals))
-    return np.convolve( m[::-1], y, mode='valid')
 
 # requires contours to all be pixel-to-pixel
 def get_partial_lines_from_contour(contour, center=None, headstart=True):
@@ -973,4 +891,45 @@ def get_pixels_following_line(img,est):
             it[1] = int((it[0] * m + b))
 
     return alllocs
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print('usage: %s <input.png>' % sys.argv[0])
+        sys.exit(1)
+    arr = load_image(sys.argv[1])
+    if len(arr.shape) > 2:
+        arr = polarize(arr)
+ 
+    print(arr.shape)
+
+    wtfwhy = np.array(np.copy(arr).tolist(),dtype=np.uint8)
+    mat, contours, hier = cv2.findContours(wtfwhy, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    ims = get_isolated_images(arr)
+
+
+    orig = np.zeros(arr.shape, dtype=np.uint8)+255
+    for i,x in enumerate(ims):
+        oldim = x[0]
+        oj,oi = x[1]
+        for i in range(0,oldim.shape[0]):
+            for j in range(0,oldim.shape[1]):
+                v = oldim[i,j]
+                orig[i+oi,j+oj] = v
+
+        save(oldim,'out/im%d.png' % (i))
+
+    orig = color(orig)
+
+
+    print(len(contours),'contours')
+    print(len(ims),'islands')
+    for i,x in enumerate(ims):
+        x = x[2]
+        if i in range(85,85+1):
+            cv2.drawContours(orig,[x],0,[255,0,0],1)
+        #if i in range(81,82):
+            #cv2.drawContours(orig,[x],0,[255,0,0],1)
+
+    save(orig,'output.png')
 

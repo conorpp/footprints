@@ -542,6 +542,8 @@ def separate_grouped_rectangles(arr, rectangles, *args):
                     cv2.drawContours(y,[inner],0,[255,255,255],1)
 
 def separate_largest_rectangle(arr, rectangles, *args):
+    if not len(rectangles):
+        return
     r = max(rectangles, key = lambda x : rect_area(x))
     #print(r)
     outer = analyzers.get_outer_rect(arr,r)
