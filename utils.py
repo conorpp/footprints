@@ -143,8 +143,17 @@ def trace_sum(im,contour):
     return total, len(pixelpoints)
 
 def rect_confidence(im,con):
-    s,t = trace_sum(im,con)
-    return float(s)/t
+    lines = []
+
+    for i in range(0,4):
+        s,l = line_sum(im,con[0+i:2+i]), line_len(con[0+i:2+i])
+        if l == 0:
+            lines.append(0.0)
+        else:
+            lines.append(1.0 - float(s)/l)
+
+    return np.array(lines)
+    #return 1.0-float(s1+s2+s3+s4)/(l1+l2+l3+l4+1)
 
 def circle_confidence(im,con):
     mask = np.zeros(im.shape[:2],np.uint8)

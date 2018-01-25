@@ -16,7 +16,7 @@ def pass_rectangles(rects):
     left = []
     for x in rects:
         if x['area-ratio'] > 0.001:
-            if x['conf'] > .95:
+            if (x['conf'] > .95).all():
                 filtered.append(x)
             else:
                 left.append(x)
