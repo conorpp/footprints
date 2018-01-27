@@ -141,6 +141,7 @@ def analyze_rectangle(arr):
         x,y,w,h = cv2.boundingRect(contours[1])
         arr['width'] = w
         arr['height'] = h
+        arr['boundxy'] = (x,y)
 
     else: 
         print('warning, no contours')
@@ -503,11 +504,13 @@ def analyze_circle(arr):
         pts = []
         for i in range(0,12):
             v = 2*math.pi * i/12.
-            t = (cv2.pointPolygonTest(c, (x + math.cos(v) * r,y + math.sin(v) * r), 0) > 0 )
+            pt = (x + math.cos(v) * r,y + math.sin(v) * r)
+            t = (cv2.pointPolygonTest(c, pt, 0) > 0 )
+            pts.append(pt)
             if t:
                 total += 1
 
-        return total
+        return total,pts
 
     arr['circle'] = [(0,0),1]
     arr['circle-conf'] = 0
@@ -517,16 +520,20 @@ def analyze_circle(arr):
         y = int((squ[0][1] + squ[1][1])/2)
         if (cv2.pointPolygonTest(c, (x,y), 0) > 0 ):
             r = 1
-            pts1 = inside_circle(c,(x,y),r)
+            pts1,contour = inside_circle(c,(x,y),r)
             pts2 = 1
             while pts2:
                 r += 1
-                pts2 = inside_circle(c,(x,y),r)
+                pts2,contour = inside_circle(c,(x,y),r)
                 if pts2 < pts1:
                     break
             r -= 1
             cir = [(x,y),r]
+            contour.append(contour[0])
             arr['circle'] = cir
+            #ar'circle-contour'] = np.array(contour, dtype=np.uint8)
+            arr['circle-contour'] = np.array(contour, dtype=np.int32)
+            #print(arr['circle-contour'])
             arr['circle-conf'] = circle_confidence(arr['img'],cir)
 
 def analyze_circles(inp):

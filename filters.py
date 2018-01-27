@@ -1,4 +1,4 @@
-import sys,os,json,argparse
+import sys,os,json,argparse,math
 from PIL import Image, ImageDraw
 
 import numpy as np
@@ -75,7 +75,7 @@ def block_dots(fresh):
             good.append(x)
     return good
 
-def pass_triangles(inp):
+def pass_triangles(inp, bim = None):
     tris = []
     notris = []
     dim = min(analyzers.PARAMS['imageh'],analyzers.PARAMS['imagew'])/2
@@ -107,11 +107,22 @@ def pass_slashes(inp):
             nope.append(x)
     return slash,nope
 
+def count_black_circle(im,c):
+    #newim = np.zeros(im.shape,dtype=np.uint8) + 255
+    mask = np.zeros(im.shape,dtype=np.uint8)
+    cv2.fillPoly(mask, [c], color=255, lineType=4)
+    return count_black(0==((im==0) & mask))
+    
+
 def pass_circles(inp):
     good = []
     bad = []
     for x in inp:
-        if x['circle-conf'] > .94 and (x['circle'][1] > 4):
+        #print(x['circle'])
+        area = x['circle'][1]**2 * math.pi
+        if x['circle-conf'] > .94 and (x['circle'][1] > 4) and (count_black_circle(x['img'], x['circle-contour'])/area < .9):
+            #and (count_black_circle(x['img'], x['circle-contour'])/area < .5):
+            print( count_black_circle(x['img'], x['circle-contour']),area)
             good.append(x)
         else:
             bad.append(x)
