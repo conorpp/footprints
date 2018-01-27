@@ -64,20 +64,54 @@ def main():
     rectangles += r
     leftover += l
 
+    ## OCR
+    analyze_ocr(leftover)
+    ocr, leftover = pass_ocr(leftover)
 
-    #analyze_lines(leftover)
-    #r,l = pass_lines(leftover)
-    #lines += r
-    #leftover += l
+    # check orientations
+    rotate_right(leftover)
+    analyze_ocr(leftover)
+    ocr2, leftover = pass_ocr(leftover)
+    ocr += ocr2
 
-    newlines,leftover = find_line_features(leftover)
-    line_submaps = extract_features(newlines)
-    assign_best_fit_lines(line_submaps)
-    lines += line_submaps
+    rotate_left(ocr2)
+    rotate_left(leftover)
+    #
+    ## OCR is pretty greedy so still consider it for lines
+    leftover += ocr
+    ##
 
-    leftover = extract_features(leftover)
-    leftover = block_dots(leftover)
-    analyze_rectangles(leftover)
+    analyze_circles(leftover)
+    circles,leftover = pass_circles(leftover)
+
+
+
+
+    # greedily churn out the lines
+    while True:
+        analyze_lines(leftover)
+        r,l = pass_lines(leftover)
+        lines += r
+        leftover += l
+
+        newlines,leftover = find_line_features(leftover)
+        if len(newlines) == 0:
+            break
+        print(len(newlines),'new lines')
+
+        line_submaps = extract_features(newlines)
+        assign_best_fit_lines(line_submaps)
+        lines += line_submaps
+
+        leftover = extract_features(leftover)
+        leftover = block_dots(leftover)
+
+        analyze_rectangles(leftover)
+
+
+
+    analyze_triangles(leftover)
+    triangles,leftover = pass_triangles(leftover, arr)
 
 
 

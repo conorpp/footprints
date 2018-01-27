@@ -855,7 +855,7 @@ def get_pixels_following_line(img,est):
             gapdist = 0
         else:
             if lastlen:
-                if count > 10 or (lastcount > 10 and gapdist < 5 and count):
+                if count > 3:
                 #if count > 10 :
                     metric = len(set(ksums))/float(len(ksums))
                     #print('metric: ',metric)

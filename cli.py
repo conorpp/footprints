@@ -74,6 +74,7 @@ def do_outputs(orig,outs):
         cv2.drawContours(im,[x],0,color,thickness, offset=offset)
 
     def put_features(im, feats):
+
         for x in feats:
             if x['type'] == 'rectangle':
                 put_thing(im, x['rectangle'], [255,0,255], x['offset'])
@@ -84,14 +85,17 @@ def do_outputs(orig,outs):
                 xp = off[0] + x['circle'][0][0]
                 yp = off[1] + x['circle'][0][1]
                 cv2.circle(im,(xp,yp),x['circle'][1],(255,0x8c,0),2 )
-            elif x['type'] == 'ocr':
-                put_thing(im, x['ocontour'], [0,255,255], x['offset'], 2)
             elif x['type'] == 'line':
                 put_thing(im, x['line'], [0,128,0], x['offset'], 2)
             elif x['type'] == 'leftover':
                 put_thing(im, x['ocontour'], [255,0,0], x['offset'])
+            elif x['type'] == 'ocr':
+                pass
             else:
                 raise RuntimeError('Unclassified feature')
+        for x in feats:
+            if x['type'] == 'ocr':
+                put_thing(im, x['ocontour'], [0,255,255], x['offset'], 1)
 
     def put_outlines(im, feats):
         for x in feats:
@@ -179,6 +183,8 @@ def do_outputs(orig,outs):
 
 
     if args.save_features:
+        if args.O:
+            save_things(outs['ocr'], 'ocr')
         if args.T:
             save_things(outs['triangles'], 'tri')
         if args.R:
@@ -187,8 +193,6 @@ def do_outputs(orig,outs):
             save_things(outs['circles'], 'cir')
         if args.L:
             save_things(outs['lines'], 'l')
-        if args.O:
-            save_things(outs['ocr'], 'ocr')
         if args.X:
             save_things(outs['leftover'], 'leftover')
 
