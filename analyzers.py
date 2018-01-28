@@ -494,37 +494,38 @@ def get_mode_locations(y,val):
                 start = None
     return locs
 
+def circle_in_contour(c,p,r):
+    total = 0
+    x = p[0]
+    y = p[1]
+    pts = []
+    for i in range(0,12):
+        v = 2*math.pi * i/12.
+        pt = (x + math.cos(v) * r,y + math.sin(v) * r)
+        t = (cv2.pointPolygonTest(c, pt, 0) > 0 )
+        pts.append(pt)
+        if t:
+            total += 1
+
+    return total,pts
+
 def analyze_circle(arr):
     squ = arr['contour']
     c = arr['ocontour']
-    def inside_circle(c,p,r):
-        total = 0
-        x = p[0]
-        y = p[1]
-        pts = []
-        for i in range(0,12):
-            v = 2*math.pi * i/12.
-            pt = (x + math.cos(v) * r,y + math.sin(v) * r)
-            t = (cv2.pointPolygonTest(c, pt, 0) > 0 )
-            pts.append(pt)
-            if t:
-                total += 1
-
-        return total,pts
 
     arr['circle'] = [(0,0),1]
     arr['circle-conf'] = 0
 
-    if (type(squ) != type(0)):
+    if len(squ):
         x = int((squ[0][0] + squ[2][0])/2)
         y = int((squ[0][1] + squ[1][1])/2)
         if (cv2.pointPolygonTest(c, (x,y), 0) > 0 ):
             r = 1
-            pts1,contour = inside_circle(c,(x,y),r)
+            pts1,contour = circle_in_contour(c,(x,y),r)
             pts2 = 1
             while pts2:
                 r += 1
-                pts2,contour = inside_circle(c,(x,y),r)
+                pts2,contour = circle_in_contour(c,(x,y),r)
                 if pts2 < pts1:
                     break
             r -= 1

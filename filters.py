@@ -11,18 +11,36 @@ from utils import *
 from analyzers import *
 
 
-def pass_rectangles(rects):
+def pass_rectangles(rects,sides=4):
     filtered = []
     left = []
     for x in rects:
+        #print(x['area-ratio'])
         if x['area-ratio'] > 0.001:
-            if (x['conf'] > .95).all():
+            #print(x['conf'])
+            if np.sum(x['conf'] > .95) >= sides:
                 filtered.append(x)
             else:
                 left.append(x)
         else:
             left.append(x)
     return filtered,left
+
+def pass_semi_rectangles(rects):
+    filtered = []
+    left = []
+    for x in rects:
+        #print(x['area-ratio'])
+        if x['area-ratio'] > 0.001:
+            #print(x['conf'])
+            if np.sum(x['conf'] > .95) == 3 and x['semi-circle-conf']>.45: #(.49 for half a circle)
+                filtered.append(x)
+            else:
+                left.append(x)
+        else:
+            left.append(x)
+    return filtered,left
+
 
 def pass_potential_rectangles(rects):
     filtered = []
@@ -122,7 +140,7 @@ def pass_circles(inp):
         area = x['circle'][1]**2 * math.pi
         if x['circle-conf'] > .94 and (x['circle'][1] > 4) and (count_black_circle(x['img'], x['circle-contour'])/area < .9):
             #and (count_black_circle(x['img'], x['circle-contour'])/area < .5):
-            print( count_black_circle(x['img'], x['circle-contour']),area)
+            #print( count_black_circle(x['img'], x['circle-contour']),area)
             good.append(x)
         else:
             bad.append(x)

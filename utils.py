@@ -14,7 +14,7 @@ def wrap_image(im,parent=None,offset=None):
             'area-ratio':0,     # a1/a2
             'a1':0,             # number of pixels in contour
             'a2':0,             # number of pixels
-            'contour':0,        # inside rectangle growth
+            'contour':[],        # inside rectangle growth
             'offset':[0,0],    # offset with respect to parent
             'img': im,          # image
             'height': 1,        # bounding rect height and width
@@ -114,6 +114,11 @@ def still_inside(c,p1,p2):
     with_mid = corners and (cv2.pointPolygonTest(c, p3,0) > 0 )
     return with_mid
 
+def point_in_contour(c,p):
+    return cv2.pointPolygonTest(c, p,0) > 0
+
+
+
 def centroid(c):
     moms = cv2.moments(c)
     x = int(moms['m10']/moms['m00'])
@@ -146,7 +151,7 @@ def rect_confidence(im,con):
     lines = []
 
     for i in range(0,4):
-        s,l = line_sum(im,con[0+i:2+i]), line_len(con[0+i:2+i])
+        s,l = line_sum(im,con[0+i:2+i])/255, line_len(con[0+i:2+i])
         if l == 0:
             lines.append(0.0)
         else:

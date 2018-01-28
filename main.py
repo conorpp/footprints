@@ -1,5 +1,6 @@
 import sys,os,json,argparse
 from PIL import Image, ImageDraw
+from collections import deque
 
 import numpy as np
 import cv2
@@ -42,6 +43,102 @@ def init(input_file):
     arr = wrap_image(arr)
     return arr,orig
 
+# grow a maximum circle starting from a line in a outer contour
+def grow_semi_circle(outside,side,dim,direc):
+    pt = [round((side[0][0]+side[1][0])/2), round((side[0][1]+side[1][1])/2)]
+
+    while point_in_contour(outside,tuple(pt)):
+        pt[dim] += direc
+
+    pt[dim] -= direc*4
+
+    r = 1
+    total,circle = circle_in_contour(outside,pt,r)
+    first_total = total
+    while total == first_total:
+        # grow the circle
+        while total == first_total:
+            total,circle = circle_in_contour(outside,pt,r)
+            r += 1
+        # move the circle
+        pt[dim] -= direc*2
+        total,circle = circle_in_contour(outside,pt,r)
+
+
+    # take back the overstep
+    pt[dim] += direc
+    r -= 2
+    pt = [int(round(pt[0])), int(round(pt[1]))]
+
+    return pt,r
+
+
+
+def analyze_semi_rects(orig,rects):
+    orig = color(polarize(np.copy(orig)))
+
+
+    # right, top, left, bottom
+    # dim, dir
+    lut = [(0,1), (1,-1), (0,-1), (1,1)]
+
+    for x in rects:
+
+        # right, top, left, bottom
+        for i,val in enumerate(x['conf']):
+            if val > .94: # TODO centralize this value
+                continue
+            rect = x['contour']
+            outside = x['ocontour']
+            side = rect[0+i:2+i]
+            dim,direc = lut[i]
+            
+            pt,r = grow_semi_circle(outside,side,dim,direc)
+
+            cconf = circle_confidence(x['img'], (tuple(pt),r))
+
+            # there's half a circle there, stop
+            if cconf > .45:
+                #print('circle conf',cconf)
+                pt[0] += x['offset'][0]
+                pt[1] += x['offset'][1]
+                cv2.circle(orig,tuple(pt),r,(255,0x8c,0),1 )
+                pt[0] -= x['offset'][0]
+                pt[1] -= x['offset'][1]
+
+                break
+
+        if cconf > .45:
+            oppside = rect[(2+i)%4:(2+i)%4+2]
+            oppdim = (dim+1)&1
+            xleft =  pt[oppdim] - r+1
+            xright = pt[oppdim] + r-1
+            yval = pt[dim]
+
+
+            oppside[0][oppdim] = xleft
+            oppside[1][oppdim] = xright
+
+            newside = [[xleft,yval],[xright,yval]]
+
+            if i == 0:
+                newrect = [newside[1], newside[0], oppside[0], oppside[1], newside[1]]
+            elif i == 1:
+                newrect = [oppside[1], newside[1], newside[0], oppside[0], oppside[1]]
+            elif i == 2:
+                newrect = [oppside[1], oppside[0], newside[0], newside[1], oppside[1]]
+            elif i == 3:
+                newrect = [newside[1], oppside[1], oppside[0], newside[0], newside[1]]
+
+            x['contour'] = np.array(newrect)
+            x['conf'] = rect_confidence(x['img'], x['contour'])
+
+        x['semi-circle-conf'] = cconf
+        x['semi-circle'] = (pt,r)
+
+
+    save(orig,'output2.png')
+
 def main():
     args = arguments()
 
@@ -77,7 +174,7 @@ def main():
     rotate_left(ocr2)
     rotate_left(leftover)
     #
-    ## OCR is pretty greedy so still consider it for lines
+    ## OCR is pretty greedy so still consider it for everything else
     leftover += ocr
     ##
 
@@ -85,6 +182,15 @@ def main():
     circles,leftover = pass_circles(leftover)
 
 
+    # semi-rects
+    semir,l = pass_rectangles(leftover,0)
+    leftover = l
+    analyze_semi_rects(orig,semir)
+    semir,l = pass_semi_rectangles(semir)
+    rectangles += semir
+    leftover += l
+
+    ##
 
 
     # greedily churn out the lines

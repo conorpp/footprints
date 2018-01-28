@@ -37,6 +37,8 @@ def arguments():
     parser.add_argument('-X', action='store_true',help='leftovers')
     
     parser.add_argument('--bare', action='store_true',help='dont annotate targets')
+    parser.add_argument('--rect', action='store_true',help='put grow rect annotation')
+    parser.add_argument('--rects', type=int,default=None,help='put grow rect side # annotation')
 
     parser.add_argument('--save-type', default='large', action='store', dest='save_type',help='small,large,outlined')
     parser.add_argument('--bg', action='store_true', help='use original image as background for --save-type')
@@ -56,6 +58,8 @@ def do_outputs(orig,outs):
     print('%d OCR' % len(outs['ocr']))
     print('%d lines' % len(outs['lines']))
     print('%d leftover' % len(outs['leftover']))
+    for x in outs['ocr']:
+        x['type'] = 'ocr'
     for x in outs['leftover']:
         x['type'] = 'leftover'
     for x in outs['rectangles']:
@@ -64,8 +68,6 @@ def do_outputs(orig,outs):
         x['type'] = 'triangle'
     for x in outs['lines']:
         x['type'] = 'line'
-    for x in outs['ocr']:
-        x['type'] = 'ocr'
     for x in outs['circles']:
         x['type'] = 'circle'
 
@@ -88,7 +90,7 @@ def do_outputs(orig,outs):
             elif x['type'] == 'line':
                 put_thing(im, x['line'], [0,128,0], x['offset'], 2)
             elif x['type'] == 'leftover':
-                put_thing(im, x['ocontour'], [255,0,0], x['offset'])
+                put_thing(im, x['ocontour'], [255,0,0], x['offset'],1)
             elif x['type'] == 'ocr':
                 pass
             else:
@@ -99,7 +101,7 @@ def do_outputs(orig,outs):
 
     def put_outlines(im, feats):
         for x in feats:
-            put_thing(im, x['ocontour'], [255,0,0], x['offset'])
+            put_thing(im, x['ocontour'], [255,125,0], x['offset'])
 
 
     def save_things(things,bname='im',path='./out'):
@@ -144,6 +146,15 @@ def do_outputs(orig,outs):
 
     if args.action != 'none' and not args.bare:
         put_features(orig,target_list)
+
+        if args.rect or (args.rects is not None):
+            for x in target_list:
+                if len(x['contour']):
+                    # right, top, left, bottom
+                    if args.rects is not None:
+                        put_thing(orig, x['contour'][0+args.rects:2+args.rects], [255,0,0], x['offset'])
+                    else:
+                        put_thing(orig, x['contour'], [255,0,0], x['offset'])
 
     if args.out:
         put_outlines(orig,target_list)
