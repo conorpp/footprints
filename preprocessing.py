@@ -90,26 +90,29 @@ def get_intersects(im,margin1,margin2):
     xlocs = np.split(xlocs, np.where(np.diff(xlocs) != 1)[0]+1)
     tmp = []
     for i,v in enumerate(xlocs):
-        m = 0
-        mi = v[0]
-        for x in v:
-            if y1[x] > m:
-                m = y1[x]
-                mi = x
-        tmp.append(mi)
+        if len(v):
+            m = 0
+            mi = v[0]
+            for x in v:
+                if y1[x] > m:
+                    m = y1[x]
+                    mi = x
+            tmp.append(mi)
     xlocs = tmp
 
     ylocs = np.where(y2f)[0]
     ylocs = np.split(ylocs, np.where(np.diff(ylocs) != 1)[0]+1)
     tmp = []
+    print(ylocs)
     for i,v in enumerate(ylocs):
-        m = 0
-        mi = v[0]
-        for x in v:
-            if y2[x] > m:
-                m = y2[x]
-                mi = x
-        tmp.append(mi)
+        if len(v):
+            m = 0
+            mi = v[0]
+            for x in v:
+                if y2[x] > m:
+                    m = y2[x]
+                    mi = x
+            tmp.append(mi)
     ylocs = tmp
 
     return xlocs,ylocs
@@ -130,8 +133,8 @@ def get_corner_map(arr, xlocs,ylocs):
 
 
 def get_line_map(arr,corner_map,xlocs,ylocs):
-    line_map_h = np.zeros((len(xlocs)-1,len(ylocs)))    # dual of corner map
-    line_map_v  = np.zeros((len(xlocs),len(ylocs)-1))    # dual of corner map
+    line_map_h = np.zeros((max(0,len(xlocs)-1),len(ylocs)))    # dual of corner map
+    line_map_v  = np.zeros((len(xlocs),max(0,len(ylocs)-1)))    # dual of corner map
 
 
     # neighboring black pixel intersects

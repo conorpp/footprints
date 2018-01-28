@@ -28,6 +28,7 @@ def arguments():
     parser.add_argument('-l', action='store_true',help='lines')
     parser.add_argument('-o', action='store_true',help='OCR')
     parser.add_argument('-x', action='store_true',help='leftovers')
+    parser.add_argument('-i', action='store_true',help='irregular shapes')
 
     parser.add_argument('-T', action='store_true',help='triangles (for saving to file..)')
     parser.add_argument('-R', action='store_true',help='rectangles')
@@ -35,6 +36,7 @@ def arguments():
     parser.add_argument('-L', action='store_true',help='lines')
     parser.add_argument('-O', action='store_true',help='OCR')
     parser.add_argument('-X', action='store_true',help='leftovers')
+    parser.add_argument('-I', action='store_true',help='irregular shapes')
     
     parser.add_argument('--bare', action='store_true',help='dont annotate targets')
     parser.add_argument('--rect', action='store_true',help='put grow rect annotation')
@@ -70,10 +72,29 @@ def do_outputs(orig,outs):
         x['type'] = 'line'
     for x in outs['circles']:
         x['type'] = 'circle'
+    for x in outs['irregs']:
+        x['type'] = 'irreg'
 
-    def put_thing(im, x, color, offset=None, thickness = 1):
+    def put_thing(im, x, color, offset=None, thickness = 1, closed=True):
         if offset is not None: offset = tuple(offset)
-        cv2.drawContours(im,[x],0,color,thickness, offset=offset)
+        for i in range(0,len(x)-1):
+            p1 = x[i].flatten()
+            p2 = x[i+1].flatten()
+
+            p1 = (p1[0] + offset[0], p1[1] + offset[1])
+            p2 = (p2[0] + offset[0], p2[1] + offset[1])
+            cv2.line(im,p1,p2,color,thickness)
+
+        if closed:
+            p1 = x[0].flatten()
+            p2 = x[-1].flatten()
+
+            p1 = (p1[0] + offset[0], p1[1] + offset[1])
+            p2 = (p2[0] + offset[0], p2[1] + offset[1])
+            cv2.line(im,p1,p2,color,thickness)
+
+
+        #cv2.drawContours(im,[x],0,color,thickness, offset=offset)
 
     def put_features(im, feats):
 
@@ -91,6 +112,21 @@ def do_outputs(orig,outs):
                 put_thing(im, x['line'], [0,128,0], x['offset'], 2)
             elif x['type'] == 'leftover':
                 put_thing(im, x['ocontour'], [255,0,0], x['offset'],1)
+            elif x['type'] == 'irreg':
+                for f in x['features']:
+                    irc = [171,64,232]
+                    if f[0] == 'line':
+                        put_thing(im, f[1], irc, x['offset'], 2)
+                    elif f[0] == 'circle':
+                        pts = cv2.ellipse2Poly(tuple(f[1][0]), (f[1][1],f[1][1]), 0, f[2][0], f[2][1],1)
+                        put_thing(im, pts, irc, x['offset'], 2, False)
+
+                        #off = x['offset']
+                        #xp = off[0] + f[1][0][0]
+                        #yp = off[1] + f[1][0][1]
+                        #cv2.circle(im,(xp,yp),x['circle'][1],(255,0x8c,0),2 )
+
+
             elif x['type'] == 'ocr':
                 pass
             else:
@@ -123,6 +159,8 @@ def do_outputs(orig,outs):
         target_list += outs['ocr']
     if args.x or args.all:
         target_list += outs['leftover']
+    if args.i or args.all:
+        target_list += outs['irregs']
 
 
     
@@ -152,9 +190,9 @@ def do_outputs(orig,outs):
                 if len(x['contour']):
                     # right, top, left, bottom
                     if args.rects is not None:
-                        put_thing(orig, x['contour'][0+args.rects:2+args.rects], [255,0,0], x['offset'])
+                        put_thing(orig, x['contour'][0+args.rects:2+args.rects], [255,0,128], x['offset'])
                     else:
-                        put_thing(orig, x['contour'], [255,0,0], x['offset'])
+                        put_thing(orig, x['contour'], [255,0,128], x['offset'])
 
     if args.out:
         put_outlines(orig,target_list)
@@ -172,6 +210,8 @@ def do_outputs(orig,outs):
         saving_list += outs['ocr']
     if args.X:
         saving_list += outs['leftover']
+    if args.I:
+        saving_list += outs['irregs']
 
     if args.save_type == 'large' or args.save_type == 'outline':
         bg = np.zeros(orig.shape,dtype=np.uint8)+255

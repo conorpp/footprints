@@ -20,6 +20,50 @@ def init(x):
     PARAMS['line-thickness'] = sample_line_thickness(x)
     print(PARAMS)
 
+
+def grow_rect_top(c,square):
+    # top side
+    while still_inside(c, square[1], square[2]):
+        square[1][1] -= 1
+        square[2][1] -= 1
+    square[1][1] += 1
+    square[2][1] += 1
+
+def grow_rect_bot(c,square):
+    # bottom side
+    while still_inside(c, square[3], square[4]):
+        square[3][1] += 1
+        square[4][1] += 1
+        square[0][1] += 1
+    square[3][1] -= 1
+    square[4][1] -= 1
+    square[0][1] -= 1
+
+    # do left/right again
+
+def grow_rect_right(c,square):
+    # right side
+    while still_inside(c, square[0], square[1]):
+        square[0][0] += 1
+        square[1][0] += 1
+        square[4][0] += 1
+
+    square[0][0] -= 1
+    square[1][0] -= 1
+    square[4][0] -= 1
+
+
+def grow_rect_left(c,square):
+    # left side
+    while still_inside(c, square[2], square[3]):
+        square[2][0] -= 1
+        square[3][0] -= 1
+
+    square[2][0] += 1
+    square[3][0] += 1
+
+
+
 def grow_rect(c,p):
     [x,y] = p
 
@@ -50,43 +94,129 @@ def grow_rect(c,p):
     square[2][0] += dec
     square[3][0] += dec
 
+    grow_rect_top(c,square)
+    grow_rect_bot(c,square)
+    grow_rect_right(c,square)
+    grow_rect_left(c,square)
 
-    # top side
-    while still_inside(c, square[1], square[2]):
-        square[1][1] -= 1
-        square[2][1] -= 1
-    square[1][1] += 1
-    square[2][1] += 1
+    return square
 
-    # bottom side
-    while still_inside(c, square[3], square[4]):
-        square[3][1] += 1
-        square[4][1] += 1
-        square[0][1] += 1
-    square[3][1] -= 1
-    square[4][1] -= 1
-    square[0][1] -= 1
+def grow_rect_bad(c,p):
+    [x,y] = p
 
-    # do left/right again
+    square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
+    inc = 1
 
     # right side
-    while still_inside(c, square[0], square[1]):
-        square[0][0] += 1
-        square[1][0] += 1
-        square[4][0] += 1
+    #while still_inside(c, square[0], square[1]):
+        #square[0][0] += 1
+        #square[1][0] += 1
+        #square[4][0] += 1
+        #inc += 1
 
-    square[0][0] -= 1
-    square[1][0] -= 1
-    square[4][0] -= 1
+    #dec = min(3,inc)
+    #square[0][0] -= dec
+    #square[1][0] -= dec
+    #square[4][0] -= dec
+    #inc = 1
 
 
-    # left side
-    while still_inside(c, square[2], square[3]):
-        square[2][0] -= 1
-        square[3][0] -= 1
+    ## left side
+    #while still_inside(c, square[2], square[3]):
+        #square[2][0] -= 1
+        #square[3][0] -= 1
+        #inc += 1
 
-    square[2][0] += 1
-    square[3][0] += 1
+    #dec = min(3,inc)
+    #square[2][0] += dec
+    #square[3][0] += dec
+    changed = False
+    count = 0
+    toplim = False
+    topcount = 0
+    botlim = False
+    botcount = 0
+    rlim = False
+    rcount = 0
+    llim = False
+    lcount = 0
+    while True:
+
+        # top side
+        if not toplim:
+            if still_inside(c, square[1], square[2]):
+                square[1][1] -= 1
+                square[2][1] -= 1
+                changed = True
+            else:
+                #toplim = True
+                if topcount > 3: toplim = True
+                topcount += 1
+
+                square[1][1] += 1
+                square[2][1] += 1
+
+
+
+        # bottom side
+        if not botlim:
+            if still_inside(c, square[3], square[4]):
+                square[3][1] += 1
+                square[4][1] += 1
+                square[0][1] += 1
+                changed = True
+            else:
+                #botlim = True
+                if botcount > 3: botlim = True
+                botcount += 1
+
+                square[3][1] -= 1
+                square[4][1] -= 1
+                square[0][1] -= 1
+
+
+
+        # do left/right again
+
+        # right side
+        if not rlim:
+            if still_inside(c, square[0], square[1]):
+                square[0][0] += 1
+                square[1][0] += 1
+                square[4][0] += 1
+                changed = True
+            else:
+                #rlim = True
+                if rcount > 3: rlim = True
+                rcount += 1
+
+                square[0][0] -= 1
+                square[1][0] -= 1
+                square[4][0] -= 1
+
+
+
+        # left side
+        if not llim:
+            if still_inside(c, square[2], square[3]):
+                square[2][0] -= 1
+                square[3][0] -= 1
+                changed = True
+            else:
+                #llim = True
+                if lcount > 3: llim = True
+                lcount += 1
+
+                square[2][0] += 1
+                square[3][0] += 1
+
+        if not changed:
+            if count >50:
+                break
+            count += 1
+        else:
+            count = 0
+        changed = False
 
 
     return square

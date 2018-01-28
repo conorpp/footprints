@@ -32,8 +32,14 @@ def pass_semi_rectangles(rects):
     for x in rects:
         #print(x['area-ratio'])
         if x['area-ratio'] > 0.001:
+            bad = False
+            for i in range(0,4):
+                if x['conf'][i] < .95 and x['semi-circles'][i][2]<.45:
+                    bad = True
+                    break
+
             #print(x['conf'])
-            if np.sum(x['conf'] > .95) == 3 and x['semi-circle-conf']>.45: #(.49 for half a circle)
+            if not bad: #(.49 for half a circle)
                 filtered.append(x)
             else:
                 left.append(x)

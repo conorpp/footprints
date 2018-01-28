@@ -105,13 +105,22 @@ def load_image(name):
 
 #def preprocess(im):
 
-# checks two points and their midpoint
+# checks two points and 5 midpoints
 def still_inside(c,p1,p2):
     p1 = (p1[0],p1[1])
     p2 = (p2[0],p2[1])
-    p3 = ((p1[0] + p2[0])/2,(p1[1] + p2[1])/2)
+
+    p3 = ((p1[0]/2 + p2[0]/2),(p1[1]/2 + p2[1]/2))
+    p4 = ((p1[0]*1/5 + p2[0]*4/5),(p1[1]*1/5 + p2[1]*4/5))
+    p5 = ((p1[0]*2/5 + p2[0]*3/5),(p1[1]*2/5 + p2[1]*3/5))
+    p6 = ((p1[0]*3/5 + p2[0]*2/5),(p1[1]*3/5 + p2[1]*2/5))
+    p7 = ((p1[0]*4/5 + p2[0]*1/5),(p1[1]*4/5 + p2[1]*1/5))
     corners = (cv2.pointPolygonTest(c, p1,0) > 0 ) and (cv2.pointPolygonTest(c, p2,0) > 0 )
     with_mid = corners and (cv2.pointPolygonTest(c, p3,0) > 0 )
+    with_mid = with_mid and (cv2.pointPolygonTest(c, p4,0) > 0 )
+    with_mid = with_mid and (cv2.pointPolygonTest(c, p5,0) > 0 )
+    with_mid = with_mid and (cv2.pointPolygonTest(c, p6,0) > 0 )
+    with_mid = with_mid and (cv2.pointPolygonTest(c, p7,0) > 0 )
     return with_mid
 
 def point_in_contour(c,p):
