@@ -43,133 +43,165 @@ def init(input_file):
     arr = wrap_image(arr)
     return arr,orig
 
-# grow a maximum circle starting from a line in a outer contour
-def grow_semi_circle(outside,side,dim,direc):
-    pt = [round((side[0][0]+side[1][0])/2), round((side[0][1]+side[1][1])/2)]
-
-    while point_in_contour(outside,tuple(pt)):
-        pt[dim] += direc
-
-    pt[dim] -= direc*4
-
-    r = 1
-    total,circle = circle_in_contour(outside,pt,r)
-    first_total = total
-    while total == first_total:
-        # grow the circle
-        while total == first_total:
-            total,circle = circle_in_contour(outside,pt,r)
-            r += 1
-        # move the circle
-        pt[dim] -= direc*2
-        total,circle = circle_in_contour(outside,pt,r)
-
-
-    # take back the overstep
-    pt[dim] += direc
-    r -= 2
-    pt = [int(round(pt[0])), int(round(pt[1]))]
-
-    return pt,r
+def get_locations_of_value(im,line):
+    sli = line_slice(im,line).flatten()
+    locs = np.zeros(len(sli))
+    for i,v in enumerate(sli):
+        locs[i] = 255 == v
+    #print(locs)
+    locs = np.where(locs)[0]
+    locs = np.split(locs, np.where(np.diff(locs) != 1)[0]+1)
+    #print(locs)
+    return locs
 
 
 
-def analyze_semi_rects(orig,rects):
-    orig = color(polarize(np.copy(orig)))
+def fill_with_rects(rect):
 
+    first_rect = rect['contour']
+    first_confs = rect['conf']
+    outside = rect['ocontour']
+    img = rect['img']
+    offset = rect['offset']
 
-    # right, top, left, bottom
-    # dim, dir
-    lut = [(0,1), (1,-1), (0,-1), (1,1)]
+    allrects = []
+    gaps = [(first_rect,first_confs)]
 
-    for x in rects:
-        semicircles = [((0,0),0,0)]*4
+    scratchpad = np.copy(img)
 
-        # right, top, left, bottom
-        for i,val in enumerate(x['conf']):
-            if val > .94: # TODO centralize this value
-                continue
-            rect = x['contour']
-            outside = x['ocontour']
-            side = rect[0+i:2+i]
-            dim,direc = lut[i]
-            
-            pt,r = grow_semi_circle(outside,side,dim,direc)
+    while len(gaps):
+        cur_rect,confs = gaps.pop()
+        allrects.append(cur_rect)
 
-            cconf = circle_confidence(x['img'], (tuple(pt),r))
-
-            # there's half a circle there, stop
-            if cconf > .45:
-                #print('circle conf',cconf)
-
-                oppside = rect[(2+i)%4:(2+i)%4+2]
-                oppdim = (dim+1)&1
-                xleft =  pt[oppdim] - r+1
-                xright = pt[oppdim] + r-1
-                yval = pt[dim]
-
-
-                oppside[0][oppdim] = xleft
-                oppside[1][oppdim] = xright
-
-                newside = [[xleft,yval],[xright,yval]]
-
-                if i == 0:
-                    newrect = [newside[1], newside[0], oppside[0], oppside[1], newside[1]]
-                elif i == 1:
-                    newrect = [oppside[1], newside[1], newside[0], oppside[0], oppside[1]]
-                elif i == 2:
-                    newrect = [oppside[1], oppside[0], newside[0], newside[1], oppside[1]]
-                elif i == 3:
-                    newrect = [newside[1], oppside[1], oppside[0], newside[0], newside[1]]
-
-                rect = np.array(newrect)
-
-                if i == 0:
-                    grow_rect_top(outside,rect)
-                    grow_rect_bot(outside,rect)
-                elif i == 1:
-                    grow_rect_left(outside,rect)
-                    grow_rect_right(outside,rect)
-                elif i == 2:
-                    grow_rect_top(outside,rect)
-                    grow_rect_bot(outside,rect)
-                elif i == 3:
-                    grow_rect_left(outside,rect)
-                    grow_rect_right(outside,rect)
-
-                x['contour'] = rect
-                x['conf'] = rect_confidence(x['img'], rect)
-                #break
-
-                semicircles[i] = (pt,r,cconf)
-                pt[0] += x['offset'][0]
-                pt[1] += x['offset'][1]
-                cv2.circle(orig,tuple(pt),r,(255,0x8c,0),1 )
-                pt[0] -= x['offset'][0]
-                pt[1] -= x['offset'][1]
-
-
-        x['semi-circles'] = semicircles
-
-
-    save(orig,'output2.png')
-
-def make_irregular_shapes(shapes):
-    for x in shapes:
-        features = []
         for i in range(0,4):
-            if x['conf'][i] > .95:
-                features.append(('line', x['contour'][0+i:2+i]))
-            elif x['semi-circles'][i][2] > .45:
-                circle = x['semi-circles'][i][:2]
-                degrees = [(270,90), (180,360), (90,270), (180,0)][i]
-                features.append(('circle', circle, degrees))
-            else:
-                raise ValueError('This shape is incomplete')
 
-        x['features'] = features
 
+            if confs[i] > .95:
+                continue
+
+            side = cur_rect[0+i:2+i]
+            dim = line_vert(side)
+            xory = side[0][(dim+1)&1]
+            #print('DIM:',side[0][dim])
+            wht_offset = min(side[0][dim],side[1][dim])
+            locs = get_locations_of_value(img,side)+wht_offset
+
+            # BR, TR, TL, BL, BR
+            # Set the old rectangle as black
+            scratchpad[cur_rect[2][1]:cur_rect[0][1], cur_rect[2][0]:cur_rect[0][0]] = 0
+
+            for rg in locs:
+                if len(rg) == 0:
+                    continue
+                center = rg[int(len(rg)/2)]
+                if dim:
+                    pt = (xory,center)
+                else:
+                    pt = (center,xory)
+
+                rect2 = grow_rect(outside, pt)
+                confs2 = rect_confidence(scratchpad,rect2)
+                #print('---')
+                #print(confs2)
+                ##confs2[(i+2)%4] = 1 # clear the line we bridged from
+                #print(confs2)
+                #print('---')
+                if np.sum(confs2>.95) >= 2:
+                    gaps.append((rect2,confs2))
+
+
+                ##
+                #for wht in rg:
+                    #if dim:
+                        #pt = (xory,wht)
+                    #else:
+                        #pt = (wht,xory)
+
+                    ###
+                    #orig[pt[1]+offset[1], pt[0]+offset[0]] = [255,0,0]
+                    ###
+                #cv2.drawContours(orig,[rect2],0,[0,255,0],1, offset=tuple(offset))
+                ##
+
+    img = np.zeros(img.shape,dtype=np.uint8)+255
+    for r in allrects:
+        cv2.drawContours(img,[r],0,0,1)
+
+    _, contours,_ = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    c = contours[1]
+    newc = [c[0][0]]
+    lineset = []
+
+    # remove little corner diagnols
+    for i in range(0,len(c)-1):
+        side = c[i:i+2]
+        side = [side[0][0], side[1][0]]
+        if line_len(side) > 2:
+            lineset.append(side)
+            
+    lineset.append([c[-1][0], c[0][0]])
+    lineset = np.array(lineset,dtype=np.int32)
+
+    # move each side inside by one
+    for side in lineset:
+        #print(side, line_len(side))
+        dim = line_vert(side)
+        odim = (dim+1)&1
+
+        center = [(side[0][0]+side[1][0])/2, (side[0][1]+side[1][1])/2]
+        center[odim] += 1
+
+        if point_in_contour(c,tuple(center)):
+            side[0][odim] += 1
+            side[1][odim] += 1
+        else:
+            side[0][odim] -= 1
+            side[1][odim] -= 1
+
+    features = []
+
+    # calculate the features and their confidences
+    for side in lineset:
+        s,l = line_sum(img, side), line_len(side)
+        if l == 0:
+            conf = 0.0
+        else:
+            conf = 1.0 - float(s)/l
+
+        features.append(('line', side, None, conf))
+
+    rect['features'] = features
+
+    ###
+    #for line in lineset:
+        #cv2.drawContours(orig,[line],0,[255,0,0],1, )
+        #print('contour has %d sides' % ((len(newc)+1)/2))
+
+
+    #save(orig,'output2.png')
+    ###
+
+def analyze_irregs(irregs):
+    for x in irregs:
+        fill_with_rects(x)
+
+def pass_irregs(irregs):
+    good = []
+    notgood = []
+    for x in irregs:
+        bad = False
+        for f in x['features']:
+            if f[0] == 'line':
+                if f[3] < .95:
+                    bad = True
+            elif f[0] == 'circle':
+                if f[3] < .45:
+                    bad = True
+        if not bad:
+            good.append(x)
+        else:
+            notgood.append(x)
+    return good,notgood
 
 def main():
     args = arguments()
@@ -215,23 +247,20 @@ def main():
     circles,leftover = pass_circles(leftover)
 
     # semi-rects
-    semir,l = pass_rectangles(leftover,0)
-    #for x in semir:
-        #print(x['conf'])
-        #for p in x['contour']:
-            #print(point_in_contour(x['ocontour'], tuple(p)))
-    leftover = l
-    analyze_semi_rects(orig,semir)
-    #for x in semir: print(x['conf'])
-    semir,l = pass_semi_rectangles(semir)
-    #for x in l: print(x['conf'])
-    #rectangles += semir
-    make_irregular_shapes(semir)
-    irregs += semir
-    #rectangles += l
-    leftover += l
+    semir,leftover = pass_rectangles(leftover,0)
 
-    ##
+    analyze_semi_rects(semir)
+
+    semir,l = pass_semi_rectangles(semir)
+    make_irregular_shapes(semir)
+
+    analyze_irregs(l)
+    semir2,l = pass_irregs(l)
+
+    irregs += semir
+    irregs += semir2
+    leftover += l
+    #
 
 
     # greedily churn out the lines

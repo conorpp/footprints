@@ -698,6 +698,135 @@ def sample_line_thickness(arr):
 
     return stats.mode(samples)[0][0]
 
+
+# grow a maximum circle starting from a line in a outer contour
+def grow_semi_circle(outside,side,dim,direc):
+    pt = [round((side[0][0]+side[1][0])/2), round((side[0][1]+side[1][1])/2)]
+
+    while point_in_contour(outside,tuple(pt)):
+        pt[dim] += direc
+
+    pt[dim] -= direc*4
+
+    r = 1
+    total,circle = circle_in_contour(outside,pt,r)
+    first_total = total
+    while total == first_total:
+        # grow the circle
+        while total == first_total:
+            total,circle = circle_in_contour(outside,pt,r)
+            r += 1
+        # move the circle
+        pt[dim] -= direc*2
+        total,circle = circle_in_contour(outside,pt,r)
+
+
+    # take back the overstep
+    pt[dim] += direc
+    r -= 2
+    pt = [int(round(pt[0])), int(round(pt[1]))]
+
+    return pt,r
+
+
+
+def analyze_semi_rects(rects):
+    #orig = color(polarize(np.copy(orig)))
+
+
+    # right, top, left, bottom
+    # dim, dir
+    lut = [(0,1), (1,-1), (0,-1), (1,1)]
+
+    for x in rects:
+        semicircles = [((0,0),0,0)]*4
+
+        # right, top, left, bottom
+        for i,val in enumerate(x['conf']):
+            if val > .94: # TODO centralize this value
+                continue
+            rect = x['contour']
+            outside = x['ocontour']
+            side = rect[0+i:2+i]
+            dim,direc = lut[i]
+            
+            pt,r = grow_semi_circle(outside,side,dim,direc)
+
+            cconf = circle_confidence(x['img'], (tuple(pt),r))
+
+            # there's half a circle there, stop
+            if cconf > .45:
+                #print('circle conf',cconf)
+
+                oppside = rect[(2+i)%4:(2+i)%4+2]
+                oppdim = (dim+1)&1
+                xleft =  pt[oppdim] - r+1
+                xright = pt[oppdim] + r-1
+                yval = pt[dim]
+
+
+                oppside[0][oppdim] = xleft
+                oppside[1][oppdim] = xright
+
+                newside = [[xleft,yval],[xright,yval]]
+
+                if i == 0:
+                    newrect = [newside[1], newside[0], oppside[0], oppside[1], newside[1]]
+                elif i == 1:
+                    newrect = [oppside[1], newside[1], newside[0], oppside[0], oppside[1]]
+                elif i == 2:
+                    newrect = [oppside[1], oppside[0], newside[0], newside[1], oppside[1]]
+                elif i == 3:
+                    newrect = [newside[1], oppside[1], oppside[0], newside[0], newside[1]]
+
+                rect = np.array(newrect)
+
+                if i == 0:
+                    grow_rect_top(outside,rect)
+                    grow_rect_bot(outside,rect)
+                elif i == 1:
+                    grow_rect_left(outside,rect)
+                    grow_rect_right(outside,rect)
+                elif i == 2:
+                    grow_rect_top(outside,rect)
+                    grow_rect_bot(outside,rect)
+                elif i == 3:
+                    grow_rect_left(outside,rect)
+                    grow_rect_right(outside,rect)
+
+                x['contour'] = rect
+                x['conf'] = rect_confidence(x['img'], rect)
+                #break
+
+                semicircles[i] = (pt,r,cconf)
+                #pt[0] += x['offset'][0]
+                #pt[1] += x['offset'][1]
+                #cv2.circle(orig,tuple(pt),r,(255,0x8c,0),1 )
+                #pt[0] -= x['offset'][0]
+                #pt[1] -= x['offset'][1]
+
+
+        x['semi-circles'] = semicircles
+    #save(orig,'output2.png')
+
+
+def make_irregular_shapes(shapes):
+    for x in shapes:
+        features = []
+        for i in range(0,4):
+            if x['conf'][i] > .95:
+                features.append(('line', x['contour'][0+i:2+i], None, x['conf'][i]))
+            elif x['semi-circles'][i][2] > .45:
+                circle = x['semi-circles'][i][:2]
+                degrees = [(270,90), (180,360), (90,270), (180,0)][i]
+                features.append(('circle', circle, degrees, x['semi-circles'][i][2]))
+            else:
+                raise ValueError('This shape is incomplete')
+
+        x['features'] = features
+
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('usage: %s <input.png>' % sys.argv[0])

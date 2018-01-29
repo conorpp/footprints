@@ -103,7 +103,6 @@ def get_intersects(im,margin1,margin2):
     ylocs = np.where(y2f)[0]
     ylocs = np.split(ylocs, np.where(np.diff(ylocs) != 1)[0]+1)
     tmp = []
-    print(ylocs)
     for i,v in enumerate(ylocs):
         if len(v):
             m = 0

@@ -258,6 +258,15 @@ def line_exists(arr,line):
 
     return s == 0
 
+def line_slice(arr,line):
+    x1 = min(line[0][0],line[1][0])
+    x2 = max(line[0][0],line[1][0])
+    y1 = min(line[0][1],line[1][1])
+    y2 = max(line[0][1],line[1][1])
+
+    return arr[y1:y2+1,x1:x2+1]
+
+
 def line_sum(arr,line):
     x1 = min(line[0][0],line[1][0])
     x2 = max(line[0][0],line[1][0])
@@ -267,6 +276,9 @@ def line_sum(arr,line):
     s = np.sum(arr[y1:y2+1,x1:x2+1])
 
     return s
+
+def line_vert(line):
+    return 1 if line[0][0] == line[1][0] else 0
 
 
 
