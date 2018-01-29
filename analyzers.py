@@ -481,28 +481,28 @@ def block_clipped_components(inp):
     return good
 
 
-def get_inner_rect(im,c):
+def get_inner_rect(im,c,confs=[.3,.3,.3,.3]):
     #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
     square = np.copy(c[:])
     count = 25
 
     # right side
-    square[0:2] = shift_line(im, square[0:2], 0, .9, -1)
+    square[0:2] = shift_line(im, square[0:2], 0, confs[0], -1)
     
     # top side
-    square[1:3] = shift_line(im, square[1:3], 1, .9, 1)
+    square[1:3] = shift_line(im, square[1:3], 1, confs[1], 1)
 
     # left side
-    square[2:4] = shift_line(im, square[2:4], 0, .9, 1)
+    square[2:4] = shift_line(im, square[2:4], 0, confs[2], 1)
     
     # bottom side
     square[4] = square[0]
-    square[3:5] = shift_line(im, square[3:5], 1, .9, -1)
+    square[3:5] = shift_line(im, square[3:5], 1, confs[3], -1)
     square[0] = square[4]
 
     return square
 
-def get_outer_rect(im,c):
+def get_outer_rect(im,c,confs=[.3,.3,.3,.3]):
     #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
     square = np.copy(c)
     count = 25
@@ -510,19 +510,18 @@ def get_outer_rect(im,c):
     zeros = np.zeros(im.shape)
 
     # right side
-    square[0:2] = shift_line(im, square[0:2], 0, .9, 1)
+    square[0:2] = shift_line(im, square[0:2], 0, confs[0], 1)
     
     # top side
-    square[1:3] = shift_line(im, square[1:3], 1, .9, -1)
+    square[1:3] = shift_line(im, square[1:3], 1, confs[1], -1)
 
     # left side
-    square[2:4] = shift_line(im, square[2:4], 0, .9, -1)
+    square[2:4] = shift_line(im, square[2:4], 0, confs[2], -1)
     
     # bottom side
     square[4] = square[0]
-    square[3:5] = shift_line(im, square[3:5], 1, .9, 1)
+    square[3:5] = shift_line(im, square[3:5], 1, confs[3], 1)
     square[0] = square[4]
-
 
     return square
 
@@ -724,7 +723,7 @@ def grow_semi_circle(outside,side,dim,direc):
     # take back the overstep
     pt[dim] += direc
     r -= 2
-    pt = [int(round(pt[0])), int(round(pt[1]))]
+    pt = (int(round(pt[0])), int(round(pt[1])))
 
     return pt,r
 
@@ -752,7 +751,7 @@ def analyze_semi_rects(rects):
             
             pt,r = grow_semi_circle(outside,side,dim,direc)
 
-            cconf = circle_confidence(x['img'], (tuple(pt),r))
+            cconf = circle_confidence(x['img'], (pt,r))
 
             # there's half a circle there, stop
             if cconf > .45:
@@ -807,6 +806,7 @@ def analyze_semi_rects(rects):
 
 
         x['semi-circles'] = semicircles
+        x['filled-rects'] = []
     #save(orig,'output2.png')
 
 

@@ -346,7 +346,7 @@ def separate_rectangle_out(arr):
 
     outside = np.copy(arr['img'])
 
-    cv2.fillPoly(outside, [squ], 255)
+    outside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
 
     outside = wrap_image(outside,arr)
     return outside
@@ -354,16 +354,13 @@ def separate_rectangle_out(arr):
 def separate_rectangle_in(arr):
     squ = get_inner_rect(arr['img'],arr['contour'])
 
-    outside = np.zeros(arr['img'].shape).astype(arr['img'].dtype)
-    inside = np.zeros(arr['img'].shape).astype(arr['img'].dtype)
+    inside = np.zeros(arr['img'].shape, dtype=np.uint8)
 
-    cv2.fillPoly(inside, [squ], 1)
-    outside = (inside != 1) * 255
-    inside = ((inside == 1) * 255).astype(arr['img'].dtype)
+    inside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
 
     result = cv2.bitwise_and(arr['img'], inside)
 
-    outside = wrap_image((result + outside).astype(arr['img'].dtype),arr)
+    outside = wrap_image((result + (inside != 255) * 255).astype(np.uint8),arr)
     return outside
 
 

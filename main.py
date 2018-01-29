@@ -88,7 +88,7 @@ def fill_with_rects(rect):
 
             # BR, TR, TL, BL, BR
             # Set the old rectangle as black
-            scratchpad[cur_rect[2][1]:cur_rect[0][1], cur_rect[2][0]:cur_rect[0][0]] = 0
+            scratchpad[cur_rect[2][1]:cur_rect[0][1]+1, cur_rect[2][0]:cur_rect[0][0]+1] = 0
 
             for rg in locs:
                 if len(rg) == 0:
@@ -127,6 +127,9 @@ def fill_with_rects(rect):
     for r in allrects:
         cv2.drawContours(img,[r],0,0,1)
 
+    rect['filled-rects'] = allrects
+    rect['scratch-pad'] = scratchpad
+
     _, contours,_ = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     c = contours[1]
     newc = [c[0][0]]
@@ -141,6 +144,9 @@ def fill_with_rects(rect):
             
     lineset.append([c[-1][0], c[0][0]])
     lineset = np.array(lineset,dtype=np.int32)
+    
+    # contains constant dimension and the direction to move it toward center (0/1,1/-1)
+    metaset = []
 
     # move each side inside by one
     for side in lineset:
@@ -151,24 +157,28 @@ def fill_with_rects(rect):
         center = [(side[0][0]+side[1][0])/2, (side[0][1]+side[1][1])/2]
         center[odim] += 1
 
+
         if point_in_contour(c,tuple(center)):
             side[0][odim] += 1
             side[1][odim] += 1
+            metaset.append((odim,1))
         else:
             side[0][odim] -= 1
             side[1][odim] -= 1
+            metaset.append((odim,-1))
 
     features = []
 
     # calculate the features and their confidences
-    for side in lineset:
-        s,l = line_sum(img, side), line_len(side)
-        if l == 0:
-            conf = 0.0
-        else:
-            conf = 1.0 - float(s)/l
+    for i,side in enumerate(lineset):
+        conf = line_conf(img,side)
+        #s,l = line_sum(img, side), line_len(side)
+        #if l == 0:
+            #conf = 0.0
+        #else:
+            #conf = 1.0 - float(s)/l
 
-        features.append(('line', side, None, conf))
+        features.append(('line', side, metaset[i], conf))
 
     rect['features'] = features
 
@@ -180,6 +190,95 @@ def fill_with_rects(rect):
 
     #save(orig,'output2.png')
     ###
+def line_conf(img,side):
+    s,l = line_sum(img, side), line_len(side)
+    if l == 0:
+        return 0.0
+    else:
+        return (1.0 - float(s)/l)
+
+def shift_circle(img, circle, inc, conf):
+    pt,r = circle
+    while circle_confidence(img, (pt,r)) > conf:
+        r += inc
+        if r == 0:
+            return (pt,r)
+
+    return (pt,r)
+
+
+def irreg_outsides(irregs):
+    outsides = []
+    for x in irregs:
+        img = x['img']
+        outside = np.copy(img)
+        out_rects = [get_outer_rect(img,r,rect_confidence(img,r)*.9) for r in x['filled-rects']]
+        
+        if len(out_rects):
+            for squ in out_rects:
+                #cv2.fillPoly(outside, [squ], 255)
+                outside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
+        else:
+            squ = get_outer_rect(img,x['contour'])
+            outside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
+
+        for f in x['features']:
+            if f[0] == 'circle':
+                cir = shift_circle(img, f[1], 1, .1)
+                cv2.circle(outside,cir[0],cir[1],255,-1)
+
+        outside = wrap_image(outside,x)
+        outsides.append(outside)
+    return outsides
+
+def irreg_insides(irregs):
+    insides = []
+    for x in irregs:
+        img = x['img']
+        inside = np.zeros(img.shape, dtype=np.uint8)
+        in_rects = [get_inner_rect(img,r,rect_confidence(img,r)*.9) for r in x['filled-rects']]
+
+        if len(in_rects):
+            for squ in in_rects:
+                inside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
+        else:
+            squ = get_inner_rect(img,x['contour'])
+            inside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
+
+        for f in x['features']:
+            if f[0] == 'circle':
+                cir = shift_circle(img, f[1], -1, .1)
+                cv2.circle(inside,cir[0],cir[1],255,-1)
+
+        inside = (cv2.bitwise_and(img, inside) + (inside != 255) * 255).astype(np.uint8)
+
+        inside = wrap_image(inside,x)
+        insides.append(inside)
+
+    return insides
+
+def separate_irregs(inp):
+    outsides = []
+    outsides += irreg_insides(inp)
+    outsides += irreg_outsides(inp)
+    return outsides
+
+
+
+
+def move_features_inside(img,features):
+    for x in features:
+        if x[0] == 'line':
+            conf = x[3]
+            side = x[1]
+            dim,direc = x[2]
+            while conf > .4:
+                side[0][dim] += direc
+                side[1][dim] += direc
+                s,l = line_sum(img, side), line_len(side)
+                conf = line_conf(img,side)
+        else:
+            raise ValueError('Invalid feature ' + x[0])
 
 def analyze_irregs(irregs):
     for x in irregs:
@@ -256,6 +355,16 @@ def main():
 
     analyze_irregs(l)
     semir2,l = pass_irregs(l)
+    print(len(semir2),'irregular rects')
+    outs = separate_irregs(semir2+semir)
+    outs = block_dots(outs)
+    analyze_rectangles(outs)
+    leftover += outs
+    #outside_semir2 = irreg_outsides(semir2)
+    #for x in outside_semir2:
+        #save(x,'output2.png')
+    #for x in semir2:
+        #move_features_inside(x['img'], x['features'])
 
     irregs += semir
     irregs += semir2
