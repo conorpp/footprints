@@ -263,8 +263,31 @@ def separate_irregs(inp):
     outsides += irreg_outsides(inp)
     return outsides
 
+def separate_circles(inp):
+    seps = []
 
+    # outsides
+    for x in inp:
+        img = x['img']
+        circ = x['circle']
+        outside = np.copy(img)
+        inside = np.zeros(img.shape, dtype=np.uint8)
 
+        cirout = shift_circle(img, circ, 1, .1)
+        cirin = shift_circle(img, circ, -1, .1)
+
+        cv2.circle(outside,cirout[0],cirout[1],255,-1)
+        cv2.circle(inside,cirin[0],cirin[1],255,-1)
+
+        inside = (cv2.bitwise_and(img, inside) + (inside != 255) * 255).astype(np.uint8)
+
+        outside = wrap_image(outside,x)
+        inside = wrap_image(inside,x)
+
+        seps.append(outside)
+        seps.append(inside)
+
+    return seps
 
 def move_features_inside(img,features):
     for x in features:
@@ -344,6 +367,12 @@ def main():
 
     analyze_circles(leftover)
     circles,leftover = pass_circles(leftover)
+
+    outs = separate_circles(circles)
+    outs = block_dots(outs)
+    outs = extract_features(outs)
+    analyze_rectangles(outs)
+    leftover += outs
 
     # semi-rects
     semir,leftover = pass_rectangles(leftover,0)
