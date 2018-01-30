@@ -383,15 +383,22 @@ def rotate_left(inp):
 
 
 def cut_linking_lines(arrs):
+    cut = []
+    notcut = []
     for arr in arrs:
         img = arr['img']
-        cut_linking_line(img)
+        if cut_linking_line(img) > 0:
+            cut.append(arr)
+        else:
+            notcut.append(arr)
+    return cut,notcut
 
 def cut_linking_line(arr):
     #TODO derive these from something
-    perpendicular_line_length = 10
+    perpendicular_line_length = 8
     min_line_length = 10
     variation = 3
+    cuts = 0
 
     lines,indexs = sum_crossings(arr,0)
     sums = scan_dim(arr,0)
@@ -407,6 +414,7 @@ def cut_linking_line(arr):
     for x in col_cut_points:
         if (arr.shape[0] - np.sum(arr[:,x])/255) < 5:
             arr[:,x] = 255
+            cuts += 1
 
 
     lines,indexs = sum_crossings(arr,1)
@@ -438,6 +446,8 @@ def cut_linking_line(arr):
     for x in row_cut_points:
         if (arr.shape[1] - np.sum(arr[x,:])/255) < 5:
             arr[x,:] = 255
+            cuts += 1
+    return cuts
 
 def unit_vector(vector):
     """ Returns the unit vector of the vector.  """
@@ -643,6 +653,7 @@ def find_line_features(lines):
         scantype = l['line-scan-attempt']
         
         if scantype == 1:
+            oldims.append(l)
             continue
 
         scan_points = [

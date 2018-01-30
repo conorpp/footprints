@@ -403,24 +403,34 @@ def main():
 
     # greedily churn out the lines
     while True:
-        analyze_lines(leftover)
-        r,l = pass_lines(leftover)
-        lines += r
-        leftover += l
+        newleftovers = False
 
-        newlines,leftover = find_line_features(leftover)
-        if len(newlines) == 0:
+        while True:
+            analyze_lines(leftover)
+            r,leftover = pass_lines(leftover)
+            lines += r
+
+            newlines,leftover = find_line_features(leftover)
+            if len(newlines) == 0:
+                break
+            newleftovers = True
+
+            line_submaps = extract_features(newlines)
+            assign_best_fit_lines(line_submaps)
+            lines += line_submaps
+
+            leftover = extract_features(leftover)
+            leftover = block_dots(leftover)
+
+            analyze_rectangles(leftover)
+
+        if not newleftovers:
             break
-        print(len(newlines),'new lines')
 
-        line_submaps = extract_features(newlines)
-        assign_best_fit_lines(line_submaps)
-        lines += line_submaps
-
-        leftover = extract_features(leftover)
-        leftover = block_dots(leftover)
-
-        analyze_rectangles(leftover)
+        cutleftovers, leftover = cut_linking_lines(leftover)
+        cutleftovers = extract_components(cutleftovers)
+        analyze_rectangles(cutleftovers)
+        leftover += cutleftovers
 
 
 
