@@ -429,7 +429,7 @@ def main():
 
 
 
-    analyze_triangles(leftover)
+    analyze_triangles(leftover,arr)
     triangles,leftover = pass_triangles(leftover, arr)
 
     polish_rectangles(rectangles)
