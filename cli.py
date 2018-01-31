@@ -38,6 +38,9 @@ def arguments():
     parser.add_argument('-X', action='store_true',help='leftovers')
     parser.add_argument('-I', action='store_true',help='irregular shapes')
     
+    parser.add_argument('-q', nargs='+',type=int,default=[],help='ID range')
+    parser.add_argument('-p', action='store_true',help='print filtered IDs')
+    
     parser.add_argument('--bare', action='store_true',help='dont annotate targets')
     parser.add_argument('--rect', action='store_true',help='put grow rect annotation')
     parser.add_argument('--rects', type=int,default=None,help='put grow rect side # annotation')
@@ -161,6 +164,31 @@ def do_outputs(orig,outs):
         target_list += outs['leftover']
     if args.i or args.all:
         target_list += outs['irregs']
+
+    print('args q', args.q)
+
+    if args.q:
+        new_targets = []
+        for i,x in enumerate(target_list):
+            if len(args.q) == 1:
+                if x['id'] == q:
+                    new_targets.append(x)
+            else:
+                assert((len(args.q)&1) == 0)
+
+                qi = iter(args.q)
+                for id1 in qi:
+                    id2 = next(qi)
+                    print(id1,id2)
+                    if (x['id'] >= id1) and (x['id'] <= id2):
+                        new_targets.append(x)
+                        break
+        target_list = new_targets
+
+    if args.p:
+        for x in target_list:
+            print(x['type'],':',x['id'])
+
 
 
     

@@ -389,11 +389,6 @@ def main():
     outs = block_dots(outs)
     analyze_rectangles(outs)
     leftover += outs
-    #outside_semir2 = irreg_outsides(semir2)
-    #for x in outside_semir2:
-        #save(x,'output2.png')
-    #for x in semir2:
-        #move_features_inside(x['img'], x['features'])
 
     irregs += semir
     irregs += semir2
@@ -437,8 +432,8 @@ def main():
     analyze_triangles(leftover)
     triangles,leftover = pass_triangles(leftover, arr)
 
-
     polish_rectangles(rectangles)
+
     outs = {'triangles': triangles,
             'ocr': ocr,
             'lines': lines,

@@ -800,7 +800,6 @@ def infinity_line(l):
     return np.array((p1,p2))
 
 
-
 def get_pixels_following_line(img,est):
     def addpixlocs(img, tmplocs, it, dim, inc):
         #try:
@@ -813,9 +812,9 @@ def get_pixels_following_line(img,est):
             while img[it[1] + (inc*dim)*k, it[0] + (inc*dimp)*k] == 0:
                 tmplocs.append(np.array((it[0] + (inc*dimp)*k, it[1] + (inc*dim)*k)))
                 k += 1
-                if k > 3: 
-                    del tmplocs[:]
-                    return k
+                #if k > 3: 
+                    #del tmplocs[:]
+                    #return k
             return k
         #except Exception as e:
             #print(e)
@@ -840,6 +839,9 @@ def get_pixels_following_line(img,est):
     ksums = []
     lastcount = 0
 
+    locs   = []
+    counts = []
+
     for j in range(0,int(line_len(((0,0),img.shape)))):
         if it[1] < 0 or it[1] >= img.shape[0]:
             break
@@ -847,39 +849,17 @@ def get_pixels_following_line(img,est):
             break
 
         # go left
-        tmplocs = []
+        leftlocs = []
+        rightlocs = []
         dim = 0 if isvert else 1
-        k1 = addpixlocs(img,tmplocs,it,dim,-1)
-       
+        k1 = addpixlocs(img,leftlocs,it,dim,-1)
         if k1 < 4:
-            # go right
-            k2 = addpixlocs(img,tmplocs,it,dim,1)
-            linelocs += tmplocs
-            ksums.append(k1+k2)
-
-        if len(tmplocs):
-            lastlen = 1
-            count += 1
-            gapdist = 0
+            k2 = addpixlocs(img,rightlocs,it,dim,1)
         else:
-            if lastlen:
-                if count > 3:
-                #if count > 10 :
-                    metric = len(set(ksums))/float(len(ksums))
-                    #print('metric: ',metric)
-                    #print('unique: %d, len: %d' % (len(set(ksums)),len(ksums)))
-                    #mod = stats.mode(ksums)
-                    #print('mode: %d, count: %d' % (mod[0], mod[1]))
+            k2 = 4
 
-                    if metric < .3: # TODO normalize
-                        alllocs.append(linelocs)
-
-                linelocs = []
-                ksums = []
-            lastlen = 0
-            lastcount = count
-            count = 0
-            gapdist += 1
+        locs.append((leftlocs,rightlocs))
+        counts.append((k1,k2))
 
         # vert
         if isvert:
@@ -897,6 +877,40 @@ def get_pixels_following_line(img,est):
             else:
                 it[0] -= 1
             it[1] = int((it[0] * m + b))
+
+    start_skipping = False
+    length = 0
+    ksums = []
+    for i in range(0,len(locs)):
+        lefts,rights = locs[i]
+        lc,rc = counts[i]
+        if lc < 4 and rc < 4 and lc and rc:
+            #if start_skipping:
+                #continue
+            ##check starting bound
+            #if len(linelocs) == 0:
+                #if i > 3:
+                    #past = [l+r for l,r in counts[i-3:i]]
+                    #if 0 not in past:
+                        #if max(past) < 20:
+                            #start_skipping = True
+            linelocs += lefts
+            linelocs += rights
+            length += 1
+            #ksums.append(lc+rc)
+        else:
+            start_skipping = False
+            if length > 3:
+                #past = [l+r for l,r in counts[i-3:i]]
+                #if 0 not in past:
+                    #if max(past) < 0:
+                        #continue
+                #metric = len(set(ksums))/float(len(ksums))
+                alllocs.append(linelocs)
+
+            #ksums = []
+            linelocs = []
+            length = 0
 
     return alllocs
 
