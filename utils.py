@@ -156,6 +156,15 @@ def trace_sum(im,contour):
 
     return total, len(pixelpoints)
 
+def line_conf(img,side):
+    s,l = line_sum(img, side), line_len(side)
+    if l == 0:
+        return 0.0
+    else:
+        return (1.0 - float(s)/l)
+
+
+
 def rect_confidence(im,con):
     lines = []
 

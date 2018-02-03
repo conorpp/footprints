@@ -419,12 +419,12 @@ def analyze_triangles(rects,parentim):
         area,tri = cv2.minEnclosingTriangle(x['ocontour'])
         x['triangle'] = np.round(tri).astype(np.int32)
         x['triangle-area'] = area
-        #inside = np.zeros(parentim['img'].shape, dtype=np.uint8)
-        #cv2.drawContours(inside,[x['triangle']],0,255,-1,offset=tuple(x['offset']))
-        #inside = (cv2.bitwise_and(parentim['img'], inside) + (inside != 255) * 255)
+        inside = np.zeros(parentim['img'].shape, dtype=np.uint8)
+        cv2.drawContours(inside,[x['triangle']],0,255,-1,offset=tuple(x['offset']))
+        inside = (cv2.bitwise_and(parentim['img'], inside) + (inside != 255) * 255)
 
-        x['triangle-area-ratio'] = count_black(x['img'])/area
-        #x['triangle-area-ratio'] = count_black(inside)/area
+        #x['triangle-area-ratio'] = count_black(x['img'])/area
+        x['triangle-area-ratio'] = count_black(inside)/area
         x['triangle-perimeter'] = cv2.arcLength(tri,True)
 
 def analyze_ocr(inp):
@@ -829,6 +829,156 @@ def make_irregular_shapes(shapes):
                 raise ValueError('This shape is incomplete')
 
         x['features'] = features
+
+def get_locations_of_value(im,line):
+    sli = line_slice(im,line).flatten()
+    locs = np.zeros(len(sli))
+    for i,v in enumerate(sli):
+        locs[i] = 255 == v
+    #print(locs)
+    locs = np.where(locs)[0]
+    locs = np.split(locs, np.where(np.diff(locs) != 1)[0]+1)
+    #print(locs)
+    return locs
+
+
+
+def fill_with_rects(rect):
+
+    first_rect = rect['contour']
+    first_confs = rect['conf']
+    outside = rect['ocontour']
+    img = rect['img']
+    offset = rect['offset']
+
+    allrects = []
+    gaps = [(first_rect,first_confs)]
+
+    scratchpad = np.copy(img)
+
+    while len(gaps):
+        cur_rect,confs = gaps.pop()
+        allrects.append(cur_rect)
+
+        for i in range(0,4):
+
+
+            if confs[i] > .95:
+                continue
+
+            side = cur_rect[0+i:2+i]
+            dim = line_vert(side)
+            xory = side[0][(dim+1)&1]
+            #print('DIM:',side[0][dim])
+            wht_offset = min(side[0][dim],side[1][dim])
+            locs = get_locations_of_value(img,side)+wht_offset
+
+            # BR, TR, TL, BL, BR
+            # Set the old rectangle as black
+            scratchpad[cur_rect[2][1]:cur_rect[0][1]+1, cur_rect[2][0]:cur_rect[0][0]+1] = 0
+
+            for rg in locs:
+                if len(rg) == 0:
+                    continue
+                center = rg[int(len(rg)/2)]
+                if dim:
+                    pt = (xory,center)
+                else:
+                    pt = (center,xory)
+
+                rect2 = grow_rect(outside, pt)
+                confs2 = rect_confidence(scratchpad,rect2)
+                #print('---')
+                #print(confs2)
+                ##confs2[(i+2)%4] = 1 # clear the line we bridged from
+                #print(confs2)
+                #print('---')
+                if np.sum(confs2>.95) >= 2:
+                    gaps.append((rect2,confs2))
+
+
+                ##
+                #for wht in rg:
+                    #if dim:
+                        #pt = (xory,wht)
+                    #else:
+                        #pt = (wht,xory)
+
+                    ###
+                    #orig[pt[1]+offset[1], pt[0]+offset[0]] = [255,0,0]
+                    ###
+                #cv2.drawContours(orig,[rect2],0,[0,255,0],1, offset=tuple(offset))
+                ##
+
+    img = np.zeros(img.shape,dtype=np.uint8)+255
+    for r in allrects:
+        cv2.drawContours(img,[r],0,0,1)
+
+    rect['filled-rects'] = allrects
+    rect['scratch-pad'] = scratchpad
+
+    _, contours,_ = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    c = contours[1]
+    newc = [c[0][0]]
+    lineset = []
+
+    # remove little corner diagnols
+    for i in range(0,len(c)-1):
+        side = c[i:i+2]
+        side = [side[0][0], side[1][0]]
+        if line_len(side) > 2:
+            lineset.append(side)
+            
+    lineset.append([c[-1][0], c[0][0]])
+    lineset = np.array(lineset,dtype=np.int32)
+    
+    # contains constant dimension and the direction to move it toward center (0/1,1/-1)
+    metaset = []
+
+    # move each side inside by one
+    for side in lineset:
+        #print(side, line_len(side))
+        dim = line_vert(side)
+        odim = (dim+1)&1
+
+        center = [(side[0][0]+side[1][0])/2, (side[0][1]+side[1][1])/2]
+        center[odim] += 1
+
+
+        if point_in_contour(c,tuple(center)):
+            side[0][odim] += 1
+            side[1][odim] += 1
+            metaset.append((odim,1))
+        else:
+            side[0][odim] -= 1
+            side[1][odim] -= 1
+            metaset.append((odim,-1))
+
+    features = []
+
+    # calculate the features and their confidences
+    for i,side in enumerate(lineset):
+        conf = line_conf(img,side)
+        #s,l = line_sum(img, side), line_len(side)
+        #if l == 0:
+            #conf = 0.0
+        #else:
+            #conf = 1.0 - float(s)/l
+
+        features.append(('line', side, metaset[i], conf))
+
+    rect['features'] = features
+
+    ###
+    #for line in lineset:
+        #cv2.drawContours(orig,[line],0,[255,0,0],1, )
+        #print('contour has %d sides' % ((len(newc)+1)/2))
+
+
+
+def analyze_irregs(irregs):
+    for x in irregs:
+        fill_with_rects(x)
 
 
 

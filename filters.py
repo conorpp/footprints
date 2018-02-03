@@ -125,7 +125,7 @@ def pass_slashes(inp):
     slash =[]
     nope = []
     for x in inp:
-        if x['symbol'] in '\\/':
+        if x['symbol'] in '\\/I.':
             slash.append(x)
         else:
             nope.append(x)
@@ -151,6 +151,25 @@ def pass_circles(inp):
         else:
             bad.append(x)
     return good,bad
+
+def pass_irregs(irregs):
+    good = []
+    notgood = []
+    for x in irregs:
+        bad = False
+        for f in x['features']:
+            if f[0] == 'line':
+                if f[3] < .95:
+                    bad = True
+            elif f[0] == 'circle':
+                if f[3] < .45:
+                    bad = True
+        if not bad:
+            good.append(x)
+        else:
+            notgood.append(x)
+    return good,notgood
+
 
 
 if __name__ == '__main__':

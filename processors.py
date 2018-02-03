@@ -914,6 +914,113 @@ def get_pixels_following_line(img,est):
 
     return alllocs
 
+def shift_circle(img, circle, inc, conf):
+    pt,r = circle
+    while circle_confidence(img, (pt,r)) > conf:
+        r += inc
+        if r == 0:
+            return (pt,r)
+
+    return (pt,r)
+
+
+def irreg_outsides(irregs):
+    outsides = []
+    for x in irregs:
+        img = x['img']
+        outside = np.copy(img)
+        out_rects = [get_outer_rect(img,r,rect_confidence(img,r)*.9) for r in x['filled-rects']]
+        
+        if len(out_rects):
+            for squ in out_rects:
+                #cv2.fillPoly(outside, [squ], 255)
+                outside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
+        else:
+            squ = get_outer_rect(img,x['contour'])
+            outside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
+
+        for f in x['features']:
+            if f[0] == 'circle':
+                cir = shift_circle(img, f[1], 1, .1)
+                cv2.circle(outside,cir[0],cir[1],255,-1)
+
+        outside = wrap_image(outside,x)
+        outsides.append(outside)
+    return outsides
+
+def irreg_insides(irregs):
+    insides = []
+    for x in irregs:
+        img = x['img']
+        inside = np.zeros(img.shape, dtype=np.uint8)
+        in_rects = [get_inner_rect(img,r,rect_confidence(img,r)*.9) for r in x['filled-rects']]
+
+        if len(in_rects):
+            for squ in in_rects:
+                inside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
+        else:
+            squ = get_inner_rect(img,x['contour'])
+            inside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
+
+        for f in x['features']:
+            if f[0] == 'circle':
+                cir = shift_circle(img, f[1], -1, .1)
+                cv2.circle(inside,cir[0],cir[1],255,-1)
+
+        inside = (cv2.bitwise_and(img, inside) + (inside != 255) * 255).astype(np.uint8)
+
+        inside = wrap_image(inside,x)
+        insides.append(inside)
+
+    return insides
+
+def separate_irregs(inp):
+    outsides = []
+    outsides += irreg_insides(inp)
+    outsides += irreg_outsides(inp)
+    return outsides
+
+def separate_circles(inp):
+    seps = []
+
+    # outsides
+    for x in inp:
+        img = x['img']
+        circ = x['circle']
+        outside = np.copy(img)
+        inside = np.zeros(img.shape, dtype=np.uint8)
+
+        cirout = shift_circle(img, circ, 1, .1)
+        cirin = shift_circle(img, circ, -1, .1)
+
+        cv2.circle(outside,cirout[0],cirout[1],255,-1)
+        cv2.circle(inside,cirin[0],cirin[1],255,-1)
+
+        inside = (cv2.bitwise_and(img, inside) + (inside != 255) * 255).astype(np.uint8)
+
+        outside = wrap_image(outside,x)
+        inside = wrap_image(inside,x)
+
+        seps.append(outside)
+        seps.append(inside)
+
+    return seps
+
+def move_features_inside(img,features):
+    for x in features:
+        if x[0] == 'line':
+            conf = x[3]
+            side = x[1]
+            dim,direc = x[2]
+            while conf > .4:
+                side[0][dim] += direc
+                side[1][dim] += direc
+                s,l = line_sum(img, side), line_len(side)
+                conf = line_conf(img,side)
+        else:
+            raise ValueError('Invalid feature ' + x[0])
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('usage: %s <input.png>' % sys.argv[0])

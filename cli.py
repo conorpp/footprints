@@ -44,6 +44,7 @@ def arguments():
     parser.add_argument('--bare', action='store_true',help='dont annotate targets')
     parser.add_argument('--rect', action='store_true',help='put grow rect annotation')
     parser.add_argument('--rects', type=int,default=None,help='put grow rect side # annotation')
+    parser.add_argument('--label', action='store_true',help='Put the OCR character match on targets')
 
     parser.add_argument('--save-type', default='large', action='store', dest='save_type',help='small,large,outlined')
     parser.add_argument('--bg', action='store_true', help='use original image as background for --save-type')
@@ -62,6 +63,7 @@ def do_outputs(orig,outs):
     print('%d rectangles' % len(outs['rectangles']))
     print('%d OCR' % len(outs['ocr']))
     print('%d lines' % len(outs['lines']))
+    print('%d irregs' % len(outs['irregs']))
     print('%d leftover' % len(outs['leftover']))
     for x in outs['ocr']:
         x['type'] = 'ocr'
@@ -96,6 +98,11 @@ def do_outputs(orig,outs):
             p2 = (p2[0] + offset[0], p2[1] + offset[1])
             cv2.line(im,p1,p2,color,thickness)
 
+    def put_label(im, feat, label):
+        x,y = centroid(feat['ocontour'])
+        x += feat['offset'][0]
+        y += feat['offset'][1]
+        cv2.putText(im, label, (x-10,y+10), cv2.FONT_HERSHEY_SIMPLEX, 1, [255,0,255] )
 
         #cv2.drawContours(im,[x],0,color,thickness, offset=offset)
 
@@ -212,6 +219,12 @@ def do_outputs(orig,outs):
 
     if args.action != 'none' and not args.bare:
         put_features(orig,target_list)
+
+        if args.label:
+            for x in target_list:
+                if 'symbol' in x:
+                    put_label(orig,x, x['symbol'])
+
 
         if args.rect or (args.rects is not None):
             for x in target_list:
