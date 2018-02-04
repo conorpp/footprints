@@ -81,7 +81,7 @@ def parse_drawing(input_file):
     #
     ## OCR is pretty greedy so still consider it for everything else
     leftover += ocr
-    #leftover += slashes
+    leftover += slashes
     ##
 
     analyze_circles(leftover)
