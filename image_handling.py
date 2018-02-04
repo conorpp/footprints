@@ -1,3 +1,4 @@
+
 from utils import *
 from filters import *
 from analyzers import *
@@ -40,7 +41,7 @@ def parse_drawing(input_file):
     leftover += l
 
 
-    # semi-rects
+    ## semi-rects
     semir,leftover = pass_rectangles(leftover,0)
 
     analyze_circles(semir)
@@ -62,7 +63,7 @@ def parse_drawing(input_file):
     irregs += semir
     irregs += semir2
     leftover += l
-    #
+    ##
 
     ## OCR
     analyze_ocr(leftover)
