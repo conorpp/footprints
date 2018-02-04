@@ -300,6 +300,7 @@ def line_len(line):
 
 
 def timestamp(): return int(round(time.time() * 1000))
+def TIME(): return int(round(time.time() * 1000))
 
 
 def butter_lowpass(cutoff, fs, order=5):

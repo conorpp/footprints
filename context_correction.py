@@ -120,6 +120,7 @@ def group_ocr(arr, ocr, dim=0):
 
                 if punct is not None:
                     #print(x1['symbol'],'->', x2['symbol'])
+                    #print(punct['img'])
                     #print('itsa punct')
                     segment.append(punct) # detected comma/decimal
                     segment.append(x2)
@@ -154,14 +155,6 @@ def group_ocr(arr, ocr, dim=0):
 
     ocr_groups2 = []
     segment = []
-    # block characters that are largely different from the group
-    #for group in ocr_groups:
-        #if odim:
-            #group = [x for x in group if (x['width'] > wmode*.2 and x['width'] < wmode*1.5)]
-        #else:
-            #group = [x for x in group if (x['height'] > hmode*.2 and x['height'] < hmode*1.5)]
-        #if len(group):
-            #ocr_groups2.append(group)
 
     return ocr_groups
 
@@ -181,6 +174,14 @@ def group_crosses(group1,group2):
             if x['id'] == y['id']:
                 return True
     return False
+def item_contained(x,group_set):
+    for group2 in group_set:
+        for y in group2:
+            if x['id'] == y['id']:
+                return True
+    return False
+
+
 
 def block_redundant_groups(horz, verz):
     new_horz = []
@@ -221,6 +222,38 @@ def block_redundant_groups(horz, verz):
                 new_verz.append(group1)
             crossed = False
 
+    # block redundant vertical text.
+    verz = []
+    for group1 in new_verz:
+        items = len(group1)
+
+        for x in group1:
+            if x['symbol'] == '.' or item_contained(x,new_horz):
+                items -= 1
+            else:
+                break
+
+        if items != 0:
+            verz.append(group1)
+    new_verz = verz
+
+    # block redundant horizontal text.
+    horz = []
+    for group1 in new_horz:
+        items = len(group1)
+
+        for x in group1:
+            if x['symbol'] == '.' or item_contained(x,new_verz):
+                items -= 1
+            else:
+                break
+
+        if items != 0:
+            horz.append(group1)
+    new_horz = horz
+
+
+
     return new_horz,new_verz
 
 def avg_rect_area(rects, irregs):
@@ -234,18 +267,7 @@ def avg_rect_area(rects, irregs):
         count += 1
     return tot/count
 
-def context_aware_correction(orig,ins):
-    print('context_aware_correction')
-    orig = np.copy(orig)
-    arr = ins['arr']
-    ocr = ins['ocr']
-    #feat_avg = avg_rect_area(ins['rectangles'], ins['irregs'])
-    #ocr = [x for x in ocr if (x['width'] * x['height']) < feat_avg]
-    #print('feature average area is ', feat_avg)
-
-
-    #print('by width')
-    #ocr = sorted(ocr, key = lambda x : x['width'])
+def infer_ocr_groups(arr, ocr):
     widths = []
     heights = []
     for x in ocr:
@@ -288,15 +310,10 @@ def context_aware_correction(orig,ins):
                     x['symbol'] = oldsym
                     x['rotated'] = False
 
-                #not_rotated.append(x)
+    return new_horz, new_verz
 
-    #rotate_right(not_rotated)
-    #analyze_ocr(not_rotated)
-    #rotate_left(not_rotated)
-
-
-    ocr_groups = new_horz+new_verz
-    print(len(ocr_groups),'groups')
+def draw_ocr_group_rects(orig, new_horz, new_verz):
+    print(len(new_horz) + len(new_verz),'groups')
     for i,group in enumerate(new_horz):
         leftest = group[0]
         rightest = group[-1]
@@ -327,6 +344,25 @@ def context_aware_correction(orig,ins):
 
     save(orig,'output2.png')
 
+
+
+def context_aware_correction(orig,ins):
+    print('context_aware_correction')
+    orig = np.copy(orig)
+    arr = ins['arr']
+    ocr = ins['ocr']
+    #feat_avg = avg_rect_area(ins['rectangles'], ins['irregs'])
+    #ocr = [x for x in ocr if (x['width'] * x['height']) < feat_avg]
+    #print('feature average area is ', feat_avg)
+
+
+    #print('by width')
+    #ocr = sorted(ocr, key = lambda x : x['width'])
+    t1 = TIME()
+    new_horz, new_verz = infer_ocr_groups(arr,ocr)
+    draw_ocr_group_rects(orig, new_horz, new_verz)
+    t2 = TIME()
+    print('ocr inferring time: %d ms' % (t2-t1))
     return ins
 
 
