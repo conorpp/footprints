@@ -125,7 +125,7 @@ def pass_slashes(inp):
     slash =[]
     nope = []
     for x in inp:
-        if x['symbol'] in '':
+        if x['symbol'] in '/\\':
             slash.append(x)
         else:
             nope.append(x)

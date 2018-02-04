@@ -77,10 +77,11 @@ def parse_drawing(input_file):
 
     rotate_left(ocr2)
     rotate_left(leftover)
-    leftover, ocr = pass_slashes(ocr)   # blocking slashes
+    slashes, ocr = pass_slashes(ocr)   # blocking slashes
     #
     ## OCR is pretty greedy so still consider it for everything else
     leftover += ocr
+    leftover += slashes
     ##
 
     analyze_circles(leftover)
