@@ -3,8 +3,8 @@ from PIL import Image
 from utils import *
 import sys
 
-ABCs = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 
-WHITELIST = "1234567890.,X()/\\" + ABCs
+ABCs = 'ABCDEFGHIJKLMNPQRSTUVWXYZ' 
+WHITELIST = "1234567890X()/\\" + ABCs
 OCR_API = PyTessBaseAPI()
 OCR_API.SetVariable('tessedit_pageseg_mode',"7")
 OCR_API.SetVariable('tessedit_char_whitelist',WHITELIST)

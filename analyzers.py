@@ -439,12 +439,14 @@ def analyze_ocr(inp):
             x['symbol'] = symbol
         else:
             # check-periods
-            #if (x['width'] == x['height']) and (count_black(im) < 17) and x['width']<8:
-            if float(count_black(im))/(max(x['width'],x['height'])**2) > .275:
-                #print(float(count_black(im))/(max(x['width'],x['height'])**2))
-                x['symbol'] = '.'
-                x['ocr-conf'] = 75
-            else:
+            
+            # this works but decided to leave everything to context based detection
+
+            #if float(count_black(im))/(max(x['width'],x['height'])**2) > .275:
+                ##print(float(count_black(im))/(max(x['width'],x['height'])**2))
+                #x['symbol'] = '.'
+                #x['ocr-conf'] = 75
+            #else:
                 x['symbol'] = None
 
 def polish_rectangles(rects):

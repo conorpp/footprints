@@ -5,8 +5,7 @@ from analyzers import *
 from processors import *
 import preprocessing
 
-def group_ocr(ocr, dim=0):
-    # dim=0 means horizontal text, dim=1 means vertical text
+def group_ocr_lines(ocr,dim=0):
     odim = (dim+1)&1
 
     indx = 'boundxy3' if dim else 'boundxy2'
@@ -33,8 +32,77 @@ def group_ocr(ocr, dim=0):
     print('ocr_groups:', len(ocr_groups))
 
     ocr_groups = [sorted(x, key = lambda i : i[indx][dim]) for x in ocr_groups]
+    return ocr_groups
+
+def wrap_image_ocr(image,parent, char, conf, tl, h, w):
+    image = wrap_image(image,parent)
+    image['symbol'] = char
+    image['ocr-conf'] = conf
+    image['boundxy'] = tl
+    image['height'] = h
+    image['width'] = w
+    return image
+
+def detect_punct(arr, x1, x2, dx, dim, ):
+
+    odim = (dim+1)&1
+    indx = 'boundxy3' if dim else 'boundxy2'
+    indx2 = 'height' if dim else 'width'
+    oindx2 = 'width' if dim else 'height'
+
+    # points of the rectangle between characters
+    bl = (x1[indx][dim] + x1[indx2], x1[indx][odim])
+    tl = (bl[0], bl[1] - x1[oindx2])
+    tr = (tl[0] + abs(dx), tl[1])
+    br = (tr[0], bl[1])
+
+    dy1 = abs(bl[1] - tr[1])
+    dy2 = abs(br[1] - tl[1])
+    if dy2>dy1:
+        y1 = tl[1]
+        y2 = br[1]
+        dy = dy2
+    else:
+        y1 = tr[1]
+        y2 = bl[1]
+        dy = dy1
+    dy = max(dy1,dy2)
+    #print('    %dx%d' % (dx,dy))
+
+    #print('potential punct %d->%d, %d->%d' % (y1,y2+1, bl[0] , br[0]+1))
+    if dim == 0:
+        #print('potential punct %d->%d, %d->%d' % (y1,y2+1, bl[0] , br[0]+1))
+        inbetw = arr['img'][y1:y2+1, bl[0] : br[0]+1]
+        low_third = inbetw[int(inbetw.shape[0]*2/3):inbetw.shape[0], :]
+        rest_third = inbetw[:int(inbetw.shape[0]*2/3), :]
+        if count_black(low_third) > (4*count_black(rest_third)):
+            newim = wrap_image_ocr(inbetw,arr, '.',.90, tl, dx, dy)
+            return newim
+    else:
+        #print('potential punct %d->%d, %d->%d' % (bl[0] , br[0]+1,y1,y2+1))
+        inbetw = arr['img'][bl[0] : br[0]+1,y1:y2+1]
+        low_third = inbetw[:,int(inbetw.shape[1]*2/3):inbetw.shape[1]]
+        rest_third = inbetw[:,:int(inbetw.shape[0]*2/3)]
+        if count_black(low_third) > (4*count_black(rest_third)):
+            newim = wrap_image_ocr(inbetw,arr, '.',.90, tr, dy, dx)
+            return newim
+    return None
+
+
+def group_ocr(arr, ocr, dim=0):
+    # dim=0 means horizontal text, dim=1 means vertical text
+    odim = (dim+1)&1
+
+    indx = 'boundxy3' if dim else 'boundxy2'
+    indx2 = 'height' if dim else 'width'
+    oindx2 = 'width' if dim else 'height'
+
+    # separate into groups close on dimension
+    ocr_groups = group_ocr_lines(ocr,dim)
+
     ocr_groups2 = []
-    SEPARATING_DIST = 4 # TODO normalize
+    SEPARATING_DIST = 4         # TODO normalize
+    SEPARATING_DIST_COMMA = 36  # TODO normalize
 
     # Segment into consecutive groups on other dimension
     for i,group in enumerate(ocr_groups):
@@ -42,13 +110,23 @@ def group_ocr(ocr, dim=0):
         segment = [x1]
 
         for x2 in group[1:]:
-            dx = (x2[indx][dim] - x1[indx][dim] - x1['width'])
-            #print('dx: %d' % dx)
+            dx = (x2[indx][dim] - x1[indx][dim] - x1[indx2])
 
             if abs(dx) > SEPARATING_DIST:
-                if len(segment) > 0:
-                    ocr_groups2.append(segment)
-                segment = [x2]
+
+                punct = None
+                if dx < SEPARATING_DIST_COMMA:
+                    punct = detect_punct(arr, x1, x2, dx, dim)
+
+                if punct is not None:
+                    #print(x1['symbol'],'->', x2['symbol'])
+                    #print('itsa punct')
+                    segment.append(punct) # detected comma/decimal
+                    segment.append(x2)
+                else:
+                    if len(segment) > 0:
+                        ocr_groups2.append(segment)
+                    segment = [x2]
             else:
                 segment.append(x2)
 
@@ -159,6 +237,7 @@ def avg_rect_area(rects, irregs):
 def context_aware_correction(orig,ins):
     print('context_aware_correction')
     orig = np.copy(orig)
+    arr = ins['arr']
     ocr = ins['ocr']
     #feat_avg = avg_rect_area(ins['rectangles'], ins['irregs'])
     #ocr = [x for x in ocr if (x['width'] * x['height']) < feat_avg]
@@ -189,15 +268,36 @@ def context_aware_correction(orig,ins):
         x['boundxy3'] = (x['offset'][0] + x['boundxy'][0] + x['width'], x['offset'][1] + x['boundxy'][1])
 
     #vert,horiz = if_rotated(ocr)
-    horz = group_ocr(ocr,0)
-    verz = group_ocr(ocr, 1)
+    print('horz:')
+    horz = group_ocr(arr,ocr, 0)
+    print('verz:')
+    verz = group_ocr(arr,ocr, 1)
 
-    #new_horz,new_verz = block_redundant_groups(horz,verz)
-    new_horz,new_verz = horz,verz
+    new_horz,new_verz = block_redundant_groups(horz,verz)
+
+    # correct for rotations
+    not_rotated = []
+    for group in new_verz:
+        for x in group:
+            if not x['rotated'] and x['symbol'] != '.':
+                oldsym = x['symbol']
+                rotate_right([x])
+                analyze_ocr([x])
+                rotate_left(not_rotated)
+                if x['symbol'] is None:
+                    x['symbol'] = oldsym
+                    x['rotated'] = False
+
+                #not_rotated.append(x)
+
+    #rotate_right(not_rotated)
+    #analyze_ocr(not_rotated)
+    #rotate_left(not_rotated)
+
 
     ocr_groups = new_horz+new_verz
     print(len(ocr_groups),'groups')
-    for group in new_horz:
+    for i,group in enumerate(new_horz):
         leftest = group[0]
         rightest = group[-1]
 
@@ -205,7 +305,12 @@ def context_aware_correction(orig,ins):
         pt2 = (rightest['boundxy2'][0] + rightest['width'], rightest['boundxy2'][1])
 
         cv2.rectangle(orig, pt1,pt2, [0,0,255])
-    for group in new_verz:
+        s = ''.join(x['symbol'] for x in group)
+        print(s)
+        #print(pt1, pt2)
+        #if i == 9:
+            #break
+    for i,group in enumerate(new_verz):
         leftest = group[0]
         rightest = group[-1]
 
@@ -213,6 +318,10 @@ def context_aware_correction(orig,ins):
         pt2 = (rightest['boundxy2'][0] + rightest['width'], rightest['boundxy2'][1])
 
         cv2.rectangle(orig, pt1,pt2, [0,180,0])
+        s = ''.join(x['symbol'] for x in group)[::-1]
+        print(s)
+        #if i == 4:
+            #break
 
 
 

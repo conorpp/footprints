@@ -125,8 +125,6 @@ def parse_drawing(input_file):
         analyze_rectangles(cutleftovers)
         leftover += cutleftovers
 
-
-
     analyze_triangles(leftover,arr)
     triangles,leftover = pass_triangles(leftover, arr)
 
@@ -139,7 +137,8 @@ def parse_drawing(input_file):
             'circles': circles,
             'irregs': irregs,
             'leftover': leftover,
-            'orig': orig
+            'orig': orig,
+            'arr': arr
             }
     return outs
 
