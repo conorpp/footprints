@@ -1,9 +1,11 @@
 import math
+
 from scipy import stats
 from utils import *
 from filters import *
 from analyzers import *
 from processors import *
+from cli import put_thing
 import preprocessing
 
 def group_ocr_lines(ocr,dim=0):
@@ -327,8 +329,8 @@ def draw_ocr_group_rects(orig, new_horz, new_verz):
 
 
         cv2.rectangle(orig, pt1,pt2, [0,0,255])
-        s = ''.join(x['symbol'] for x in group)
-        print(s)
+        #s = ''.join(x['symbol'] for x in group)
+        #print(s)
         #print(pt1, pt2)
         #if i == 9:
             #break
@@ -343,14 +345,13 @@ def draw_ocr_group_rects(orig, new_horz, new_verz):
         pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
 
         cv2.rectangle(orig, pt1,pt2, [0,180,0])
-        s = ''.join(x['symbol'] for x in group)[::-1]
-        print(s)
+        #s = ''.join(x['symbol'] for x in group)[::-1]
+        #print(s)
         #if i == 4:
             #break
 
 
 
-    save(orig,'output2.png')
 
 def untangle_circles(circles, ocr_groups):
 
@@ -417,6 +418,108 @@ def remove_ocr_groups(ocr_groups, ocr_rejects=None):
     return new_ocrs
 
 
+def coalesce_triangles(arr,triangles):
+    has_hor = []
+    has_ver = []
+
+    for x in triangles:
+        t = 0
+        side1 = (x['triangle'][0][0], x['triangle'][1][0])
+        side2 = (x['triangle'][1][0], x['triangle'][2][0])
+        side3 = (x['triangle'][0][0], x['triangle'][2][0])
+        x['marked'] = False
+        for side in (side1,side2,side3):
+            #print(side)
+            vert = line_vert(side)
+            horz = line_horz(side)
+            if vert:
+                has_ver.append((x,side))
+                break
+            if horz:
+                has_hor.append((x,side))
+                break
+
+    def find_merges(tri_set):  #this could time a long time with many triangles
+        merges = []
+        for x in tri_set:
+            s1off = x[0]['offset']
+            tri1,s1 = x
+            for y in tri_set:
+                if x is y:
+                    continue
+                if y[0]['marked']:
+                    continue
+
+                s2off = y[0]['offset']
+                tri2,s2 = y
+
+
+                l1 = min(line_len((s1[0] + s1off, s2[0] + s2off)), line_len((s1[0] + s1off, s2[1] + s2off)))
+                l2 = min(line_len((s1[1] + s1off, s2[0] + s2off)), line_len((s1[1] + s1off, s2[1] + s2off)))
+
+                lmin = min(l1,l2)
+
+                if lmin<6: # TODO centralize this, based on line thickness basically
+                    l1m = max(line_len((s1[0] + s1off, s2[0] + s2off)), line_len((s1[0] + s1off, s2[1] + s2off)))
+                    l2m = max(line_len((s1[1] + s1off, s2[0] + s2off)), line_len((s1[1] + s1off, s2[1] + s2off)))
+                    lmax = max(l1m,l2m)
+
+                    ssum = (line_len(s1) + line_len(s2))
+                    #print('lextrema %.1f %.1f' % (lmax, lmin))
+                    #print('side sum', ssum)
+
+                    if lmax < ssum:
+                        #merges.append((x[0],y[0],lmin,lmax))
+                        merges.append((x[0],y[0]))
+
+            x[0]['marked'] = True
+        return merges
+
+    merged = []
+    merges = find_merges(has_hor) + find_merges(has_ver)
+
+    # merge the merges
+    for t1,t2 in merges:
+        t1off = t1['offset']
+        t2off = t2['offset']
+        bg = np.zeros(arr.shape,dtype=np.uint8)+255
+        bg[t1off[1]:t1['img'].shape[0] + t1off[1], t1off[0]:t1['img'].shape[1] + t1off[0]] = t1['img']
+        bg[t2off[1]:t2['img'].shape[0] + t2off[1], t2off[0]:t2['img'].shape[1] + t2off[0]] = t2['img']
+
+        p1 = centroid(t1['ocontour'])
+        p2 = centroid(t2['ocontour'])
+        p1 = (p1[0] + t1off[0], p1[1] + t1off[1])
+        p2 = (p2[0] + t2off[0], p2[1] + t2off[1])
+
+        cv2.line(bg, p1, p2, 0, 2)
+
+        newim = wrap_image(bg, t1)
+        newim['offset'] = (0,0)
+        analyze_rectangles([newim])
+        analyze_triangles([newim],arr)
+        merged.append(newim)
+
+    new_triangles = merged[:]
+    for x in triangles:
+        for t1,t2 in merges:
+            if (x is t1) or (x is t2):
+                break
+            else:
+                new_triangles.append(x)
+                break
+    if len(merged) == 0:
+        new_triangles = triangles
+
+
+    #merges = sorted(merges, key = lambda x : x[2])
+    #print('----')
+    #for i in range(0,min(15,len(merges))):
+        #print('merge',merges[i][2:])
+    #print('----')
+    #print(len(merges),'potential merges')
+
+    return new_triangles,merges,merged
+
 def context_aware_correction(orig,ins):
     print('context_aware_correction')
     orig = np.copy(orig)
@@ -439,6 +542,22 @@ def context_aware_correction(orig,ins):
 
     draw_ocr_group_rects(orig, new_horz, new_verz)
 
+    t1 = TIME()
+    triangles = ins['triangles']
+    triangles,merges,merged = coalesce_triangles(arr['img'],triangles)
+    ins['triangles'] = triangles
+    t2 = TIME()
+    print('triangle coalesce time: %d ms' % (t2-t1))
+
+    #for x in triangles:
+        #put_thing(orig, x['triangle'], [255,0,0], x['offset'])
+    ##for x in merges:
+        ##put_thing(orig, x[0]['triangle'], [255,0xc0,0], x[0]['offset'])
+        ##put_thing(orig, x[1]['triangle'], [255,0xc0,0], x[1]['offset'])
+    #for x in merged:
+        #put_thing(orig, x['triangle'], [0,0,255], x['offset'])
+
+    save(orig,'output2.png')
 
     return ins
 

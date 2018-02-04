@@ -126,8 +126,6 @@ def still_inside(c,p1,p2):
 def point_in_contour(c,p):
     return cv2.pointPolygonTest(c, p,0) > 0
 
-
-
 def centroid(c):
     moms = cv2.moments(c)
     x = int(moms['m10']/moms['m00'])
@@ -288,6 +286,10 @@ def line_sum(arr,line):
 
 def line_vert(line):
     return 1 if line[0][0] == line[1][0] else 0
+
+def line_horz(line):
+    return 1 if line[0][1] == line[1][1] else 0
+
 
 
 

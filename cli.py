@@ -55,6 +55,25 @@ def arguments():
     args = parser.parse_args()
     return args
 
+def put_thing(im, x, color, offset=None, thickness = 1, closed=True):
+    if offset is not None: offset = tuple(offset)
+    for i in range(0,len(x)-1):
+        p1 = x[i].flatten()
+        p2 = x[i+1].flatten()
+
+        p1 = (p1[0] + offset[0], p1[1] + offset[1])
+        p2 = (p2[0] + offset[0], p2[1] + offset[1])
+        cv2.line(im,p1,p2,color,thickness)
+
+    if closed:
+        p1 = x[0].flatten()
+        p2 = x[-1].flatten()
+
+        p1 = (p1[0] + offset[0], p1[1] + offset[1])
+        p2 = (p2[0] + offset[0], p2[1] + offset[1])
+        cv2.line(im,p1,p2,color,thickness)
+
+
 def do_outputs(orig,outs):
 
     args = arguments()
@@ -79,25 +98,6 @@ def do_outputs(orig,outs):
         x['type'] = 'circle'
     for x in outs['irregs']:
         x['type'] = 'irreg'
-
-    def put_thing(im, x, color, offset=None, thickness = 1, closed=True):
-        if offset is not None: offset = tuple(offset)
-        for i in range(0,len(x)-1):
-            p1 = x[i].flatten()
-            p2 = x[i+1].flatten()
-
-            p1 = (p1[0] + offset[0], p1[1] + offset[1])
-            p2 = (p2[0] + offset[0], p2[1] + offset[1])
-            cv2.line(im,p1,p2,color,thickness)
-
-        if closed:
-            p1 = x[0].flatten()
-            p2 = x[-1].flatten()
-
-            p1 = (p1[0] + offset[0], p1[1] + offset[1])
-            p2 = (p2[0] + offset[0], p2[1] + offset[1])
-            cv2.line(im,p1,p2,color,thickness)
-
     def put_label(im, feat, label):
         x,y = centroid(feat['ocontour'])
         x += feat['offset'][0]

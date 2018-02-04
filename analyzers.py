@@ -415,13 +415,17 @@ def analyze_rectangles(rects):
         analyze_rectangle(im)
 
 def analyze_triangles(rects,parentim):
+
+    if type(parentim) == type({}):
+        parentim = parentim['img']
+
     for x in rects:
         area,tri = cv2.minEnclosingTriangle(x['ocontour'])
         x['triangle'] = np.round(tri).astype(np.int32)
         x['triangle-area'] = area
-        inside = np.zeros(parentim['img'].shape, dtype=np.uint8)
+        inside = np.zeros(parentim.shape, dtype=np.uint8)
         cv2.drawContours(inside,[x['triangle']],0,255,-1,offset=tuple(x['offset']))
-        inside = (cv2.bitwise_and(parentim['img'], inside) + (inside != 255) * 255)
+        inside = (cv2.bitwise_and(parentim, inside) + (inside != 255) * 255)
 
         #x['triangle-area-ratio'] = count_black(x['img'])/area
         x['triangle-area-ratio'] = count_black(inside)/area
