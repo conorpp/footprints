@@ -1,3 +1,4 @@
+import math
 from scipy import stats
 from utils import *
 from filters import *
@@ -318,8 +319,12 @@ def draw_ocr_group_rects(orig, new_horz, new_verz):
         leftest = group[0]
         rightest = group[-1]
 
-        pt1 = (leftest['boundxy2'][0], leftest['boundxy2'][1] - leftest['height'])
-        pt2 = (rightest['boundxy2'][0] + rightest['width'], rightest['boundxy2'][1])
+        mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
+        mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
+
+        pt1 = (leftest['boundxy2'][0], mytop)
+        pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
+
 
         cv2.rectangle(orig, pt1,pt2, [0,0,255])
         s = ''.join(x['symbol'] for x in group)
@@ -331,8 +336,11 @@ def draw_ocr_group_rects(orig, new_horz, new_verz):
         leftest = group[0]
         rightest = group[-1]
 
-        pt1 = (leftest['boundxy2'][0], leftest['boundxy2'][1] - leftest['height'])
-        pt2 = (rightest['boundxy2'][0] + rightest['width'], rightest['boundxy2'][1])
+        mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
+        mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
+
+        pt1 = (leftest['boundxy2'][0], mytop)
+        pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
 
         cv2.rectangle(orig, pt1,pt2, [0,180,0])
         s = ''.join(x['symbol'] for x in group)[::-1]
@@ -344,6 +352,69 @@ def draw_ocr_group_rects(orig, new_horz, new_verz):
 
     save(orig,'output2.png')
 
+def untangle_circles(circles, ocr_groups):
+
+    new_circles = []
+    rejects = []
+    for c in circles:
+        center,r = c['circle']
+        r -= 1
+        coff = c['offset']
+        ctl = (center[0] - r + coff[0], center[1] - r + coff[1])
+        ctr = (center[0] + r + coff[0], center[1] - r + coff[1])
+        cbl = (center[0] - r + coff[0], center[1] + r + coff[1])
+        cbr = (center[0] + r + coff[0], center[1] + r + coff[1])
+        add = True
+        for group in ocr_groups:
+            leftest = group[0]
+            rightest = group[-1]
+            
+            mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
+            mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
+
+            rtl = (leftest['boundxy2'][0], mytop)
+            rbr = (rightest['boundxy2'][0] + rightest['width'], mybot)
+            rtr = (rbr[0], rtl[1])
+            rbl = (rtl[0], rbr[1])
+            remove_group = False
+            if ctl[0] >= rtl[0] and ctl[1] >= rtl[1]:
+                if ctr[0] <= rtr[0] and ctr[1] >= rtr[1]:
+                    if cbr[0] <= rbr[0] and cbr[1] <= rbr[1]:
+                        if cbl[0] >= rbl[0] and cbl[1] <= rbl[1]:
+                            if len(group)>1:
+                                add = False
+                                break
+                            elif group[0]['symbol'] in '689':
+                                add = False
+                                break
+                            elif group[0]['symbol'] in '0QC':
+                                remove_group = True
+                                break
+                            #s = ''.join(x['symbol'] for x in group)
+                            #print('circle contained by group '+s)
+        if remove_group:
+            rejects.append(group)
+
+        if add:
+            new_circles.append(c)
+        else:
+            break
+        add = True
+    return new_circles, rejects
+
+def remove_ocr_groups(ocr_groups, ocr_rejects=None):
+    if ocr_rejects is not None:
+        for group in ocr_rejects:
+            for x in group:
+                x['symbol'] = None
+                x['ocr-conf'] = 0.0
+
+    new_ocrs = []
+    for group in ocr_groups:
+        if group[0]['symbol'] != None:
+            new_ocrs.append(group)
+
+    return new_ocrs
 
 
 def context_aware_correction(orig,ins):
@@ -351,18 +422,24 @@ def context_aware_correction(orig,ins):
     orig = np.copy(orig)
     arr = ins['arr']
     ocr = ins['ocr']
-    #feat_avg = avg_rect_area(ins['rectangles'], ins['irregs'])
-    #ocr = [x for x in ocr if (x['width'] * x['height']) < feat_avg]
-    #print('feature average area is ', feat_avg)
+    circles = ins['circles']
 
-
-    #print('by width')
-    #ocr = sorted(ocr, key = lambda x : x['width'])
     t1 = TIME()
     new_horz, new_verz = infer_ocr_groups(arr,ocr)
-    draw_ocr_group_rects(orig, new_horz, new_verz)
     t2 = TIME()
     print('ocr inferring time: %d ms' % (t2-t1))
+
+    t1 = TIME()
+    ins['circles'],ocr_rejects = untangle_circles(circles, new_horz + new_verz)
+
+    new_horz = remove_ocr_groups(new_horz, ocr_rejects)
+    new_verz = remove_ocr_groups(new_verz)
+    t2 = TIME()
+    print('circle untangle time: %d ms' % (t2-t1))
+
+    draw_ocr_group_rects(orig, new_horz, new_verz)
+
+
     return ins
 
 
