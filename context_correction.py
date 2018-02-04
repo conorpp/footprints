@@ -23,11 +23,11 @@ def group_ocr(ocr, dim=0):
         if y > (starty-5) and y < (starty+5):
             group.append(x)
         else:
-            if len(group) > 1:
+            if len(group) > 0:
                 ocr_groups.append(group)
             group = [x]
             starty = y
-    if len(group) > 1:
+    if len(group) > 0:
         ocr_groups.append(group)
 
     print('ocr_groups:', len(ocr_groups))
@@ -38,13 +38,12 @@ def group_ocr(ocr, dim=0):
 
     # Segment into consecutive groups on other dimension
     for i,group in enumerate(ocr_groups):
-        print('group',i)
         x1 = group[0]
         segment = [x1]
 
         for x2 in group[1:]:
             dx = (x2[indx][dim] - x1[indx][dim] - x1['width'])
-            print('dx: %d' % dx)
+            #print('dx: %d' % dx)
 
             if abs(dx) > SEPARATING_DIST:
                 if len(segment) > 0:
@@ -97,6 +96,7 @@ def if_rotated(inps):
         else:
             nope.append(x)
     return rot, nope
+
 def group_crosses(group1,group2):
     for x in group1:
         for y in group2:
@@ -145,16 +145,43 @@ def block_redundant_groups(horz, verz):
 
     return new_horz,new_verz
 
+def avg_rect_area(rects, irregs):
+    tot = 0.0
+    count = 0
+    for x in rects:
+        tot += x['a1']
+        count += 1
+    for x in irregs:
+        tot += x['a1']
+        count += 1
+    return tot/count
 
 def context_aware_correction(orig,ins):
     print('context_aware_correction')
     orig = np.copy(orig)
     ocr = ins['ocr']
+    #feat_avg = avg_rect_area(ins['rectangles'], ins['irregs'])
+    #ocr = [x for x in ocr if (x['width'] * x['height']) < feat_avg]
+    #print('feature average area is ', feat_avg)
+
 
     #print('by width')
     #ocr = sorted(ocr, key = lambda x : x['width'])
-    #for x in ocr:
-        #print (x['width'], x['height'])
+    widths = []
+    heights = []
+    for x in ocr:
+        widths.append(x['width'])
+        heights.append(x['height'])
+
+    wmode = stats.mode(widths)[0][0]
+    hmode = stats.mode(heights)[0][0]
+    mode = max(wmode,hmode,35)
+
+    print(wmode)
+    print(hmode)
+
+    ocr = [x for x in ocr if x['width'] < (mode*2)]
+    ocr = [x for x in ocr if x['height'] < (mode*2)]
 
     # get starting x,y for bottom left coord, with added offset
     for x in ocr:
@@ -165,11 +192,12 @@ def context_aware_correction(orig,ins):
     horz = group_ocr(ocr,0)
     verz = group_ocr(ocr, 1)
 
-    new_horz,new_verz = block_redundant_groups(horz,verz)
+    #new_horz,new_verz = block_redundant_groups(horz,verz)
+    new_horz,new_verz = horz,verz
 
     ocr_groups = new_horz+new_verz
     print(len(ocr_groups),'groups')
-    for group in ocr_groups:
+    for group in new_horz:
         leftest = group[0]
         rightest = group[-1]
 
@@ -177,6 +205,16 @@ def context_aware_correction(orig,ins):
         pt2 = (rightest['boundxy2'][0] + rightest['width'], rightest['boundxy2'][1])
 
         cv2.rectangle(orig, pt1,pt2, [0,0,255])
+    for group in new_verz:
+        leftest = group[0]
+        rightest = group[-1]
+
+        pt1 = (leftest['boundxy2'][0], leftest['boundxy2'][1] - leftest['height'])
+        pt2 = (rightest['boundxy2'][0] + rightest['width'], rightest['boundxy2'][1])
+
+        cv2.rectangle(orig, pt1,pt2, [0,180,0])
+
+
 
     save(orig,'output2.png')
 
