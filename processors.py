@@ -9,6 +9,7 @@ from scipy import stats
 
 from utils import *
 from analyzers import *
+from settings import *
 
 def separate_lines(inp):
     out = []
@@ -395,14 +396,14 @@ def cut_linking_lines(arrs):
 
 def cut_linking_line(arr):
     #TODO derive these from something
-    perpendicular_line_length = 8
+    perpendicular_line_length = MAX_LINE_THICKNESS
     min_line_length = 10
     variation = 3
     cuts = 0
 
     lines,indexs = sum_crossings(arr,0)
     sums = scan_dim(arr,0)
-    lines = lines + (sums > perpendicular_line_length )
+    lines = lines + (sums >= perpendicular_line_length )
 
     lines = trim_crossings(lines)
     locs = get_mode_locations(lines,1)
@@ -513,7 +514,7 @@ def get_partial_lines_from_contour(contour, center=None, headstart=True):
         diffs = np.linalg.norm(pl-pr, axis=1)
         diffend = 0
         for x in diffs:
-            if x < 6.5:
+            if x <= MAX_LINE_THICKNESS:
                 diffend += 1
             else:
                 break

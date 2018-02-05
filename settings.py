@@ -1,0 +1,2 @@
+
+MAX_LINE_THICKNESS = 7
