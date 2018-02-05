@@ -8,15 +8,24 @@ from context_correction import context_aware_correction
 def main():
     args = arguments()
 
+    t1 = TIME()
     outs = parse_drawing(args.input_file)
     orig = outs['orig']
+    t2 = TIME()
+    #print('parse_drawing time: %d' % (t2-t1))
 
 
+
+    t1 = TIME()
     outs = context_aware_correction(orig,outs)
+    t2 = TIME()
+    #print('context correction time: %d' % (t2-t1))
 
     do_outputs(orig,outs)
 
 
 if __name__ == '__main__':
+    #import cProfile
+    #cProfile.run('main()')
     main()
 

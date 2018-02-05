@@ -299,8 +299,6 @@ def line_len(line):
     return math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
 
 
-
-
 def timestamp(): return int(round(time.time() * 1000))
 def TIME(): return int(round(time.time() * 1000))
 

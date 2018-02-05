@@ -476,55 +476,21 @@ def smooth_avg(y, window):
 
 # requires contours to all be pixel-to-pixel
 def get_partial_lines_from_contour(contour, center=None, headstart=True):
-    def segment(c,i):
-        return np.reshape(c[i:i+2],(2,2))
 
-
-    c = contour
     if center is None:
         cx,cy = centroid(contour)
     else:
         cx,cy = center
 
-    #print('ORIGIN:',cx,cy)
-    traces = []
-    for i in range(0,len(c)-1):
-        traces.append(segment(c,i))
-    traces.append(np.array([c[-1][0],c[0][0]]))
-
+    traces = np.reshape(contour,(len(contour),2))
     if headstart:
-        traces = traces[:len(traces)]+traces[len(traces):]
-    else:
-        # TODO do this better
-        traces = traces[int(len(traces)/2):]+traces[:int(len(traces)/2)]
-    #traces.reverse()
+        traces = np.roll(traces,int(len(traces)/2),axis=0)
 
-    lastp1,lastp2 = traces[-1]
-    lastslop = 1
-    route = []
 
-    # calculate distance from origin for each contour point
-    for i,(p1,p2) in enumerate(traces):
+    # vectorized calculating all distances from origin point
+    route = np.linalg.norm(traces-(cx,cy), axis=1)
 
-        #ni = p2[0] - lastp2[0]
-        #nj = p2[1] - lastp2[1]
-        #nk = 0
-
-        #li = p2[0] - lastp2[0]
-        #lj = p2[1] - lastp2[1]
-        #lk = 0
-
-        #dist1 = line_len((lastp1,lastp2))
-        #dist2 = line_len((p1,p2))
-        #ang = angle_between((li,lj,0),(ni,nj,0))
-        #route.append([dist1,dist2,ang,(lastp1,lastp2),(p1,p2),line_len((p1,(cx,cy)))])
-        route.append(line_len((p1,(cx,cy))))
-
-    origin_dists = np.zeros(len(route))
-    for i in range(0,len(route)):
-        origin_dists[i] = route[i]
-
-    origin_dists = smooth(origin_dists)
+    origin_dists = smooth(route)
 
     maxlocs = argrelextrema(origin_dists, np.greater)
     minlocs = argrelextrema(origin_dists, np.less)
@@ -541,34 +507,33 @@ def get_partial_lines_from_contour(contour, center=None, headstart=True):
     good_traces = []
     good_traces_start_points = []
     for center,dist in pot_lines:
-        diffs = []
-        for i in range(1, dist+1):
-            pl = traces[center-i][0]
-            pr = traces[center+i][0]
-            diff = line_len((pl,pr))
-            if diff > 6.5: break  # TODO normalize this
-            diffs.append(diff)
+
+        pl = traces[center-dist:center][::-1]
+        pr = traces[center+1:center+dist+1]
+        diffs = np.linalg.norm(pl-pr, axis=1)
+        diffend = 0
+        for x in diffs:
+            if x < 6.5:
+                diffend += 1
+            else:
+                break
+        diffs = diffs[0:diffend]
+
 
         if len(diffs) > 9: # TODO normalize this
             mode,count = stats.mode(diffs)
+
             # only take items with majority taken by mode
             if count/len(diffs) > .45:
                 # trim the edges
-                while diffs[-1] != mode:
-                    diffs.pop()
-                    i -= 1
-                line = traces[center-i+1:center+i]
-                #line = line[:i-3] + line[i+3:]
-                #line = line[:len(line)-3]
-                #line[-1] = np.copy(line[-1])
-                #line[-1][1] = line[0][0]
+                diffend = len(diffs)
+                while diffs[diffend-1] != mode:
+                    diffend -= 1
+                diffs = diffs[0:diffend]
+                line = traces[center-len(diffs)+1:center+len(diffs)]
                 good_traces.append(line)
-                good_traces_start_points.append(traces[center][0])
-                #print('good diff len', len(diffs), 'mode %',count/len(diffs))
-            #else:
-                #print('bad diff len', len(diffs), 'mode %',count/len(diffs))
+                good_traces_start_points.append(traces[center])
 
-    #print(traces)
 
     maxima = np.zeros(origin_dists.shape)
     maxima[minlocs] = -1
@@ -579,49 +544,6 @@ def get_partial_lines_from_contour(contour, center=None, headstart=True):
     #plt.show()
     #sys.exit(0)
     return (good_traces,good_traces_start_points)
-    #return (good_traces)
-
-    # this method detects straight horizontal/vertical lines well
-    #route_prepend = []
-    #if route[0][0] < 10:
-        #ang_accum = 0
-        #for i in range(len(route)-1,-1,-1):
-            #r = route[i]
-            #route_prepend = [r] + route_prepend
-            #if r[0] >= 10:
-                #break
-            #if abs(ang_accum) >= 180:
-                #break
-            #ang_accum += r[2]
-
-    #route = route_prepend + route
-
-    #lastdist = 0.0
-    #for offset in range(0,len(route)):
-        ##offset = 7
-        #dist1 = route[offset][0]
-        #ang_accum = 0.0
-        #ang_dist = 0.0
-        #hist = []
-        #print('dist1: %.2f:' % (dist1,))
-        #for _,dist2,ang,l1,l2,m1,m2 in route[offset:]:
-            #ang_accum += ang
-            #hist.append(l1)
-            #hist.append(l2)
-            #print('+dist: %.2f, +ang: %.2f (%.2f)' % (dist2,ang,ang_accum))
-
-            #if abs(int(ang_accum)) == 180 or abs(int(ang_accum)) == 0:
-                #if min(dist1,dist2) > 5 and ang_dist < 25:  # min line length
-                    #traces += hist
-                    #print('DETECTED LINE')
-                #break
-            #elif abs(ang_accum) > 180:
-                #break
-            #ang_dist += dist2
-
-        ##traces += hist
-        #print('dist1: %.2f, dist2: %.2f, ang_dist %.2f' % (dist1,dist2,ang_dist))
-        ##break
 
 
 def find_line_features(lines):
@@ -659,18 +581,18 @@ def find_line_features(lines):
         scan_points = [
                 None,
                 (0,0),
-                (-100,100),
-                (0,l['img'].shape[0]),
-                (l['img'].shape[1],0),
+                #(-100,100),
+                #(0,l['img'].shape[0]),
+                #(l['img'].shape[1],0),
                 (l['img'].shape[1],l['img'].shape[0]),
                 ]
 
-        for i in range(0,5):
+        for i in range(0,3):
             traces, startpoints = get_partial_lines_from_contour(l['ocontour'], scan_points[i])
             if len(traces): break
 
         if len(traces) == 0:
-            for i in range(0,5):
+            for i in range(0,3):
                 traces, startpoints = get_partial_lines_from_contour(l['ocontour'], scan_points[i],False)
                 if len(traces): break
 
@@ -681,12 +603,12 @@ def find_line_features(lines):
 
         l['line-scan-attempt'] = scantype + 1
 
-        l['traces'] = (traces,startpoints)
+        #l['traces'] = (traces,startpoints)
 
         ests = []
         for i in range(0, len(traces)):
             tset = traces[i]
-            pts = np.array([t[0] for t in tset])
+            pts = np.array([t for t in tset])
             startp = startpoints[i]
 
             blackp = neighboring_black_pixel(l['img'], startp)
