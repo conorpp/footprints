@@ -121,6 +121,7 @@ def analyze_rectangle(arr):
 
     mat = np.copy(arr['img'])
     mat, contours, hier = cv2.findContours(mat, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    #mat, contours, hier = cv2.findContours(mat, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     tmp = arr['img']
 
     if len(contours)>1:

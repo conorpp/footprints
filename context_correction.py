@@ -1,11 +1,13 @@
 import math
 
+
 from scipy import stats
 from utils import *
 from filters import *
 from analyzers import *
 from processors import *
 from cli import put_thing
+from structures import RTree
 import preprocessing
 
 def group_ocr_lines(ocr,dim=0):
@@ -418,27 +420,7 @@ def remove_ocr_groups(ocr_groups, ocr_rejects=None):
     return new_ocrs
 
 
-def coalesce_triangles(arr,triangles):
-    has_hor = []
-    has_ver = []
-
-    for x in triangles:
-        t = 0
-        side1 = (x['triangle'][0][0], x['triangle'][1][0])
-        side2 = (x['triangle'][1][0], x['triangle'][2][0])
-        side3 = (x['triangle'][0][0], x['triangle'][2][0])
-        x['marked'] = False
-        for side in (side1,side2,side3):
-            #print(side)
-            vert = line_vert(side)
-            horz = line_horz(side)
-            if vert:
-                has_ver.append((x,side))
-                break
-            if horz:
-                has_hor.append((x,side))
-                break
-
+def coalesce_triangles(arr,triangles, tree):
     def find_merges(tri_set):  #this could time a long time with many triangles
         merges = []
         for x in tri_set:
@@ -476,7 +458,36 @@ def coalesce_triangles(arr,triangles):
         return merges
 
     merged = []
-    merges = find_merges(has_hor) + find_merges(has_ver)
+    merges = []
+    for x in triangles:
+        nearby = tree.intersect(x,1)
+        #nearby.append(x)
+        has_hor = []
+        has_ver = []
+
+        for x in nearby:
+            if x['merged']: continue
+            t = 0
+            side1 = (x['triangle'][0], x['triangle'][1])
+            side2 = (x['triangle'][1], x['triangle'][2])
+            side3 = (x['triangle'][0], x['triangle'][2])
+            x['marked'] = False
+            for side in (side1,side2,side3):
+                #print(side)
+                vert = line_vert(side)
+                horz = line_horz(side)
+                if vert:
+                    has_ver.append((x,side))
+                    break
+                if horz:
+                    has_hor.append((x,side))
+                    break
+        #print('tris',len(has_hor), len(has_ver))
+
+        m = find_merges(has_hor) + find_merges(has_ver)
+        for x in m:
+            x[0]['merged'] = True
+        merges += m
 
     # merge the merges
     for t1,t2 in merges:
@@ -511,21 +522,59 @@ def coalesce_triangles(arr,triangles):
         new_triangles = triangles
 
 
-    #merges = sorted(merges, key = lambda x : x[2])
-    #print('----')
-    #for i in range(0,min(15,len(merges))):
-        #print('merge',merges[i][2:])
-    #print('----')
-    #print(len(merges),'potential merges')
-
     return new_triangles,merges,merged
+
+def update_bounding_boxes(outs):
+    for x in outs['circles']:
+        center,r = x['circle']
+        xmin = center[0]-r
+        ymin = center[1]-r
+        x['boundxy'] = (xmin,ymin)
+        x['width'] = 2 * r
+        x['height'] = 2 * r
+    for x in outs['triangles']:
+        x['triangle'] = np.reshape(x['triangle'], (3,2))
+        xmin = np.min(x['triangle'][:,0])
+        xmax = np.max(x['triangle'][:,0])
+        ymin = np.min(x['triangle'][:,1])
+        ymax = np.max(x['triangle'][:,1])
+        x['boundxy'] = (xmin,ymin)
+        x['width'] = xmax-xmin
+        x['height'] = ymax-ymin
+    for x in outs['lines']:
+        xmin = min(x['line'][0][0], x['line'][1][0],)
+        xmax = max(x['line'][0][0], x['line'][1][0],)
+        ymin = min(x['line'][0][1], x['line'][1][1],)
+        ymax = max(x['line'][0][1], x['line'][1][1],)
+        x['boundxy'] = (xmin,ymin)
+        x['width'] = xmax-xmin
+        x['height'] = ymax-ymin
+    for x in outs['rectangles']:
+        xmin = np.min(x['contour'][:,0])
+        xmax = np.max(x['contour'][:,0])
+        ymin = np.min(x['contour'][:,1])
+        ymax = np.max(x['contour'][:,1])
+        x['boundxy'] = (xmin,ymin)
+        x['width'] = xmax-xmin
+        x['height'] = ymax-ymin
+    #for x in outs['irregs']:
+        #pass # TODO
 
 def context_aware_correction(orig,ins):
     print('context_aware_correction')
     orig = np.copy(orig)
+    
+
     arr = ins['arr']
     ocr = ins['ocr']
     circles = ins['circles']
+    t1 = TIME()
+    update_bounding_boxes(ins)
+    tri_tree = RTree(arr['img'])
+    tri_tree.add_objs(ins['triangles'])
+    t2 = TIME()
+    print('tree creation: %d ms' % (t2-t1))
+
 
     t1 = TIME()
     new_horz, new_verz = infer_ocr_groups(arr,ocr)
@@ -544,7 +593,7 @@ def context_aware_correction(orig,ins):
 
     t1 = TIME()
     triangles = ins['triangles']
-    triangles,merges,merged = coalesce_triangles(arr['img'],triangles)
+    triangles,merges,merged = coalesce_triangles(arr['img'],triangles, tri_tree)
     ins['triangles'] = triangles
     t2 = TIME()
     print('triangle coalesce time: %d ms' % (t2-t1))

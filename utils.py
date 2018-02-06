@@ -35,6 +35,8 @@ def wrap_image(im,parent=None,offset=None):
             'line-estimates':[],
             'features':[],
             'traces':[],
+            
+            'merged':False,
 
             }
 
