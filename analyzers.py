@@ -301,7 +301,7 @@ def analyze_triangles(rects,parentim):
 
     for x in rects:
         area,tri = cv2.minEnclosingTriangle(x['ocontour'])
-        x['triangle'] = np.round(tri).astype(np.int32)
+        x['triangle'] = np.reshape(np.round(tri).astype(np.int32),(3,2))
         x['triangle-area'] = area
         inside = np.zeros(parentim.shape, dtype=np.uint8)
         cv2.drawContours(inside,[x['triangle']],0,255,-1,offset=tuple(x['offset']))
