@@ -6,6 +6,9 @@ class RTree():
         self.tree = index.Index()
         self.shape = arr.shape
 
+    def has(self,idx):
+        return (idx in self.features)
+
     def add_obj(self,x):
         left,bottom = x['boundxy']
         right,top = left + x['width'], bottom+ x['height']

@@ -527,6 +527,7 @@ def coalesce_triangles(arr,triangles, tree):
         merged.append(newim)
         tree.remove(t1['id'])
         tree.remove(t2['id'])
+        tree.add_obj(newim)
 
 
 
@@ -578,6 +579,8 @@ def update_bounding_boxes(outs):
         xmax = max(x['line'][0][0], x['line'][1][0],)
         ymin = min(x['line'][0][1], x['line'][1][1],)
         ymax = max(x['line'][0][1], x['line'][1][1],)
+        if 'ocontour' not in x:
+            analyze_rectangles((x,))
         x['boundxy'] = (xmin,ymin)
         x['width'] = xmax-xmin
         x['height'] = ymax-ymin
@@ -655,6 +658,12 @@ def correct_trimmed_triangles(triangles, line_tree):
         #if i not in range(3,5):continue
         nearby_lines = line_tree.intersect(x,)
         tri = x['triangle']
+        side0 = tri[0:2] #+ tri_off
+        side1 = tri[1:3] #+  tri_off
+        side2 = (tri[0],tri[2]) #+ tri_off
+        shortest = min((side0,side1,side2), key = lambda x: line_len(x))
+        maxdim = max(x['height'], x['width'])
+
         line_set = []
         for l in nearby_lines:
             doff = l['offset'] - x['offset']
@@ -662,25 +671,24 @@ def correct_trimmed_triangles(triangles, line_tree):
             p1 = tuple(l['line'][1]+doff)
             p0in = point_ineq_contour(tri, p0)
             p1in = point_ineq_contour(tri, p1)
-            if p0in and p1in:
-                affected.append((x,(l, None,)))
-                line_set = []
-                break
-            elif p0in or p1in:
-                line_set.append((l,p0 if p0in else p1))
-                total_lines += 1
+            if line_len(l['line']) < maxdim * 2:
+                if p0in and p1in:
+                    affected.append((x,(l, None,)))
+                    line_set = []
+                    break
+                elif p0in or p1in:
+                    line_set.append((l,p0 if p0in else p1))
+                    total_lines += 1
 
         line_set2 = []
         tri_off = x['offset']
 
-        side0 = tri[0:2] #+ tri_off
-        side1 = tri[1:3] #+  tri_off
-        side2 = (tri[0],tri[2]) #+ tri_off
         for l in line_set:
             good = False
             crossing_side = None
             not_intersects = 0
             for s in (side0,side1,side2):
+                if s is shortest: continue
                 doff = l[0]['offset'] - tri_off
                 line = l[0]['line'] + doff
                 if does_intersect(line,s):
@@ -688,7 +696,7 @@ def correct_trimmed_triangles(triangles, line_tree):
                     if ang < 70 and ang > 20 :  # check easy bounds
                         good = True
                         crossing_side = s
-                        print('good one %d ' % (ang,))
+                        #print('good one %d ' % (ang,))
                         break
                     elif ang <89 and ang > 1:  # take more extreme bounds only if line is inside triangle a good amount
                         inter_pt = line_intersection(line,s)
@@ -697,10 +705,10 @@ def correct_trimmed_triangles(triangles, line_tree):
                         if ln2/ln1 > .15:
                             crossing_side = s
                             good = True
-                            print('good one %d @%.2f' % (ang,ln2/ln1))
+                            #print('good one %d @%.2f' % (ang,ln2/ln1))
                             break
-                    else:
-                        print('bad one %d ' % (ang,))
+                    #else:
+                        #print('bad one %d ' % (ang,))
                 else:
                     #print('does not intersect')
                     not_intersects += 1
@@ -747,6 +755,7 @@ def draw_trimmed_triangles(im,affected):
 
         #for x in lines:
         l = lines[0]['line']
+        #octr = lines[0]['ocontour']
         put_thing(im, l, [0,128,0], lines[0]['offset'], 2)
         l2 = lines[1]
         if l2 is not None:
@@ -755,6 +764,25 @@ def draw_trimmed_triangles(im,affected):
         else:
             put_thing(im, l, [128,128,0], lines[0]['offset'], 2)
 
+def replace_trimmed_triangles(arr,triangles,affected, tri_tree, line_tree):
+    for x in affected:
+        combined = combine_features(arr,x[0],x[1][0])
+        analyze_rectangles((combined,))
+        analyze_triangles((combined,), arr)
+
+        if triangle_passes(combined):
+            triangles.append(combined)
+            tri_tree.add_obj(combined)
+
+            tri_tree.remove(x[0]['id'])
+            if line_tree.has(x[1][0]['id']): line_tree.remove(x[1][0]['id'])
+
+
+def update_list_against_tree(li, tree):
+    new_list = []
+    for x in li:
+        if tree.has(x['id']): new_list.append(x)
+    return new_list
 
 
 def context_aware_correction(orig,ins):
@@ -765,6 +793,7 @@ def context_aware_correction(orig,ins):
     arr = ins['arr']
     ocr = ins['ocr']
     circles = ins['circles']
+    lines = ins['lines']
     t1 = TIME()
     update_bounding_boxes(ins)
     tri_tree = RTree(arr['img'])
@@ -796,8 +825,17 @@ def context_aware_correction(orig,ins):
     t2 = TIME()
     print('triangle coalesce time: %d ms' % (t2-t1))
 
+    t1 = TIME()
     affected = correct_trimmed_triangles(triangles, line_tree)
+    replace_trimmed_triangles(arr['img'],triangles,affected,tri_tree, line_tree)
+    ins['triangles'] = update_list_against_tree(triangles, tri_tree)
+    ins['lines'] = update_list_against_tree(lines, line_tree)
+    t2 = TIME()
+    print('triangle-line correction time: %d ms' % (t2-t1))
+
     draw_trimmed_triangles(orig, affected)
+
+
 
     #for x in triangles:
         #put_thing(orig, x['triangle'], [255,0,0], x['offset'])

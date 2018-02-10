@@ -99,12 +99,16 @@ def block_dots(fresh):
             good.append(x)
     return good
 
+def triangle_passes(x):
+    dim = min(analyzers.PARAMS['imageh'],analyzers.PARAMS['imagew'])/2
+    return (x['triangle-area-ratio']>.5) and (x['triangle-perimeter'] < dim)
+
 def pass_triangles(inp, bim = None):
     tris = []
     notris = []
-    dim = min(analyzers.PARAMS['imageh'],analyzers.PARAMS['imagew'])/2
+    #dim = min(analyzers.PARAMS['imageh'],analyzers.PARAMS['imagew'])/2
     for x in inp:
-        if (x['triangle-area-ratio']>.5) and (x['triangle-perimeter'] < dim):
+        if triangle_passes(x):
             tris.append(x)
         else:
             notris.append(x)
