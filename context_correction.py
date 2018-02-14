@@ -1,4 +1,5 @@
 import math
+from random import randint
 
 
 from scipy import stats
@@ -784,6 +785,92 @@ def update_list_against_tree(li, tree):
         if tree.has(x['id']): new_list.append(x)
     return new_list
 
+def line_slope(line):
+    dy = line[1][1] - line[0][1]
+    dx = line[1][0] - line[0][0]
+    if dx <.1 and dx>-.1:
+        return 1000
+    m = dy/dx
+    if abs(m) > 50:
+        return 1000
+    return m
+
+def slope_within(slop1,slop2,dv):
+    return (slop1 < (slop2+dv)) and (slop1 > (slop2-dv))
+
+def coalesce_lines(arr,lines, tree):
+    padding = 5
+    para_groups = []
+    print('%d lines colaescing' % len(lines))
+    for x in lines:
+        #newoff = arr.shape - np.array(x['img'].shape)
+        #newoff = (newoff[1], newoff[0])
+        #print('offset: %dx%d  vs %dx%d' % (newoff[0], newoff[1], x['offset'][0], x['offset'][1]))
+        #assert(arr.shape -  == x['offset'])
+        #isvert = line_vert(x['line'])
+        isvert = False
+        slop = line_slope(x['line'])
+        if slope_within(abs(slop),1000,1):
+            print('vert line')
+            isvert = True
+            center = x['line'][0][0] + x['offset'][0]
+            #center = x['line'][0][1]
+            # left, bottom, right, top
+            left = center - padding
+            right= center + padding
+            bottom = 0
+            top = arr.shape[0]
+        elif slope_within(slop,0,.15):
+            print('horz line')
+            center = x['line'][0][1] + x['offset'][1]
+            #center = x['line'][0][0]
+            # left, bottom, right, top
+            bottom = center - padding
+            top = center + padding
+            left = 0
+            right = arr.shape[1]
+        else:
+            print('ignoring non-horz non-vert line %.2f' % (slop))
+            continue
+
+        # get lines that cross infinite line
+        para_lines = tree.intersectBox((left, bottom, right, top))
+
+        # filter out perpendicular lines
+        para_lines2 = [l for l in para_lines if slope_within(line_slope(l['line']), slop, .1)]
+
+        if len(para_lines2):
+            #if isvert: print('vert line')
+            #else: print('horz line')
+            print('  accepted')
+            para_lines2.append(x)
+            para_groups.append(para_lines2)
+            #for l in para_lines2:
+                #print('  %.2f vs %.2f' % (line_slope(l['line']), slop))
+
+            #print('  %d parallel lines' % len(para_lines))
+
+            #return para_lines
+            print('center:', center)
+        else:
+            print('center:', center)
+            pass
+            #print('  not accepted')
+            #for l in para_lines:
+                #print('  %.2f vs %.2f' % (line_slope(l['line']), slop))
+                #para_lines = [l for l in para_lines if slope_within(line_slope(l['line']), slop, 100)]
+    return para_groups
+
+def draw_para_lines(im, para_groups):
+    for i,para_lines in enumerate(para_groups):
+        color = (randint(0,255),randint(0,255), randint(0,255))
+        #if i in range(45,50):
+            #assert(len(para_lines)>1)
+        for x in para_lines:
+            put_thing(im, x['line'], color, x['offset'], 2)
+
+
+
 
 def context_aware_correction(orig,ins):
     print('context_aware_correction')
@@ -825,16 +912,18 @@ def context_aware_correction(orig,ins):
     t2 = TIME()
     print('triangle coalesce time: %d ms' % (t2-t1))
 
-    t1 = TIME()
-    affected = correct_trimmed_triangles(triangles, line_tree)
-    replace_trimmed_triangles(arr['img'],triangles,affected,tri_tree, line_tree)
-    ins['triangles'] = update_list_against_tree(triangles, tri_tree)
-    ins['lines'] = update_list_against_tree(lines, line_tree)
-    t2 = TIME()
-    print('triangle-line correction time: %d ms' % (t2-t1))
+    #t1 = TIME()
+    #affected = correct_trimmed_triangles(triangles, line_tree)
+    #replace_trimmed_triangles(arr['img'],triangles,affected,tri_tree, line_tree)
+    #ins['triangles'] = update_list_against_tree(triangles, tri_tree)
+    #ins['lines'] = update_list_against_tree(lines, line_tree)
+    #t2 = TIME()
+    #print('triangle-line correction time: %d ms' % (t2-t1))
 
-    draw_trimmed_triangles(orig, affected)
+    #draw_trimmed_triangles(orig, affected)
 
+    merged = coalesce_lines(arr['img'],lines, line_tree)
+    draw_para_lines(orig,merged)
 
 
     #for x in triangles:
