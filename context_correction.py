@@ -800,7 +800,8 @@ def slope_within(slop1,slop2,dv):
 
 def coalesce_lines(arr,lines, tree):
     padding = 5
-    para_groups = []
+    ypara_groups = []
+    xpara_groups = []
     print('%d lines colaescing' % len(lines))
     for x in lines:
         #newoff = arr.shape - np.array(x['img'].shape)
@@ -831,6 +832,7 @@ def coalesce_lines(arr,lines, tree):
             right = arr.shape[1]
         else:
             print('ignoring non-horz non-vert line %.2f' % (slop))
+            xpara_groups.append([x])
             continue
 
         # get lines that cross infinite line
@@ -844,7 +846,10 @@ def coalesce_lines(arr,lines, tree):
             #else: print('horz line')
             print('  accepted')
             para_lines2.append(x)
-            para_groups.append(para_lines2)
+            if isvert:
+                ypara_groups.append(para_lines2)
+            else:
+                xpara_groups.append(para_lines2)
             #for l in para_lines2:
                 #print('  %.2f vs %.2f' % (line_slope(l['line']), slop))
 
@@ -853,13 +858,50 @@ def coalesce_lines(arr,lines, tree):
             #return para_lines
             print('center:', center)
         else:
-            print('center:', center)
-            pass
-            #print('  not accepted')
-            #for l in para_lines:
-                #print('  %.2f vs %.2f' % (line_slope(l['line']), slop))
-                #para_lines = [l for l in para_lines if slope_within(line_slope(l['line']), slop, 100)]
-    return para_groups
+            #print('center:', center)
+            if isvert:
+                ypara_groups.append([x])
+            else:
+                xpara_groups.append([x])
+
+    xgroups2 = []
+    ygroups2 = []
+    # sort lines
+    for group in xpara_groups:
+        xgroups2.append(sorted(group, key = lambda x : min(x['line'][0][0], x['line'][1][0])))
+    for group in ypara_groups:
+        ygroups2.append(sorted(group, key = lambda x : min(x['line'][0][1], x['line'][1][1])))
+
+    xgroups3 = []
+    for group in xgroups2:
+        #print('end',group[0])
+        newgroup = []
+        end = max(group[0]['line'][1],group[0]['line'][0], key = lambda x : x[0])
+        lastline = group[0]
+        lastadded = False
+        for l in group[1:]:
+
+            end = lastline['line'][1] + lastline['offset']
+            end = max(group[0]['line'][1],group[0]['line'][0], key = lambda x : x[0])
+
+            if line_len((l['line'][0] + l['offset'], end)) < 10:
+                print('connected line')
+                lastline = combine_features(arr, lastline, l)
+                analyze_rectangles((lastline,))
+                analyze_lines((lastline,))
+                lastadded = False
+            else:
+                newgroup.append(lastline)
+                lastline = l
+                lastadded = True
+        if not lastadded:
+            newgroup.append(lastline)
+
+        xgroups3.append(newgroup)
+
+
+
+    return xgroups3+ygroups2
 
 def draw_para_lines(im, para_groups):
     for i,para_lines in enumerate(para_groups):
