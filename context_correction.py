@@ -601,6 +601,23 @@ def update_bounding_boxes(outs):
     #for x in outs['irregs']:
         #pass # TODO
 
+def add_abs_line_detail(lines):
+    nlines = []
+    for x in lines:
+        l = x['line']
+        p1 = l[0] + x['offset']
+        p2 = l[1] + x['offset']
+        d1 = line_len(((0,0), p1))
+        d2 = line_len(((0,0), p2))
+        if d1 > d2:
+            x['abs-line'] = np.array((p2,p1))
+        else:
+            x['abs-line'] = np.array((p1,p2))
+
+    #for i in ('rectangles', 'lines', 'circles', 'triangles','irregs','ocr'):
+        #for x in outs[i]:
+            #absoffset = x['']
+
 def line_intersection(L1, L2):
     def linecoeffs(p1, p2):
         A = (p1[1] - p2[1])
@@ -804,17 +821,14 @@ def coalesce_lines(arr,lines, tree):
     xpara_groups = []
     print('%d lines colaescing' % len(lines))
     for x in lines:
-        #newoff = arr.shape - np.array(x['img'].shape)
-        #newoff = (newoff[1], newoff[0])
-        #print('offset: %dx%d  vs %dx%d' % (newoff[0], newoff[1], x['offset'][0], x['offset'][1]))
-        #assert(arr.shape -  == x['offset'])
-        #isvert = line_vert(x['line'])
+        x['coalesced'] = False
+    for x in lines:
         isvert = False
         slop = line_slope(x['line'])
         if slope_within(abs(slop),1000,1):
-            print('vert line')
+            #print('vert line')
             isvert = True
-            center = x['line'][0][0] + x['offset'][0]
+            center = x['abs-line'][0][0]
             #center = x['line'][0][1]
             # left, bottom, right, top
             left = center - padding
@@ -822,8 +836,8 @@ def coalesce_lines(arr,lines, tree):
             bottom = 0
             top = arr.shape[0]
         elif slope_within(slop,0,.15):
-            print('horz line')
-            center = x['line'][0][1] + x['offset'][1]
+            #print('horz line')
+            center = x['abs-line'][0][1]
             #center = x['line'][0][0]
             # left, bottom, right, top
             bottom = center - padding
@@ -832,84 +846,72 @@ def coalesce_lines(arr,lines, tree):
             right = arr.shape[1]
         else:
             print('ignoring non-horz non-vert line %.2f' % (slop))
-            xpara_groups.append([x])
+            xpara_groups.append((x,))
             continue
 
         # get lines that cross infinite line
         para_lines = tree.intersectBox((left, bottom, right, top))
 
         # filter out perpendicular lines
-        para_lines2 = [l for l in para_lines if slope_within(line_slope(l['line']), slop, .1)]
-
-        if len(para_lines2):
-            #if isvert: print('vert line')
-            #else: print('horz line')
-            print('  accepted')
-            para_lines2.append(x)
+        para_lines2 = [l for l in para_lines if slope_within(line_slope(l['line']), slop, .2)]
+        para_lines2.append(x)
+        
+        num_coalesced = 0
+        for l in para_lines2:
+            if l['coalesced']:
+                num_coalesced += 1
+        if num_coalesced <= int(len(para_lines2)/2):
+            for l in para_lines2:
+                l['coalesced'] = True
             if isvert:
                 ypara_groups.append(para_lines2)
             else:
                 xpara_groups.append(para_lines2)
-            #for l in para_lines2:
-                #print('  %.2f vs %.2f' % (line_slope(l['line']), slop))
 
-            #print('  %d parallel lines' % len(para_lines))
-
-            #return para_lines
-            print('center:', center)
-        else:
-            #print('center:', center)
-            if isvert:
-                ypara_groups.append([x])
-            else:
-                xpara_groups.append([x])
-
-    xgroups2 = []
-    ygroups2 = []
+    groups2 = []
     # sort lines
     for group in xpara_groups:
-        xgroups2.append(sorted(group, key = lambda x : min(x['line'][0][0], x['line'][1][0])))
+        groups2.append(sorted(group, key = lambda x : x['abs-line'][0][0]))
     for group in ypara_groups:
-        ygroups2.append(sorted(group, key = lambda x : min(x['line'][0][1], x['line'][1][1])))
+        groups2.append(sorted(group, key = lambda x : x['abs-line'][0][1]))
 
-    xgroups3 = []
-    for group in xgroups2:
+    groups3 = []
+    for group in groups2:
         #print('end',group[0])
         newgroup = []
-        end = max(group[0]['line'][1],group[0]['line'][0], key = lambda x : x[0])
+        #end = max(group[0]['line'][1],group[0]['line'][0], key = lambda x : x[0])
+        end = group[0]['abs-line'][1]
         lastline = group[0]
-        lastadded = False
         for l in group[1:]:
 
-            end = lastline['line'][1] + lastline['offset']
-            end = max(group[0]['line'][1],group[0]['line'][0], key = lambda x : x[0])
+            end = lastline['abs-line'][1]
 
-            if line_len((l['line'][0] + l['offset'], end)) < 10:
-                print('connected line')
+            # TODO also consider if the path between line endpoints is black pixels mostly
+            if line_len((l['abs-line'][0], end)) < 7:
                 lastline = combine_features(arr, lastline, l)
                 analyze_rectangles((lastline,))
                 analyze_lines((lastline,))
-                lastadded = False
+                add_abs_line_detail((lastline,))
             else:
                 newgroup.append(lastline)
                 lastline = l
-                lastadded = True
-        if not lastadded:
-            newgroup.append(lastline)
 
-        xgroups3.append(newgroup)
+        newgroup.append(lastline)
 
+        groups3.append(newgroup)
 
 
-    return xgroups3+ygroups2
+    print(len(groups3), 'groups3')
+    return groups3
 
 def draw_para_lines(im, para_groups):
     for i,para_lines in enumerate(para_groups):
-        color = (randint(0,255),randint(0,255), randint(0,255))
-        #if i in range(45,50):
-            #assert(len(para_lines)>1)
-        for x in para_lines:
-            put_thing(im, x['line'], color, x['offset'], 2)
+        if i in np.array([0,1,2])+33 or 1:
+            color = (randint(0,255),randint(0,255), randint(0,255))
+            #if i in range(45,50):
+                #assert(len(para_lines)>1)
+            for x in para_lines:
+                put_thing(im, x['line'], color, x['offset'], 2)
 
 
 
@@ -923,6 +925,7 @@ def context_aware_correction(orig,ins):
     ocr = ins['ocr']
     circles = ins['circles']
     lines = ins['lines']
+    add_abs_line_detail(lines)
     t1 = TIME()
     update_bounding_boxes(ins)
     tri_tree = RTree(arr['img'])
