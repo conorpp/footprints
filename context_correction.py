@@ -420,17 +420,20 @@ def remove_ocr_groups(ocr_groups, ocr_rejects=None):
 
     return new_ocrs
 
-def combine_features(arr, t1,t2):
+def combine_features(arr, t1,t2, pts=None):
     t1off = t1['offset']
     t2off = t2['offset']
     bg = np.zeros(arr.shape,dtype=np.uint8)+255
     bg[t1off[1]:t1['img'].shape[0] + t1off[1], t1off[0]:t1['img'].shape[1] + t1off[0]] = t1['img']
     bg[t2off[1]:t2['img'].shape[0] + t2off[1], t2off[0]:t2['img'].shape[1] + t2off[0]] = t2['img']
 
-    p1 = centroid(t1['ocontour'])
-    p2 = centroid(t2['ocontour'])
-    p1 = (p1[0] + t1off[0], p1[1] + t1off[1])
-    p2 = (p2[0] + t2off[0], p2[1] + t2off[1])
+    if pts is None:
+        p1 = centroid(t1['ocontour'])
+        p2 = centroid(t2['ocontour'])
+        p1 = (p1[0] + t1off[0], p1[1] + t1off[1])
+        p2 = (p2[0] + t2off[0], p2[1] + t2off[1])
+    else:
+        p1,p2 = pts
 
     cv2.line(bg, p1, p2, 0, 2)
 
@@ -816,6 +819,24 @@ def slope_within(slop1,slop2,dv):
     return (slop1 < (slop2+dv)) and (slop1 > (slop2-dv))
 
 def coalesce_lines(arr,lines, tree):
+    def endpoints_connect(arr,p1,p2):
+        if line_len((l['abs-line'][0], end)) < 7:
+            return True
+        dx = abs(p2[0] - p1[0])
+        dy = abs(p2[1] - p1[1])
+        d = int(max(dx,dy))
+        xs = np.linspace(p1[0], p2[0],d)
+        ys = np.linspace(p1[1], p2[1],d)
+        black_count = 0
+        for i in range(0,d):
+            x = int(xs[i])
+            y = int(ys[i])
+            black_count += (arr[y,x] == 0)
+        if black_count/line_len((p1,p2)) > .9:
+            #print('---black pixels connect!---')
+            return True
+
+
     padding = 5
     ypara_groups = []
     xpara_groups = []
@@ -886,9 +907,9 @@ def coalesce_lines(arr,lines, tree):
 
             end = lastline['abs-line'][1]
 
-            # TODO also consider if the path between line endpoints is black pixels mostly
-            if line_len((l['abs-line'][0], end)) < 7:
-                lastline = combine_features(arr, lastline, l)
+            if endpoints_connect(arr, end, l['abs-line'][0]):
+                lastline = combine_features(arr, lastline, l, (tuple(lastline['abs-line'][0]), tuple(l['abs-line'][1])))
+                #lastline = l
                 analyze_rectangles((lastline,))
                 analyze_lines((lastline,))
                 add_abs_line_detail((lastline,))
@@ -967,8 +988,12 @@ def context_aware_correction(orig,ins):
 
     #draw_trimmed_triangles(orig, affected)
 
+    t1 = TIME()
     merged = coalesce_lines(arr['img'],lines, line_tree)
+    t2 = TIME()
     draw_para_lines(orig,merged)
+    print('line coalesce time: %d ms' % (t2-t1))
+
 
 
     #for x in triangles:
