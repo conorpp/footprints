@@ -156,7 +156,8 @@ def analyze_rectangle(arr):
     else: 
         print('warning, no contours')
         save_history(arr)
-        sys.exit(1)
+        raise ValueError('no contours')
+        #sys.exit(1)
 
 
 def move_point(im,p,i,di,expected):
@@ -285,10 +286,17 @@ def analyze_line(spec):
 
     return spec
 
+def inherit_from_line(line,parent):
+    for i in ('vertical','line','line-conf',
+            'line-length','length-area-ratio',
+            'aspect-ratio','sum'):
+        line[i] = parent[i]
+
 
 def analyze_lines(lines):
     for x in lines:
         specs = analyze_line(x)
+
 
 def analyze_rectangles(rects):
     for im in rects:

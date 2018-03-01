@@ -231,7 +231,7 @@ def save_history(x):
         save(y['img'],'hist/'+name)
     print_img(x,'current')
     name = 'img%d-%d.png' % (x['id'],i+1)
-    save(y['img'],'hist/'+name)
+    save(x['img'],'hist/'+name)
 
 
 def polarize(arr):

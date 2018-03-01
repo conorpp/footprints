@@ -3,6 +3,7 @@ from random import randint
 
 
 from scipy import stats
+from numpy.linalg import norm
 from utils import *
 from filters import *
 from analyzers import *
@@ -424,6 +425,7 @@ def combine_features(arr, t1,t2, pts=None):
     t1off = t1['offset']
     t2off = t2['offset']
     bg = np.zeros(arr.shape,dtype=np.uint8)+255
+
     bg[t1off[1]:t1['img'].shape[0] + t1off[1], t1off[0]:t1['img'].shape[1] + t1off[0]] = t1['img']
     bg[t2off[1]:t2['img'].shape[0] + t2off[1], t2off[0]:t2['img'].shape[1] + t2off[0]] = t2['img']
 
@@ -436,6 +438,13 @@ def combine_features(arr, t1,t2, pts=None):
         p1,p2 = pts
 
     cv2.line(bg, p1, p2, 0, 2)
+
+    bg[0:arr.shape[0],0:2] = 255
+    bg[0:arr.shape[0],arr.shape[1]-2:arr.shape[1]] = 255
+    bg[0:2,0:arr.shape[1]] = 255
+    bg[arr.shape[0]-2:arr.shape[0],0:arr.shape[1]] = 255
+
+
 
     newim = wrap_image(bg, t1)
     newim['offset'] = np.array((0,0))
@@ -820,7 +829,7 @@ def slope_within(slop1,slop2,dv):
 
 def coalesce_lines(arr,lines, tree):
     def endpoints_connect(arr,p1,p2):
-        if line_len((l['abs-line'][0], end)) < 7:
+        if line_len((l['abs-line'][0], end)) < 3:
             return True
         dx = abs(p2[0] - p1[0])
         dy = abs(p2[1] - p1[1])
@@ -832,42 +841,43 @@ def coalesce_lines(arr,lines, tree):
             x = int(xs[i])
             y = int(ys[i])
             black_count += (arr[y,x] == 0)
-        if black_count/line_len((p1,p2)) > .9:
-            #print('---black pixels connect!---')
+
+        if black_count/d > .9:
             return True
+        return False
+
+    def collinear(p1, p2, p3):
+        return norm(np.cross(p2-p1, p1-p3))/norm(p2-p1)
 
 
     padding = 5
     ypara_groups = []
     xpara_groups = []
+    diag_lines = []
     print('%d lines colaescing' % len(lines))
     for x in lines:
         x['coalesced'] = False
+        x['slope'] = line_slope(x['abs-line'])
+
+    # get groups of vertical and horizontal lines.  Pick out diagnol lines.
     for x in lines:
         isvert = False
-        slop = line_slope(x['line'])
+        slop = x['slope']
         if slope_within(abs(slop),1000,1):
-            #print('vert line')
             isvert = True
             center = x['abs-line'][0][0]
-            #center = x['line'][0][1]
-            # left, bottom, right, top
             left = center - padding
             right= center + padding
             bottom = 0
             top = arr.shape[0]
         elif slope_within(slop,0,.15):
-            #print('horz line')
             center = x['abs-line'][0][1]
-            #center = x['line'][0][0]
-            # left, bottom, right, top
             bottom = center - padding
             top = center + padding
             left = 0
             right = arr.shape[1]
         else:
-            print('ignoring non-horz non-vert line %.2f' % (slop))
-            xpara_groups.append((x,))
+            diag_lines.append((x,slop))
             continue
 
         # get lines that cross infinite line
@@ -889,29 +899,66 @@ def coalesce_lines(arr,lines, tree):
             else:
                 xpara_groups.append(para_lines2)
 
+    diag_groups = []
+    
+    # group the diagnol lines
+    diag_lines = sorted(diag_lines, key = lambda x : line_len(x[0]['line']), reverse=True)
+    for i,(x,slop1) in enumerate(diag_lines):
+        margin = .2
+        p0,p1 = x['abs-line'][0], x['abs-line'][1]
+
+        same_slops = [y for y,slop2 in diag_lines if (y is not x) and ((slop1+margin) > slop2 and (slop1-margin)<slop2)]
+        same_slops = [y for y in same_slops if collinear(p0,p1,y['abs-line'][0]) < 40]
+
+        same_slops.append(x)
+        num_coalesced = 0
+        for l in same_slops:
+            if l['coalesced']:
+                num_coalesced += 1
+
+        if num_coalesced == 0:
+            for l in same_slops:
+                l['coalesced'] = True
+            diag_groups.append(same_slops)
+        else:
+            if not x['coalesced']:
+                x['coalesced'] = True
+                diag_groups.append([x])
+
+    def test_for_dups(pdups):
+        for l1 in pdups:
+            count = 0
+            for l2 in pdups:
+                if l1 is l2:
+                    count += 1
+            print('---count: %d---' % count)
+
     groups2 = []
+    groups3 = []
     # sort lines
     for group in xpara_groups:
         groups2.append(sorted(group, key = lambda x : x['abs-line'][0][0]))
     for group in ypara_groups:
         groups2.append(sorted(group, key = lambda x : x['abs-line'][0][1]))
+    for group in diag_groups:
+        groups2.append(sorted(group, key = lambda x : line_len(((0,0),x['abs-line'][0]))))
 
-    groups3 = []
+    # walk groups of lines and find lines that should be merged
     for group in groups2:
-        #print('end',group[0])
+
         newgroup = []
-        #end = max(group[0]['line'][1],group[0]['line'][0], key = lambda x : x[0])
         end = group[0]['abs-line'][1]
         lastline = group[0]
-        for l in group[1:]:
+        for k,l in enumerate(group[1:]):
 
             end = lastline['abs-line'][1]
-
             if endpoints_connect(arr, end, l['abs-line'][0]):
-                lastline = combine_features(arr, lastline, l, (tuple(lastline['abs-line'][0]), tuple(l['abs-line'][1])))
-                #lastline = l
+                ext_line = (tuple(lastline['abs-line'][0]), tuple(l['abs-line'][1]))
+                lastline = combine_features(arr, lastline, l, ext_line)
                 analyze_rectangles((lastline,))
-                analyze_lines((lastline,))
+
+                inherit_from_line(lastline,l)
+                lastline['line'] = np.array(ext_line)
                 add_abs_line_detail((lastline,))
             else:
                 newgroup.append(lastline)
@@ -921,13 +968,15 @@ def coalesce_lines(arr,lines, tree):
 
         groups3.append(newgroup)
 
-
-    print(len(groups3), 'groups3')
     return groups3
 
 def draw_para_lines(im, para_groups):
     for i,para_lines in enumerate(para_groups):
-        if i in np.array([0,1,2])+33 or 1:
+        #if i in np.array([14]) :
+        if i in np.array([13]) or 1:
+
+        #if i in range(13,15):
+        #if i in np.array([10]):
             color = (randint(0,255),randint(0,255), randint(0,255))
             #if i in range(45,50):
                 #assert(len(para_lines)>1)
@@ -990,6 +1039,8 @@ def context_aware_correction(orig,ins):
 
     t1 = TIME()
     merged = coalesce_lines(arr['img'],lines, line_tree)
+    newlines = [x for group in merged for x in group]
+    ins['lines'] = newlines
     t2 = TIME()
     draw_para_lines(orig,merged)
     print('line coalesce time: %d ms' % (t2-t1))
