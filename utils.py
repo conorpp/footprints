@@ -1,5 +1,6 @@
 import time,math
 from scipy.signal import butter, lfilter, freqz
+from numpy.linalg import norm
 from PIL import Image, ImageDraw
 import cv2
 import numpy as np
@@ -320,5 +321,42 @@ def butter_lowpass_filter(data, cutoff, fs, order=5):
     y = lfilter(b, a, data)
     return y
 
+
+def test_for_dups(pdups):
+    """ Check for duplicates in a python list by eye """
+    for l1 in pdups:
+        count = 0
+        for l2 in pdups:
+            if l1 is l2:
+                count += 1
+        print('---count: %d---' % count)
+def flatten(groups):
+    """ Flatten a 2D python list """
+    return [x for group in groups for x in group]
+
+
+
+def endpoints_connect(arr,p1,p2):
+    """  Determine if two points are connected by mostly black pixels in straight line  """
+    if line_len((p1, p2)) < 3:
+        return True
+    dx = abs(p2[0] - p1[0])
+    dy = abs(p2[1] - p1[1])
+    d = int(max(dx,dy))
+    xs = np.linspace(p1[0], p2[0],d)
+    ys = np.linspace(p1[1], p2[1],d)
+    black_count = 0
+    for i in range(0,d):
+        x = int(xs[i])
+        y = int(ys[i])
+        black_count += (arr[y,x] == 0)
+
+    if black_count/d > .9:
+        return True
+    return False
+
+def collinear(p1, p2, p3):
+    """ return perpendicular distance between p1,p2 line and p3 point """
+    return norm(np.cross(p2-p1, p1-p3))/norm(p2-p1)
 
 
