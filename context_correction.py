@@ -958,30 +958,6 @@ def draw_para_lines(im, para_groups):
 
 def grow_lines(arr, lines):
     """ Grow lines along their slope if there are black pixels there """
-    def next_point(pt,m,b,sign):
-        x,y = pt
-        pth = (x+sign, int(round((x+sign) * m + b)))
-
-        if m == 0:
-            pt[0] = pth[0]
-            pt[1] = pth[1]
-            return pt
-        else:
-            newx = (y+sign - b)/m
-
-        ptv = (int(round(newx)), y + sign)
-
-        pt[0] = pth[0]
-        pt[1] = pth[1]
-        if line_len((pt,pth)) < line_len((pt,ptv)):
-            pt[0] = pth[0]
-            pt[1] = pth[1]
-        else:
-            pt[0] = ptv[0]
-            pt[1] = ptv[1]
-
-        return pt
-
     def bresenham_line(pt, m, b, sign):
         derr = abs(m)
         ysign = (1 if m >= 0 else -1)*sign
@@ -998,73 +974,69 @@ def grow_lines(arr, lines):
             x += sign
             yield (x,y)
 
+    def extend_point(pt, gen, lim, skips):
+        count = 0
+        while True:
+            pt[:] = next(gen)
 
+            # break on limit
+            if (pt[1] >= lim[0] or pt[0] >= lim[1]):
+                break
+
+            # break on N consecutive white pixels
+            if arr[pt[1],pt[0]] != 0:
+                if count >= skips:
+                    break
+                count += 1
+            else:
+                count = 0
+
+        return count
 
     skip_count = 2
 
     for i,x in enumerate(lines):
-        #if i not in range(64,65):
-            #continue
+
         m = x['slope']
         l = x['abs-line']
-        #print(l)
         b = l[0][1] - m*l[0][0]
-        if m < 1000:
+        invert = False
+
+        # invert vertical lines so rest of code can be used
+        if m >= 1000:
+
+            left = min((l[0],l[1]), key = lambda x : x[1])
+            right = max((l[0],l[1]), key = lambda x : x[1])
+            invert = True
+            b = -b/m
+            m = 0
+            left[0],left[1] = left[1],left[0]
+            right[0],right[1] = right[1],right[0]
+        # no inversion
+        else:
             left = min((l[0],l[1]), key = lambda x : x[0])
             right = max((l[0],l[1]), key = lambda x : x[0])
 
-            leftdir = bresenham_line(left,m,b,-1)
-            rightdir = bresenham_line(right,m,b,1)
+        # use bresenham alg to get next pixel on line one by one
+        leftdir = bresenham_line(left,m,b,-1)
+        rightdir = bresenham_line(right,m,b,1)
 
-            lskips = 0
-            rskips = 0
+        # extend left and right points
+        lskips = extend_point(left, leftdir, arr.shape, skip_count)
+        rskips = extend_point(right, rightdir, arr.shape, skip_count)
 
-            #print('--LEFT--')
-            print(left)
-            while True:
-                #left[:] = next_point(left, m, b, -1)
-                left[:] = next(leftdir)
-                print(left)
+        # rewind white pixel steps
+        leftdir = bresenham_line(left,m,b,1)
+        rightdir = bresenham_line(right,m,b,-1)
+        for j in range(0,lskips):
+            left[:] = next(leftdir)
+        for j in range(0,rskips):
+            right[:] = next(rightdir)
 
-                if (left[1] >= arr.shape[0] or left[0] >= arr.shape[1]):
-                    break
-
-                if arr[left[1],left[0]] != 0:
-                    #break
-                    if lskips >= skip_count:
-                        break
-                    lskips += 1
-                else:
-                    lskips = 0
-
-            #next_point(left, m, b, 1 + skips)
-
-            skips = 0
-            while True:
-                right[:] = next(rightdir)
-
-                if (right[1] >= arr.shape[0] or right[0] >= arr.shape[1]):
-                    break
-
-                if arr[right[1], right[0]] != 0:
-                    if rskips == skip_count:
-                        break
-                    rskips += 1
-                else:
-                    rskips = 0
-
-
-            leftdir = bresenham_line(left,m,b,1)
-            rightdir = bresenham_line(right,m,b,-1)
-            for j in range(0,lskips):
-                left[:] = next(leftdir)
-            for j in range(0,rskips):
-                right[:] = next(rightdir)
-
-
-
-            #next_point(right, m, b, -1 -skips)
-        #print(l)
+        # invert line again to normal
+        if invert:
+            left[0],left[1] = left[1],left[0]
+            right[0],right[1] = right[1],right[0]
 
 
 
@@ -1130,7 +1102,11 @@ def context_aware_correction(orig,ins):
     print('line coalesce time: %d ms' % (t2-t1))
 
 
+    t1 = TIME()
     grow_lines(arr['img'],ins['lines'])
+    t2 = TIME()
+    print('line grow time: %d ms' % (t2-t1))
+
     #for x in triangles:
         #put_thing(orig, x['triangle'], [255,0,0], x['offset'])
     ##for x in merges:
