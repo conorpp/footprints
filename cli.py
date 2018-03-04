@@ -119,7 +119,7 @@ def do_outputs(orig,outs):
                 yp = off[1] + x['circle'][0][1]
                 cv2.circle(im,(xp,yp),x['circle'][1],(255,0x8c,0),2 )
             elif x['type'] == 'line':
-                put_thing(im, x['line'], [0,128,0], x['offset'], 2)
+                put_thing(im, x['abs-line'], [0,128,0], (0,0), 2)
             elif x['type'] == 'leftover':
                 put_thing(im, x['ocontour'], [255,0,0], x['offset'],1)
             elif x['type'] == 'irreg':

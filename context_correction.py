@@ -625,9 +625,8 @@ def add_abs_line_detail(lines):
         else:
             x['abs-line'] = np.array((p1,p2))
 
-    #for i in ('rectangles', 'lines', 'circles', 'triangles','irregs','ocr'):
-        #for x in outs[i]:
-            #absoffset = x['']
+        x['slope'] = line_slope(x['abs-line'])
+
 
 def line_intersection(L1, L2):
     def linecoeffs(p1, p2):
@@ -848,7 +847,6 @@ def coalesce_lines(arr,lines, tree):
     diag_lines = []
     for x in lines:
         x['coalesced'] = False
-        x['slope'] = line_slope(x['abs-line'])
 
     for x in lines:
         isvert = False
@@ -958,6 +956,116 @@ def draw_para_lines(im, para_groups):
                 put_thing(im, x['line'], color, x['offset'], 2)
 
 
+def grow_lines(arr, lines):
+    """ Grow lines along their slope if there are black pixels there """
+    def next_point(pt,m,b,sign):
+        x,y = pt
+        pth = (x+sign, int(round((x+sign) * m + b)))
+
+        if m == 0:
+            pt[0] = pth[0]
+            pt[1] = pth[1]
+            return pt
+        else:
+            newx = (y+sign - b)/m
+
+        ptv = (int(round(newx)), y + sign)
+
+        pt[0] = pth[0]
+        pt[1] = pth[1]
+        if line_len((pt,pth)) < line_len((pt,ptv)):
+            pt[0] = pth[0]
+            pt[1] = pth[1]
+        else:
+            pt[0] = ptv[0]
+            pt[1] = ptv[1]
+
+        return pt
+
+    def bresenham_line(pt, m, b, sign):
+        derr = abs(m)
+        ysign = (1 if m >= 0 else -1)*sign
+        error = 0.0
+        x,y = pt
+        while True:
+            # plot(x,y)
+            error += derr
+            while error >= 0.5:
+                y += ysign
+                error -= 1.0
+                yield (x,y)
+
+            x += sign
+            yield (x,y)
+
+
+
+    skip_count = 2
+
+    for i,x in enumerate(lines):
+        #if i not in range(64,65):
+            #continue
+        m = x['slope']
+        l = x['abs-line']
+        #print(l)
+        b = l[0][1] - m*l[0][0]
+        if m < 1000:
+            left = min((l[0],l[1]), key = lambda x : x[0])
+            right = max((l[0],l[1]), key = lambda x : x[0])
+
+            leftdir = bresenham_line(left,m,b,-1)
+            rightdir = bresenham_line(right,m,b,1)
+
+            lskips = 0
+            rskips = 0
+
+            #print('--LEFT--')
+            print(left)
+            while True:
+                #left[:] = next_point(left, m, b, -1)
+                left[:] = next(leftdir)
+                print(left)
+
+                if (left[1] >= arr.shape[0] or left[0] >= arr.shape[1]):
+                    break
+
+                if arr[left[1],left[0]] != 0:
+                    #break
+                    if lskips >= skip_count:
+                        break
+                    lskips += 1
+                else:
+                    lskips = 0
+
+            #next_point(left, m, b, 1 + skips)
+
+            skips = 0
+            while True:
+                right[:] = next(rightdir)
+
+                if (right[1] >= arr.shape[0] or right[0] >= arr.shape[1]):
+                    break
+
+                if arr[right[1], right[0]] != 0:
+                    if rskips == skip_count:
+                        break
+                    rskips += 1
+                else:
+                    rskips = 0
+
+
+            leftdir = bresenham_line(left,m,b,1)
+            rightdir = bresenham_line(right,m,b,-1)
+            for j in range(0,lskips):
+                left[:] = next(leftdir)
+            for j in range(0,rskips):
+                right[:] = next(rightdir)
+
+
+
+            #next_point(right, m, b, -1 -skips)
+        #print(l)
+
 
 
 def context_aware_correction(orig,ins):
@@ -1011,18 +1119,18 @@ def context_aware_correction(orig,ins):
 
     #draw_trimmed_triangles(orig, affected)
 
-    t1 = TIME()
     print('previous lines: ', len(lines))
+    t1 = TIME()
     merged = coalesce_lines(arr['img'],lines, line_tree)
-    newlines = [x for group in merged for x in group]
+    newlines = flatten(merged)
     ins['lines'] = newlines
-    print('after lines: ', len(newlines))
     t2 = TIME()
+    print('after lines: ', len(newlines))
     draw_para_lines(orig,merged)
     print('line coalesce time: %d ms' % (t2-t1))
 
 
-
+    grow_lines(arr['img'],ins['lines'])
     #for x in triangles:
         #put_thing(orig, x['triangle'], [255,0,0], x['offset'])
     ##for x in merges:
@@ -1035,6 +1143,43 @@ def context_aware_correction(orig,ins):
     save(orig,'output2.png')
 
     return ins
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 5:
+        print('usage: %s <x0> <y0> <x1> <y1>' % sys.argv[0])
+        sys.exit(1)
+
+    def bresenham_line(pt, m, b, sign):
+        derr = abs(m)
+        ysign = (1 if m >= 0 else -1)*sign
+        error = 0.0
+        x,y = pt
+        while True:
+            # plot(x,y)
+            error += derr
+            while error >= 0.5:
+                y += ysign
+                error -= 1.0
+                yield (x,y)
+
+            x += sign
+
+    x0,y0,x1,y1 = [int(x) for x in sys.argv[1:]]
+    
+    line = ((x0,y0), (x1,y1))
+    m = line_slope(line)
+    b = line[0][1] - m*line[0][0]
+
+    print(line[0],line[1])
+    print('slope: %.2f' % m)
+
+    g = (bresenham_line(line[0],m,b,-1))
+    for i in range(0,int(m)+1):
+        print(next(g))
+
+
+
 
 
 
