@@ -12,6 +12,7 @@ from structures import RTree
 import preprocessing
 
 def group_ocr_lines(ocr,dim=0):
+    """  """
     odim = (dim+1)&1
 
     indx = 'boundxy3' if dim else 'boundxy2'
@@ -41,6 +42,7 @@ def group_ocr_lines(ocr,dim=0):
     return ocr_groups
 
 def wrap_image_ocr(image,parent, char, conf, tl, h, w):
+    """ super to wrap_image """
     image = wrap_image(image,parent)
     image['symbol'] = char
     image['ocr-conf'] = conf
@@ -50,6 +52,8 @@ def wrap_image_ocr(image,parent, char, conf, tl, h, w):
     return image
 
 def detect_punct(arr, x1, x2, dx, dim, ):
+
+    """ Detect black pixels in the 'punctuation-region' and call it a period. """
 
     odim = (dim+1)&1
     indx = 'boundxy3' if dim else 'boundxy2'
@@ -96,6 +100,7 @@ def detect_punct(arr, x1, x2, dx, dim, ):
 
 
 def group_ocr(arr, ocr, dim=0):
+    """ Naively group adjacent OCR characters in same dimension row/col. Good first step. """
     # dim=0 means horizontal text, dim=1 means vertical text
     odim = (dim+1)&1
 
@@ -164,23 +169,16 @@ def group_ocr(arr, ocr, dim=0):
 
     return ocr_groups
 
-def if_rotated(inps):
-    rot = []
-    nope = []
-    for x in inps:
-        if x['rotated']:
-            rot.append(x)
-        else:
-            nope.append(x)
-    return rot, nope
 
 def group_crosses(group1,group2):
+    """ support.  Test if two OCR groups cross each other. """
     for x in group1:
         for y in group2:
             if x['id'] == y['id']:
                 return True
     return False
 def item_contained(x,group_set):
+    """ support.  Test if a OCR group is contained by a set of OCR groups. """
     for group2 in group_set:
         for y in group2:
             if x['id'] == y['id']:
@@ -190,6 +188,7 @@ def item_contained(x,group_set):
 
 
 def block_redundant_groups(horz, verz):
+    """ block groups contained in other groups.  E.g. A verticle group contained by multiple horizontal groups. """
     new_horz = []
     new_verz = []
     
@@ -262,18 +261,9 @@ def block_redundant_groups(horz, verz):
 
     return new_horz,new_verz
 
-def avg_rect_area(rects, irregs):
-    tot = 0.0
-    count = 0
-    for x in rects:
-        tot += x['a1']
-        count += 1
-    for x in irregs:
-        tot += x['a1']
-        count += 1
-    return tot/count
 
 def infer_ocr_groups(arr, ocr):
+    """ Group together OCR characters.  Ensure rotation coherency. """
     widths = []
     heights = []
     for x in ocr:
@@ -319,6 +309,7 @@ def infer_ocr_groups(arr, ocr):
     return new_horz, new_verz
 
 def draw_ocr_group_rects(orig, new_horz, new_verz):
+    """ output function for drawing rectangles around the OCR groups """
     print(len(new_horz) + len(new_verz),'groups')
     for i,group in enumerate(new_horz):
         leftest = group[0]
@@ -357,6 +348,7 @@ def draw_ocr_group_rects(orig, new_horz, new_verz):
 
 
 def untangle_circles(circles, ocr_groups):
+    """ Remove circles from OCR characters like P,8,O,... """
 
     new_circles = []
     rejects = []
@@ -407,6 +399,7 @@ def untangle_circles(circles, ocr_groups):
     return new_circles, rejects
 
 def remove_ocr_groups(ocr_groups, ocr_rejects=None):
+    """ support function to untangle circles from OCR groups """
     if ocr_rejects is not None:
         for group in ocr_rejects:
             for x in group:
@@ -421,6 +414,7 @@ def remove_ocr_groups(ocr_groups, ocr_rejects=None):
     return new_ocrs
 
 def combine_features(arr, t1,t2, pts=None):
+    """ Combine images and draw line between them """
     t1off = t1['offset']
     t2off = t2['offset']
     bg = np.zeros(arr.shape,dtype=np.uint8)+255
@@ -452,6 +446,7 @@ def combine_features(arr, t1,t2, pts=None):
 
 
 def coalesce_triangles(arr,triangles, tree):
+    """ merge triangles adjacent to each other """
     def find_merges(tri_set):  #this could time a long time with many triangles
         merges = []
         for x in tri_set:
@@ -532,8 +527,6 @@ def coalesce_triangles(arr,triangles, tree):
     # merge the merges
     for t1,t2 in merges:
         newim = combine_features(arr,t1,t2)
-        print(t1['id'])
-        print(t2['id'])
         analyze_rectangles((newim,))
         analyze_triangles((newim,),arr)
         merged.append(newim)
@@ -563,6 +556,7 @@ def coalesce_triangles(arr,triangles, tree):
     return new_triangles,merges,merged
 
 def update_bounding_boxes(outs):
+    """ update bounding boxes to be absolute and tight bound"""
     for x in outs['circles']:
         center,r = x['circle']
         xmin = center[0]-r
@@ -613,6 +607,7 @@ def update_bounding_boxes(outs):
         #pass # TODO
 
 def add_abs_line_detail(lines):
+    """ calculate more information for lines """
     nlines = []
     for x in lines:
         l = x['line']
@@ -629,6 +624,7 @@ def add_abs_line_detail(lines):
 
 
 def line_intersection(L1, L2):
+    """ return point where two lines intersect, false if they don't """
     def linecoeffs(p1, p2):
         A = (p1[1] - p2[1])
         B = (p2[0] - p1[0])
@@ -648,14 +644,16 @@ def line_intersection(L1, L2):
     else:
         return False
 
-# Return true if line segments AB and CD intersect
+# 
 def does_intersect(l0,l1):
+    """ Return true if line segments l0 and l1 intersect """
     A,B,C,D = l0[0], l0[1], l1[0], l1[1]
     def ccw(A,B,C):
         return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
     return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
 
 def angle_between_lines(l0,l1):
+    """ Return angle between lines """
     ang1 = math.atan2(l0[0][1] - l0[1][1],
                       l0[0][0] - l0[1][0],)
     ang2 = math.atan2(l1[0][1] - l1[1][1],
@@ -680,6 +678,7 @@ def angle_between_lines(l0,l1):
     return diff 
 
 def correct_trimmed_triangles(triangles, line_tree):
+    """ [not used] merge triangles with lines that cut into triangle """
     affected = []
     total_lines = 0
     for i,x in enumerate(triangles):
@@ -773,6 +772,7 @@ def correct_trimmed_triangles(triangles, line_tree):
     return affected
 
 def draw_trimmed_triangles(im,affected):
+    """ supporting output for drawing triangle and its intersecting lines """
     for i, a in enumerate(affected):
         #if i not in range(5,15): continue
         #print('%dth triangle' % i)
@@ -793,6 +793,7 @@ def draw_trimmed_triangles(im,affected):
             put_thing(im, l, [128,128,0], lines[0]['offset'], 2)
 
 def replace_trimmed_triangles(arr,triangles,affected, tri_tree, line_tree):
+    """ supporting routine for triangle-line merging """
     for x in affected:
         combined = combine_features(arr,x[0],x[1][0])
         analyze_rectangles((combined,))
@@ -807,12 +808,14 @@ def replace_trimmed_triangles(arr,triangles,affected, tri_tree, line_tree):
 
 
 def update_list_against_tree(li, tree):
+    """ Force coherency between list and rtree """
     new_list = []
     for x in li:
         if tree.has(x['id']): new_list.append(x)
     return new_list
 
 def line_slope(line):
+    """ return slope of line.  Infinity is clamped to a larger number. Large slopes are ceil'd to same large number."""
     dy = line[1][1] - line[0][1]
     dx = line[1][0] - line[0][0]
     if dx <.1 and dx>-.1:
@@ -826,6 +829,7 @@ def slope_within(slop1,slop2,dv):
     return (slop1 < (slop2+dv)) and (slop1 > (slop2-dv))
 
 def coalesce_lines(arr,lines, tree):
+    """ Combine lines that should be one line.  Organize lines into colinear groups and return. """
     def coalesce_add(item, group, masterlist):
         num_coalesced = 0
         for l in group:
@@ -943,6 +947,7 @@ def coalesce_lines(arr,lines, tree):
     return groups3
 
 def draw_para_lines(im, para_groups):
+    """ output groups of lines to im image.  doesn't write to disk. """
     for i,para_lines in enumerate(para_groups):
         #if i in np.array([14]) :
         if i in np.array([13]) or 1:
