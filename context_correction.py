@@ -981,11 +981,11 @@ def extend_point(arr,pt, gen, lim, skips = 0, log = None):
     count = 0
     while True:
         pt[:] = next(gen)
-        if log is not None:
-            log.append(pt[:])
 
         # break on limit
         if (pt[1] >= lim[0] or pt[0] >= lim[1]):
+            if log is not None:
+                print('break on LIM')
             break
 
         # break on N consecutive white pixels
@@ -995,6 +995,10 @@ def extend_point(arr,pt, gen, lim, skips = 0, log = None):
             count += 1
         else:
             count = 0
+
+        if log is not None:
+            log.append(pt[:])
+
 
     return count
 
@@ -1031,6 +1035,7 @@ def grow_lines(arr, lines):
         rightdir = bresenham_line(right,m,b,1)
 
         # extend left and right points
+        # TODO the arr img needs to be transposed for inverted lines..
         lskips = extend_point(arr,left, leftdir, arr.shape, skip_count)
         rskips = extend_point(arr,right, rightdir, arr.shape, skip_count)
 
@@ -1056,6 +1061,8 @@ def detect_triangles_on_lines(arr, lines):
             return 0
         return -1.0/m
 
+    arrT = np.transpose(arr)
+
     allpts = []
     for i,x in enumerate(lines):
         l = x['abs-line']
@@ -1071,18 +1078,18 @@ def detect_triangles_on_lines(arr, lines):
 
         left,right = l
         lim = arr.shape
+        srcImg = arr
 
         if abs(m) >= 5:
-            #left = min((l[0],l[1]), key = lambda x : x[1])
-            #right = max((l[0],l[1]), key = lambda x : x[1])
             invert = True
             b = -b/m
             m = 0
             left[0],left[1] = left[1],left[0]
             right[0],right[1] = right[1],right[0]
             print('  TRANPOSE')
-            lim = arr.shape[1], arr.shape[0]
-            #continue
+            lim = arrT.shape
+            srcImg = arrT
+
 
         sign = 1 if m >= 0 else -1
 
@@ -1098,19 +1105,12 @@ def detect_triangles_on_lines(arr, lines):
         pm = perp_slope(m)
 
         while True:
-            #def extend_point(pt, gen, lim, skips = 0, log = None):
             pt = next(colin)
             if pt[1] >= lim[0] or pt[0] >= lim[1]:
-                print(left)
-                print(right)
-                print('  OOB')
                 break
             if pt[1] < 0 or pt[0] <0:
-                print(left)
-                print(right)
-                print('  OOB')
                 break
-            
+
             if forwards:
                 if abs(pt[0]) > abs(right[0]):
                     break
@@ -1121,19 +1121,11 @@ def detect_triangles_on_lines(arr, lines):
             perlin1 = bresenham_line(pt, pm, b, 1)
             perlin2 = bresenham_line(pt, pm, b, -1)
 
-            if invert:
-                lim = lim[1],lim[0]
-
-            extend_point(arr,[],perlin1,lim,0,pts)
-            extend_point(arr,[],perlin2,lim,0,pts)
-
-            if invert:
-                lim = lim[1],lim[0]
-
-
+            #new_pts = []
+            extend_point(srcImg,[],perlin1,lim,0,pts)
+            extend_point(srcImg,[],perlin2,lim,0,pts)
 
             pts.append(pt)
-        print('  len:', len(pts),'v',int(line_len(l)))
 
         # invert line again to normal
         if invert:
