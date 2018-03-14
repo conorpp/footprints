@@ -1108,6 +1108,8 @@ def detect_triangles_on_lines(arr, lines):
 
         colin = bresenham_line(left, m, b, sign)
         pts = []
+        side1 = []
+        side2 = []
         pm = perp_slope(m)
 
         count = 0
@@ -1131,8 +1133,15 @@ def detect_triangles_on_lines(arr, lines):
 
             #new_pts = []
             #if count % 9 == 0:
+            l1 = len(pts)
             extend_point(srcImg,[],perlin2,lim,0,pts)
+            l2 = len(pts)
             extend_point(srcImg,[],perlin1,lim,0,pts)
+            l3 = len(pts)
+            s1 = l2 - l1
+            s2 = l3 - l2
+            side1.append(s1)
+            side2.append(s2)
 
             pts.append(pt)
 
@@ -1142,9 +1151,10 @@ def detect_triangles_on_lines(arr, lines):
             right[0],right[1] = right[1],right[0]
 
             pts = [[pt[1],pt[0]] for pt in pts]
-        
+
         pts.insert(0,left)
         allpts.append(pts)
+        x['side-traces'] = (side1,side2)
 
     return allpts
 
@@ -1223,8 +1233,17 @@ def context_aware_correction(orig,ins):
     #TODO implement these
     #assign_triangles_to_lines(ins['triangles'], ins['lines'], tri_tree )
     allpts = detect_triangles_on_lines(arr['img'], ins['lines'])
-    draw_pts(orig,allpts)
+    #draw_pts(orig,allpts)
 
+    for i,x in enumerate(ins['lines']):
+        if 1:
+            print(i)
+            cor = np.copy(orig)
+            put_thing(cor,x['abs-line'],(0,255,0),(0,0))
+            save(cor,'output2.png')
+            plt.plot(x['side-traces'][0])
+            plt.plot(x['side-traces'][1])
+            plt.show()
     #for x in triangles:
         #put_thing(orig, x['triangle'], [255,0,0], x['offset'])
     ##for x in merges:
