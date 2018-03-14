@@ -1059,6 +1059,8 @@ def detect_triangles_on_lines(arr, lines):
             return 1000
         if m >= 1000:
             return 0
+        #if abs(m) < .01:
+            #return 1000
         return -1.0/m
 
     arrT = np.transpose(arr)
@@ -1067,9 +1069,12 @@ def detect_triangles_on_lines(arr, lines):
     for i,x in enumerate(lines):
         l = x['abs-line']
         m = x['slope']
+        #if i not in [18]: continue
+        #if abs(m) < .01 or abs(m) > 5: continue
         #if m != -13.:continue
         print('--line %d' % i)
-        print('  m:',x['slope'])
+        print('  m:',m)
+        print('  mp:',perp_slope(m))
         print('  l:',l[0],l[1])
 
 
@@ -1080,7 +1085,7 @@ def detect_triangles_on_lines(arr, lines):
         lim = arr.shape
         srcImg = arr
 
-        if abs(m) >= 5:
+        if abs(m) >= 25:
             invert = True
             b = -b/m
             m = 0
@@ -1090,21 +1095,24 @@ def detect_triangles_on_lines(arr, lines):
             lim = arrT.shape
             srcImg = arrT
 
-
-        sign = 1 if m >= 0 else -1
-
-        colin = bresenham_line(left, m, b, sign)
-        pts = []
+        
+        #sign = 1 if m >= 0 else -1
 
         forwards = True
-        flat = True
 
         if left[0] > right[0]:
             forwards = False
+            sign = -1
+        else:
+            sign = 1
 
+        colin = bresenham_line(left, m, b, sign)
+        pts = []
         pm = perp_slope(m)
 
+        count = 0
         while True:
+            count += 1
             pt = next(colin)
             if pt[1] >= lim[0] or pt[0] >= lim[1]:
                 break
@@ -1122,8 +1130,9 @@ def detect_triangles_on_lines(arr, lines):
             perlin2 = bresenham_line(pt, pm, b, -1)
 
             #new_pts = []
-            extend_point(srcImg,[],perlin1,lim,0,pts)
+            #if count % 9 == 0:
             extend_point(srcImg,[],perlin2,lim,0,pts)
+            extend_point(srcImg,[],perlin1,lim,0,pts)
 
             pts.append(pt)
 
