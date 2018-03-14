@@ -351,7 +351,8 @@ def endpoints_connect(arr,p1,p2):
         y = int(ys[i])
         black_count += (arr[y,x] == 0)
 
-    if black_count/d > .9:
+    #print(black_count/d)
+    if black_count/d >= .8:
         return True
     return False
 
