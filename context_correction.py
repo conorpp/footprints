@@ -1235,22 +1235,58 @@ def context_aware_correction(orig,ins):
     #TODO implement these
     #assign_triangles_to_lines(ins['triangles'], ins['lines'], tri_tree )
     allpts = detect_triangles_on_lines(arr['img'], ins['lines'])
+
+
+
+    def _dump_plotly(objs, images):
+        l = len(objs)
+        #print(l)
+        fig = tools.make_subplots(rows=l, cols=1, subplot_titles = ['line %d' % x['id'] for x in objs])
+        fig.layout.showlegend = False
+        for i,x in enumerate(objs):
+            print(i)
+            #if i > 5:break
+            im = {
+                "source": 'data:image/png;base64, ' + getbase64(images[i]),
+                "x": 1,
+                "y": 1 - i/(l-.5),
+                "sizex": .5,
+                "sizey": .5,
+            }
+            fig.layout.images.append(im)
+            t1 = Scatter(y=x['side-traces'][0])
+            t2 = Scatter(y=x['side-traces'][1])
+            fig.append_trace(t1,i+1,1)
+            fig.append_trace(t2,i+1,1)
+
+        fig['layout'].update(height=400*l, width=1100, margin={
+            'l':80,
+            'r':300,
+            't':100,
+            'b':80,
+            'pad':0,
+            'autoexpand':True,
+            },title='plots')
+        return fig
+    def dump_plotly(objs,images):
+        for i in range(0,len(objs),50):
+            print('START ',i)
+            fig = _dump_plotly(objs[i:i+50], images[i:i+50])
+            plotly.offline.plot(fig, auto_open=True, filename='temp%d.html' % (i/50))
+            print('DONE',i)
+
+    images = []
+    for i,x in enumerate(ins['lines']):
+        cor = np.copy(orig)
+        put_thing(cor,x['abs-line'],(255,0,0),(0,0),3)
+        images.append(cor)
+    ins['lines'][0]['side-traces']
+    dump_plotly(ins['lines'], images)
+
+
     #draw_pts(orig,allpts)
     l = len(ins['lines'])
-    fig = tools.make_subplots(rows=l, cols=1, subplot_titles = ['line %d' % x['id'] for x in ins['lines']])
-    for i,x in enumerate(ins['lines']):
-        #if 3 == i:
-        print(i)
-        #cor = np.copy(orig)
-        #put_thing(cor,x['abs-line'],(0,255,0),(0,0))
-        #save(cor,'output2.png')
-        t1 = Scatter(y=x['side-traces'][0])
-        t2 = Scatter(y=x['side-traces'][1])
-        fig.append_trace(t1,i+1,1)
-        fig.append_trace(t2,i+1,1)
-
-    fig['layout'].update(height=700*l, width=1100, title='plots')
-    print(plotly.offline.plot(fig))
+    print()
         #print(plotly.offline.plot({
             #"data":[
                 #Scatter(y=x['side-traces'][0]),
