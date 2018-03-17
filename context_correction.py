@@ -1,7 +1,9 @@
 import math
 from random import randint
 
-
+import plotly
+from plotly.graph_objs import Scatter,Layout
+from plotly import tools
 from scipy import stats
 from utils import *
 from filters import *
@@ -1234,16 +1236,31 @@ def context_aware_correction(orig,ins):
     #assign_triangles_to_lines(ins['triangles'], ins['lines'], tri_tree )
     allpts = detect_triangles_on_lines(arr['img'], ins['lines'])
     #draw_pts(orig,allpts)
-
+    l = len(ins['lines'])
+    fig = tools.make_subplots(rows=l, cols=1, subplot_titles = ['line %d' % x['id'] for x in ins['lines']])
     for i,x in enumerate(ins['lines']):
-        if 1:
-            print(i)
-            cor = np.copy(orig)
-            put_thing(cor,x['abs-line'],(0,255,0),(0,0))
-            save(cor,'output2.png')
-            plt.plot(x['side-traces'][0])
-            plt.plot(x['side-traces'][1])
-            plt.show()
+        #if 3 == i:
+        print(i)
+        #cor = np.copy(orig)
+        #put_thing(cor,x['abs-line'],(0,255,0),(0,0))
+        #save(cor,'output2.png')
+        t1 = Scatter(y=x['side-traces'][0])
+        t2 = Scatter(y=x['side-traces'][1])
+        fig.append_trace(t1,i+1,1)
+        fig.append_trace(t2,i+1,1)
+
+    fig['layout'].update(height=700*l, width=1100, title='plots')
+    print(plotly.offline.plot(fig))
+        #print(plotly.offline.plot({
+            #"data":[
+                #Scatter(y=x['side-traces'][0]),
+                #Scatter(y=x['side-traces'][1]),
+                #],
+            #"layout": Layout(title='hi')
+            #}))
+            #plt.plot(x['side-traces'][0])
+            #plt.plot(x['side-traces'][1])
+            #plt.show()
     #for x in triangles:
         #put_thing(orig, x['triangle'], [255,0,0], x['offset'])
     ##for x in merges:
