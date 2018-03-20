@@ -11,6 +11,7 @@ def main():
     t1 = TIME()
     outs = parse_drawing(args.input_file)
     orig = outs['orig']
+    PARAMS['orig'] = orig
     t2 = TIME()
     #print('parse_drawing time: %d' % (t2-t1))
 

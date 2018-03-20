@@ -1,14 +1,12 @@
 import math
 from random import randint
 
-import plotly
-from plotly.graph_objs import Scatter,Layout
-from plotly import tools
 from scipy import stats
 from utils import *
 from filters import *
 from analyzers import *
 from processors import *
+from plotting import plot_side_traces_func, dump_plotly
 from cli import put_thing
 from structures import RTree
 import preprocessing
@@ -1236,74 +1234,11 @@ def context_aware_correction(orig,ins):
     #assign_triangles_to_lines(ins['triangles'], ins['lines'], tri_tree )
     allpts = detect_triangles_on_lines(arr['img'], ins['lines'])
 
-
-
-    def _dump_plotly(objs, images):
-        l = len(objs)
-        #print(l)
-        fig = tools.make_subplots(rows=l, cols=1, subplot_titles = ['line %d' % x['id'] for x in objs])
-        fig.layout.showlegend = False
-        for i,x in enumerate(objs):
-            print(i)
-            #if i > 5:break
-            im = {
-                "source": 'data:image/png;base64, ' + getbase64(images[i]),
-                "x": 1,
-                "y": 1 - i/(l-.5),
-                "sizex": .5,
-                "sizey": .5,
-            }
-            fig.layout.images.append(im)
-            t1 = Scatter(y=x['side-traces'][0])
-            t2 = Scatter(y=x['side-traces'][1])
-            fig.append_trace(t1,i+1,1)
-            fig.append_trace(t2,i+1,1)
-
-        fig['layout'].update(height=400*l, width=1100, margin={
-            'l':80,
-            'r':300,
-            't':100,
-            'b':80,
-            'pad':0,
-            'autoexpand':True,
-            },title='plots')
-        return fig
-    def dump_plotly(objs,images):
-        for i in range(0,len(objs),50):
-            print('START ',i)
-            fig = _dump_plotly(objs[i:i+50], images[i:i+50])
-            plotly.offline.plot(fig, auto_open=True, filename='temp%d.html' % (i/50))
-            print('DONE',i)
-
-    images = []
-    for i,x in enumerate(ins['lines']):
-        cor = np.copy(orig)
-        put_thing(cor,x['abs-line'],(255,0,0),(0,0),3)
-        images.append(cor)
-    ins['lines'][0]['side-traces']
-    dump_plotly(ins['lines'], images)
+    dump_plotly(ins['lines'], plot_side_traces_func)
 
 
     #draw_pts(orig,allpts)
     l = len(ins['lines'])
-    print()
-        #print(plotly.offline.plot({
-            #"data":[
-                #Scatter(y=x['side-traces'][0]),
-                #Scatter(y=x['side-traces'][1]),
-                #],
-            #"layout": Layout(title='hi')
-            #}))
-            #plt.plot(x['side-traces'][0])
-            #plt.plot(x['side-traces'][1])
-            #plt.show()
-    #for x in triangles:
-        #put_thing(orig, x['triangle'], [255,0,0], x['offset'])
-    ##for x in merges:
-        ##put_thing(orig, x[0]['triangle'], [255,0xc0,0], x[0]['offset'])
-        ##put_thing(orig, x[1]['triangle'], [255,0xc0,0], x[1]['offset'])
-    #for x in merged:
-        #put_thing(orig, x['triangle'], [0,0,255], x['offset'])
 
     #draw_ocr_group_rects(orig, new_horz, new_verz)
     save(orig,'output2.png')

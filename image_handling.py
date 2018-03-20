@@ -11,7 +11,7 @@ def init(input_file):
     arr = remove_alpha(arr)
     orig = np.copy(arr)
     arr = polarize(arr)
-    analyzers.init(arr)
+    analyzers.init(arr,orig)
 
     arr = preprocessing.preprocess(arr)
     arr = wrap_image(arr)

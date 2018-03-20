@@ -1,5 +1,4 @@
-import time,math,base64
-from io import BytesIO
+import time,math
 from scipy.signal import butter, lfilter, freqz
 from numpy.linalg import norm
 from PIL import Image, ImageDraw
@@ -143,15 +142,6 @@ def centroid(c):
 def show(im):
     tmp = Image.fromarray(im)
     tmp.show()
-
-def getbase64(nparr,):
-    if type(nparr) == type({}):
-        nparr = nparr['img']
-    im = Image.fromarray(nparr)
-    buf = BytesIO()
-    im.save(buf,format="JPEG")
-    return base64.b64encode(buf.getvalue()).decode('ascii')
-
 
 def save(nparr,name):
     if type(nparr) == type({}):

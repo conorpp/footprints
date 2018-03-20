@@ -90,45 +90,55 @@ class RTree():
 
 counter = 0
 class Shape():
+    img = None
+    height = 1
+    width = 1
+    history = None
+    comment = ''
+    conf = 0
+    area_ratio = 0
+    a1 = 0
+    a2 = 0
+    contour = None
+    offset = None
+
+    line_conf = 0
+    aspect_ratio = 0
+    line_length = 0
+    length_area_ratio = 0
+    vertical = 0
+
+    sum = None
+    rotated = False
+    line_scan_attempt = 0
+    merged = False
+
+    line_estimates = None
+    features = None
+    traces = None
+
     def __init__(self,im,parent=None, offset=None):
-        global counter
-        self.conf = 0
-        self.area_ratio = 0
-        self.a1 = 0
-        self.a2 = 0
+        self.history = []
+        self.img = im
         self.contour = []
         if parent is None:
             self.offset = [0,0]
         else:
             self.offset = parent.offset[:]
-        self.img = im
-        self.height = 1
-        self.width = 1
-        self.history = []
-        self.comment = ''
+
+        global counter
         self.id = counter
+        counter = counter + 1
 
-        self.line_conf = 0
-        self.aspect_ratio = 0
-        self.line_length = 0
-        self.length_area_ratio = 0
-        self.vertical = 0
         self.sum = {'score':0.0, 'distinct':0, 'mode':[0,0], 'sum':[]}
-        self.rotated = False
-        self.line_scan_attempt = 0
-
         self.line_estimates = []
         self.features = []
         self.traces = []
 
-        self.merged = False
-        counter = counter + 1
 
         if offset is not None:
             self.offset[0] += offset[0]
             self.offset[1] += offset[1]
-
-
 
     # backwards compatible with dict
     def __getitem__(self, key):

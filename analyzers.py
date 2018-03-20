@@ -15,11 +15,13 @@ from ocr import OCR_API
 
 PARAMS = {'imageh':100,'imagew':100}
 
-def init(x):
+def init(x,orig=None):
     PARAMS['imageh'] = x.shape[0]
     PARAMS['imagew'] = x.shape[1]
     PARAMS['line-thickness'] = sample_line_thickness(x)
     print(PARAMS)
+    if orig is not None:
+        PARAMS['orig'] = np.copy(orig)
 
 
 def grow_rect_top(c,square):
