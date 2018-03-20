@@ -3,6 +3,7 @@ from utils import *
 from filters import *
 from analyzers import *
 from processors import *
+from structures import wrap_image, Shape
 import preprocessing
 
 def init(input_file):

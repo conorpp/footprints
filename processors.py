@@ -10,6 +10,7 @@ from scipy import stats
 from utils import *
 from analyzers import *
 from settings import *
+from structures import wrap_image, Shape
 
 def separate_lines(inp):
     out = []

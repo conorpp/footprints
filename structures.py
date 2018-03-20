@@ -88,4 +88,56 @@ class RTree():
             l.append(self.features[x])
         return l
 
+counter = 0
+class Shape():
+    def __init__(self,im,parent=None, offset=None):
+        global counter
+        self.conf = 0
+        self.area_ratio = 0
+        self.a1 = 0
+        self.a2 = 0
+        self.contour = []
+        if parent is None:
+            self.offset = [0,0]
+        else:
+            self.offset = parent.offset[:]
+        self.img = im
+        self.height = 1
+        self.width = 1
+        self.history = []
+        self.comment = ''
+        self.id = counter
 
+        self.line_conf = 0
+        self.aspect_ratio = 0
+        self.line_length = 0
+        self.length_area_ratio = 0
+        self.vertical = 0
+        self.sum = {'score':0.0, 'distinct':0, 'mode':[0,0], 'sum':[]}
+        self.rotated = False
+        self.line_scan_attempt = 0
+
+        self.line_estimates = []
+        self.features = []
+        self.traces = []
+
+        self.merged = False
+        counter = counter + 1
+
+        if offset is not None:
+            self.offset[0] += offset[0]
+            self.offset[1] += offset[1]
+
+
+
+    # backwards compatible with dict
+    def __getitem__(self, key):
+        return getattr(self,key.replace('-','_'))
+    def __setitem__(self, key, value):
+        return setattr(self,key.replace('-','_'),value)
+    def __contains__(self,key):
+        return hasattr(self,key)
+
+
+def wrap_image(im,parent=None,offset=None):
+    return Shape(im,parent,offset)

@@ -8,49 +8,49 @@ import numpy as np
 
 
 # wraps np array image with metadata
-counter = 0
-def wrap_image(im,parent=None,offset=None):
-    global counter
-    specs = {
-            'conf':0,           # % of pixels that are black under contour
-            'area-ratio':0,     # a1/a2
-            'a1':0,             # number of pixels in contour
-            'a2':0,             # number of pixels
-            'contour':[],        # inside rectangle growth
-            'offset':[0,0],    # offset with respect to parent
-            'img': im,          # image
-            'height': 1,        # bounding rect height and width
-            'width':1,
-            'history':[],       # previous image
-            'comment':'',
-            'id': counter,
+#counter = 0
+#def wrap_image(im,parent=None,offset=None):
+    #global counter
+    #specs = {
+            #'conf':0,           # % of pixels that are black under contour
+            #'area-ratio':0,     # a1/a2
+            #'a1':0,             # number of pixels in contour
+            #'a2':0,             # number of pixels
+            #'contour':[],        # inside rectangle growth
+            #'offset':[0,0],    # offset with respect to parent
+            #'img': im,          # image
+            #'height': 1,        # bounding rect height and width
+            #'width':1,
+            #'history':[],       # previous image
+            #'comment':'',
+            #'id': counter,
 
-            'line-conf': 0,
-            'aspect-ratio':0,
-            'line-length':0,
-            'length-area-ratio':0,
-            'vertical':0,
-            'sum':{'score':0.0, 'distinct':0, 'mode':[0,0], 'sum':[]},
-            'rotated': False,
+            #'line-conf': 0,
+            #'aspect-ratio':0,
+            #'line-length':0,
+            #'length-area-ratio':0,
+            #'vertical':0,
+            #'sum':{'score':0.0, 'distinct':0, 'mode':[0,0], 'sum':[]},
+            #'rotated': False,
 
-            'line-scan-attempt': 0,
-            'line-estimates':[],
-            'features':[],
-            'traces':[],
+            #'line-scan-attempt': 0,
+            #'line-estimates':[],
+            #'features':[],
+            #'traces':[],
             
-            'merged':False,
+            #'merged':False,
 
-            }
+            #}
 
-    counter = counter + 1
-    if parent is not None:
-        snapshot_img(specs,'parent',parent)
+    #counter = counter + 1
+    #if parent is not None:
+        #snapshot_img(specs,'parent',parent)
 
-    if offset is not None:
-        specs['offset'][0] += offset[0]
-        specs['offset'][1] += offset[1]
+    #if offset is not None:
+        #specs['offset'][0] += offset[0]
+        #specs['offset'][1] += offset[1]
 
-    return specs
+    #return specs
 
 def count_black(x):
     nz = np.count_nonzero(x)

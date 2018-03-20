@@ -9,6 +9,7 @@ from scipy import stats
 
 from utils import *
 from filters import *
+from structures import wrap_image, Shape
 
 from ocr import OCR_API
 
@@ -119,10 +120,10 @@ def analyze_rectangle(arr):
 
     num_pixels = float(PARAMS['imageh']*PARAMS['imagew'])
 
-    mat = np.copy(arr['img'])
+    mat = np.copy(arr.img)
     mat, contours, hier = cv2.findContours(mat, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     #mat, contours, hier = cv2.findContours(mat, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    tmp = arr['img']
+    tmp = arr.img
 
     if len(contours)>1:
         #square = np.array([[x+1,y+1],[x+1,y-1],[x-1,y-1],[x-1,y+1],[x+1,y+1],])
@@ -304,8 +305,12 @@ def analyze_rectangles(rects):
 
 def analyze_triangles(rects,parentim):
 
-    if type(parentim) == type({}):
+    #if type(parentim) == type(Shape):
+    if isinstance(parentim,Shape):
         parentim = parentim['img']
+    #else:
+        #print(type(parentim))
+        #print(type(Shape.__class__))
 
     for x in rects:
         area,tri = cv2.minEnclosingTriangle(x['ocontour'])
