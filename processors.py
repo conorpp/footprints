@@ -17,7 +17,7 @@ def separate_lines(inp):
 
     for x in inp:
         #try:
-            new,old = extract(x['img'],x['sum']['sum'], x['sum']['mode'][0], x['vertical'])
+            new,old = extract(x.img,x.sum['sum'], x.sum['mode'][0], x.vertical)
             if new is not None:
                 new = wrap_image(new,x)
                 out.append(new)
@@ -136,9 +136,9 @@ def extract(im, y,m,dim):
 
 
 def trim_image(arr):
-    arr['img'],x,y = trim(arr['img'])
-    arr['offset'][0] += x
-    arr['offset'][1] += y
+    arr.img,x,y = trim(arr.img)
+    arr.offset[0] += x
+    arr.offset[1] += y
 
 def trim_images(imgs):
     for x in imgs:
@@ -343,10 +343,10 @@ def get_isolated_images(arr):
 
 def separate_rectangle_out(arr):
     #squ = arr['contour'][:]
-    squ = get_outer_rect(arr['img'],arr['contour'])
+    squ = get_outer_rect(arr.img,arr.contour)
     #grow_rect_by_one(squ)
 
-    outside = np.copy(arr['img'])
+    outside = np.copy(arr.img)
 
     outside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
 
@@ -354,13 +354,13 @@ def separate_rectangle_out(arr):
     return outside
 
 def separate_rectangle_in(arr):
-    squ = get_inner_rect(arr['img'],arr['contour'])
+    squ = get_inner_rect(arr.img,arr.contour)
 
-    inside = np.zeros(arr['img'].shape, dtype=np.uint8)
+    inside = np.zeros(arr.img.shape, dtype=np.uint8)
 
     inside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
 
-    result = cv2.bitwise_and(arr['img'], inside)
+    result = cv2.bitwise_and(arr.img, inside)
 
     outside = wrap_image((result + (inside != 255) * 255).astype(np.uint8),arr)
     return outside
@@ -375,20 +375,20 @@ def separate_rectangles(inp):
 
 def rotate_right(inp):
     for x in inp:
-        x['img'] = cv2.rotate(x['img'], cv2.ROTATE_90_CLOCKWISE)
-        x['rotated'] = True
+        x.img = cv2.rotate(x.img, cv2.ROTATE_90_CLOCKWISE)
+        x.rotated = True
 
 def rotate_left(inp):
     for x in inp:
-        x['img'] = cv2.rotate(x['img'], cv2.ROTATE_90_COUNTERCLOCKWISE)
-        x['rotated'] = True
+        x.img = cv2.rotate(x.img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        x.rotated = True
 
 
 def cut_linking_lines(arrs):
     cut = []
     notcut = []
     for arr in arrs:
-        img = arr['img']
+        img = arr.img
         if cut_linking_line(img) > 0:
             cut.append(arr)
         else:
@@ -573,8 +573,8 @@ def find_line_features(lines):
     oldims = []
     for l in lines:
         #l['target'] = False
-        l['target'] = True
-        scantype = l['line-scan-attempt']
+        l.target = True
+        scantype = l.line_scan_attempt
         
         if scantype == 1:
             oldims.append(l)
@@ -586,24 +586,24 @@ def find_line_features(lines):
                 #(-100,100),
                 #(0,l['img'].shape[0]),
                 #(l['img'].shape[1],0),
-                (l['img'].shape[1],l['img'].shape[0]),
+                (l.img.shape[1],l.img.shape[0]),
                 ]
 
         for i in range(0,3):
-            traces, startpoints = get_partial_lines_from_contour(l['ocontour'], scan_points[i])
+            traces, startpoints = get_partial_lines_from_contour(l.ocontour, scan_points[i])
             if len(traces): break
 
         if len(traces) == 0:
             for i in range(0,3):
-                traces, startpoints = get_partial_lines_from_contour(l['ocontour'], scan_points[i],False)
+                traces, startpoints = get_partial_lines_from_contour(l.ocontour, scan_points[i],False)
                 if len(traces): break
 
             if len(traces) == 0:
-                l['line-scan-attempt'] = 1
+                l.line_scan_attempt = 1
                 oldims.append(l)
                 continue
 
-        l['line-scan-attempt'] = scantype + 1
+        l.line_scan_attempt = scantype + 1
 
         #l['traces'] = (traces,startpoints)
 
@@ -613,10 +613,10 @@ def find_line_features(lines):
             pts = np.array([t for t in tset])
             startp = startpoints[i]
 
-            blackp = neighboring_black_pixel(l['img'], startp)
+            blackp = neighboring_black_pixel(l.img, startp)
 
             # for horizontal or vertical lines
-            hv_line,vert = grow_line(l['img'],None,blackp)
+            hv_line,vert = grow_line(l.img,None,blackp)
 
             if line_len(hv_line) > 9:
                 if line_len((hv_line[0], startp)) > line_len((hv_line[1], startp)):
@@ -638,11 +638,11 @@ def find_line_features(lines):
 
             ests.append(line_est)
 
-        oldim = np.copy(l['img'])
+        oldim = np.copy(l.img)
 
         # Sort from max to least so that larger features will include small ones
         ests = sorted(ests, key = lambda x: line_len(x[0]), reverse = True)
-        l['line-estimates'] = ests
+        l.line_estimates = ests
         features = []
         for e in ests:
             new_features = get_pixels_following_line(oldim,e)
@@ -663,7 +663,7 @@ def find_line_features(lines):
         else:
             oldims.append(l)
 
-        l['features'] = features
+        l.features = features
 
     return newims,oldims
 #def extract_line_features(line):
@@ -672,10 +672,10 @@ def find_line_features(lines):
         #newim = np.zeros()
 def assign_best_fit_lines(lines):
     for x in lines:
-        pts = np.argwhere(x['img'] == 0)
+        pts = np.argwhere(x.img == 0)
         #print(pts)
         l = estimate_line(pts)[0]
-        x['line'] = np.array(((l[0][1],l[0][0],),(l[1][1],l[1][0],)))
+        x.line = np.array(((l[0][1],l[0][0],),(l[1][1],l[1][0],)))
 
 
 # line of best fit to set of contour points
@@ -853,17 +853,17 @@ def irreg_outsides(irregs):
     for x in irregs:
         img = x['img']
         outside = np.copy(img)
-        out_rects = [get_outer_rect(img,r,rect_confidence(img,r)*.9) for r in x['filled-rects']]
+        out_rects = [get_outer_rect(img,r,rect_confidence(img,r)*.9) for r in x.filled_rects]
         
         if len(out_rects):
             for squ in out_rects:
                 #cv2.fillPoly(outside, [squ], 255)
                 outside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
         else:
-            squ = get_outer_rect(img,x['contour'])
+            squ = get_outer_rect(img,x.contour)
             outside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
 
-        for f in x['features']:
+        for f in x.features:
             if f[0] == 'circle':
                 cir = shift_circle(img, f[1], 1, .1)
                 cv2.circle(outside,cir[0],cir[1],255,-1)
@@ -875,7 +875,7 @@ def irreg_outsides(irregs):
 def irreg_insides(irregs):
     insides = []
     for x in irregs:
-        img = x['img']
+        img = x.img
         inside = np.zeros(img.shape, dtype=np.uint8)
         in_rects = [get_inner_rect(img,r,rect_confidence(img,r)*.9) for r in x['filled-rects']]
 
@@ -883,10 +883,10 @@ def irreg_insides(irregs):
             for squ in in_rects:
                 inside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
         else:
-            squ = get_inner_rect(img,x['contour'])
+            squ = get_inner_rect(img,x.contour)
             inside[squ[2][1]:squ[0][1]+1, squ[2][0]:squ[0][0]+1] = 255
 
-        for f in x['features']:
+        for f in x.features:
             if f[0] == 'circle':
                 cir = shift_circle(img, f[1], -1, .1)
                 cv2.circle(inside,cir[0],cir[1],255,-1)
@@ -909,8 +909,8 @@ def separate_circles(inp):
 
     # outsides
     for x in inp:
-        img = x['img']
-        circ = x['circle']
+        img = x.img
+        circ = x.circle
         outside = np.copy(img)
         inside = np.zeros(img.shape, dtype=np.uint8)
 

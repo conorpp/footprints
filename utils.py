@@ -155,7 +155,7 @@ def getbase64(nparr,):
 
 def save(nparr,name):
     if type(nparr) == type({}):
-        nparr = nparr['img']
+        nparr = nparr.img
     im = Image.fromarray(nparr)
     im.save(name)
 
@@ -239,10 +239,10 @@ def save_history(x):
     for i,y in enumerate(x['history']):
         print_img(y,i)
         name = 'img%d-%d.png' % (x['id'],i)
-        save(y['img'],'hist/'+name)
+        save(y.img,'hist/'+name)
     print_img(x,'current')
     name = 'img%d-%d.png' % (x['id'],i+1)
-    save(x['img'],'hist/'+name)
+    save(x.img,'hist/'+name)
 
 
 def polarize(arr):

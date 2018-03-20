@@ -140,19 +140,19 @@ def analyze_rectangle(arr):
             squares = sorted(squares, key = lambda x:x[1], reverse = True )
             square = squares[0]
             conf = rect_confidence(tmp, square[0])
-            arr['conf'] = conf
-            arr['center'] = square[2]
-            arr['a1'] = square[1]
-            arr['contour'] = square[0]
-            arr['area-ratio'] = square[1]/num_pixels
+            arr.conf = conf
+            arr.center = square[2]
+            arr.a1 = square[1]
+            arr.contour = square[0]
+            arr.area_ratio = square[1]/num_pixels
 
-        arr['contour-area'] = cv2.contourArea(contours[1])
-        arr['ocontour'] = contours[1]
+        arr.contour_area = cv2.contourArea(contours[1])
+        arr.ocontour = contours[1]
 
         x,y,w,h = cv2.boundingRect(contours[1])
-        arr['width'] = w
-        arr['height'] = h
-        arr['boundxy'] = (x,y)
+        arr.width = w
+        arr.height = h
+        arr.boundxy = (x,y)
 
     else: 
         print('warning, no contours')
@@ -252,27 +252,25 @@ def line_confidence(im,c):
 
 def analyze_line(spec):
     #try:
-    c = spec['ocontour']
+    c = spec.ocontour
     #except:
         #save_history(spec)
         #sys.exit(1)
     line,vertical = grow_line(spec['img'],c)
     #spec['vertical'] = vertical
-    spec['vertical'] = 1 if (spec['height'] > spec['width']) else 0
-    spec['line'] = line
-    spec['line-conf'] = line_confidence(spec['img'],line)
-    spec['line-length'] = math.hypot(line[1][0] - line[0][0], line[1][1] - line[0][1])
-    spec['length-area-ratio'] = spec['line-length']/spec['contour-area']
-    spec['aspect-ratio'] = spec['line-length']/min([spec['width'],spec['height']])
+    spec.vertical = 1 if (spec.height > spec.width) else 0
+    spec.line = line
+    spec.line_conf = line_confidence(spec.img,line)
+    spec.line_length = math.hypot(line[1][0] - line[0][0], line[1][1] - line[0][1])
+    spec.length_area_ratio = spec.line_length/spec.contour_area
+    spec.aspect_ratio = spec.line_length/min([spec.width,spec.height])
 
-    if spec['vertical']:
-        rowsum = scan_dim(spec['img'],1)
+    if spec.vertical:
+        rowsum = scan_dim(spec.img,1)
     else:
-        rowsum = scan_dim(spec['img'],0)
+        rowsum = scan_dim(spec.img,0)
 
-    spec['sum'] = {
-        'sum':rowsum
-        }
+    spec.sum['sum'] = rowsum
     #spec['colsum'] = {
         #'sum':colsum
         #}
@@ -280,18 +278,19 @@ def analyze_line(spec):
     rowsum_trim = scan_trim(rowsum)
     #colsum = scan_trim(colsum)
 
-    spec['sum']['mode'] = stats.mode(rowsum_trim)
+    spec.sum['mode'] = stats.mode(rowsum_trim)
 
-    spec['sum']['distinct'] = len(np.unique(rowsum_trim))
-    spec['sum']['score'] = float(spec['sum']['mode'][1])/len(rowsum_trim)
+    spec.sum['distinct'] = len(np.unique(rowsum_trim))
+    spec.sum['score'] = float(spec.sum['mode'][1])/len(rowsum_trim)
 
     return spec
 
 def inherit_from_line(line,parent):
-    for i in ('vertical','line','line-conf',
-            'line-length','length-area-ratio',
-            'aspect-ratio','sum'):
-        line[i] = parent[i]
+    for i in ('vertical','line','line_conf',
+            'line_length','length_area_ratio',
+            'aspect_ratio','sum'):
+        setattr(line,i,getattr(parent,i))
+        #line[i] = parent[i]
 
 
 def analyze_lines(lines):
@@ -307,51 +306,43 @@ def analyze_triangles(rects,parentim):
 
     #if type(parentim) == type(Shape):
     if isinstance(parentim,Shape):
-        parentim = parentim['img']
+        parentim = parentim.img
     #else:
         #print(type(parentim))
         #print(type(Shape.__class__))
 
     for x in rects:
-        area,tri = cv2.minEnclosingTriangle(x['ocontour'])
-        x['triangle'] = np.reshape(np.round(tri).astype(np.int32),(3,2))
-        x['triangle-area'] = area
+        area,tri = cv2.minEnclosingTriangle(x.ocontour)
+        x.triangle = np.reshape(np.round(tri).astype(np.int32),(3,2))
+        x.triangle_area = area
         inside = np.zeros(parentim.shape, dtype=np.uint8)
-        cv2.drawContours(inside,[x['triangle']],0,255,-1,offset=tuple(x['offset']))
+        cv2.drawContours(inside,[x.triangle],0,255,-1,offset=tuple(x.offset))
         inside = (cv2.bitwise_and(parentim, inside) + (inside != 255) * 255)
 
         #x['triangle-area-ratio'] = count_black(x['img'])/area
-        x['triangle-area-ratio'] = count_black(inside)/area
-        x['triangle-perimeter'] = cv2.arcLength(tri,True)
+        x.triangle_area_ratio = count_black(inside)/area
+        x.triangle_perimeter = cv2.arcLength(tri,True)
 
 def analyze_ocr(inp):
     for x in inp:
-        im = x['img']
+        im = x.img
         OCR_API.SetImageBytes(im.tobytes(), im.shape[1], im.shape[0], 1, im.shape[1])
         text = OCR_API.GetUTF8Text()  # r == ri
         conf = OCR_API.MeanTextConf()
-        x['ocr-conf'] = conf
+        x.ocr_conf = conf
         if text:
             symbol = text[0]
-            x['symbol'] = symbol
+            x.symbol = symbol
         else:
             # check-periods
-            
-            # this works but decided to leave everything to context based detection
-
-            #if float(count_black(im))/(max(x['width'],x['height'])**2) > .275:
-                ##print(float(count_black(im))/(max(x['width'],x['height'])**2))
-                #x['symbol'] = '.'
-                #x['ocr-conf'] = 75
-            #else:
-                x['symbol'] = None
+            x.symbol = None
 
 def polish_rectangles(rects):
     for x in rects:
-        ins = get_inner_rect(x['img'],x['contour'])
-        out = get_outer_rect(x['img'],x['contour'])
+        ins = get_inner_rect(x.img,x.contour)
+        out = get_outer_rect(x.img,x.contour)
         cen = get_center_rect(out,ins)
-        x['rectangle'] = cen
+        x.rectangle = cen
 
 def shift_line(im, pts,dim,perc,direc):
     blacks = (im == 0)
@@ -370,7 +361,7 @@ def block_clipped_components(inp):
     good = []
     try:
         for x in inp:
-            im = x['img']
+            im = x.img
             if 0 not in im[:,0]:
                 if 0 not in im[:,im.shape[1]-1]:
                     if 0 not in im[im.shape[0]-1,:]:
@@ -378,8 +369,8 @@ def block_clipped_components(inp):
                             good.append(x)
     except:
         print('err')
-        print(x['img'])
-        print(x['img'].shape)
+        print(x.img)
+        print(x.img.shape)
         sys.exit(1)
 
     return good
@@ -543,11 +534,11 @@ def circle_in_contour(c,p,r):
     return total,pts
 
 def analyze_circle(arr):
-    squ = arr['contour']
-    c = arr['ocontour']
+    squ = arr.contour
+    c = arr.ocontour
 
-    arr['circle'] = [(0,0),1]
-    arr['circle-conf'] = 0
+    arr.circle = [(0,0),1]
+    arr.circle_conf = 0
 
     if len(squ):
         x = int((squ[0][0] + squ[2][0])/2)
@@ -564,11 +555,11 @@ def analyze_circle(arr):
             r -= 1
             cir = [(x,y),r]
             contour.append(contour[0])
-            arr['circle'] = cir
+            arr.circle = cir
             #ar'circle-contour'] = np.array(contour, dtype=np.uint8)
-            arr['circle-contour'] = np.array(contour, dtype=np.int32)
+            arr.circle_contour = np.array(contour, dtype=np.int32)
             #print(arr['circle-contour'])
-            arr['circle-conf'] = circle_confidence(arr['img'],cir)
+            arr.circle_conf = circle_confidence(arr.img,cir)
 
 def analyze_circles(inp):
     for x in inp:
@@ -645,17 +636,17 @@ def analyze_semi_rects(rects):
         semicircles = [((0,0),0,0)]*4
 
         # right, top, left, bottom
-        for i,val in enumerate(x['conf']):
+        for i,val in enumerate(x.conf):
             if val > .94: # TODO centralize this value
                 continue
-            rect = x['contour']
-            outside = x['ocontour']
+            rect = x.contour
+            outside = x.ocontour
             side = rect[0+i:2+i]
             dim,direc = lut[i]
             
             pt,r = grow_semi_circle(outside,side,dim,direc)
 
-            cconf = circle_confidence(x['img'], (pt,r))
+            cconf = circle_confidence(x.img, (pt,r))
 
             # there's half a circle there, stop
             if cconf > .45:
@@ -697,8 +688,8 @@ def analyze_semi_rects(rects):
                     grow_rect_left(outside,rect)
                     grow_rect_right(outside,rect)
 
-                x['contour'] = rect
-                x['conf'] = rect_confidence(x['img'], rect)
+                x.contour = rect
+                x.conf = rect_confidence(x.img, rect)
                 #break
 
                 semicircles[i] = (pt,r,cconf)
@@ -709,8 +700,8 @@ def analyze_semi_rects(rects):
                 #pt[1] -= x['offset'][1]
 
 
-        x['semi-circles'] = semicircles
-        x['filled-rects'] = []
+        x.semi_circles = semicircles
+        x.filled_rects = []
     #save(orig,'output2.png')
 
 
@@ -718,16 +709,16 @@ def make_irregular_shapes(shapes):
     for x in shapes:
         features = []
         for i in range(0,4):
-            if x['conf'][i] > .95:
-                features.append(('line', x['contour'][0+i:2+i], None, x['conf'][i]))
+            if x.conf[i] > .95:
+                features.append(('line', x.contour[0+i:2+i], None, x.conf[i]))
             elif x['semi-circles'][i][2] > .45:
-                circle = x['semi-circles'][i][:2]
+                circle = x.semi-circles[i][:2]
                 degrees = [(270,90), (180,360), (90,270), (180,0)][i]
-                features.append(('circle', circle, degrees, x['semi-circles'][i][2]))
+                features.append(('circle', circle, degrees, x.semi_circles[i][2]))
             else:
                 raise ValueError('This shape is incomplete')
 
-        x['features'] = features
+        x.features = features
 
 def get_locations_of_value(im,line):
     sli = line_slice(im,line).flatten()
@@ -744,11 +735,11 @@ def get_locations_of_value(im,line):
 
 def fill_with_rects(rect):
 
-    first_rect = rect['contour']
-    first_confs = rect['conf']
-    outside = rect['ocontour']
-    img = rect['img']
-    offset = rect['offset']
+    first_rect = rect.contour
+    first_confs = rect.conf
+    outside = rect.ocontour
+    img = rect.img
+    offset = rect.offset
 
     allrects = []
     gaps = [(first_rect,first_confs)]
@@ -813,8 +804,8 @@ def fill_with_rects(rect):
     for r in allrects:
         cv2.drawContours(img,[r],0,0,1)
 
-    rect['filled-rects'] = allrects
-    rect['scratch-pad'] = scratchpad
+    rect.filled_rects = allrects
+    rect.scratch_pad = scratchpad
 
     _, contours,_ = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     c = contours[1]
@@ -866,7 +857,7 @@ def fill_with_rects(rect):
 
         features.append(('line', side, metaset[i], conf))
 
-    rect['features'] = features
+    rect.features = features
 
     ###
     #for line in lineset:
