@@ -6,7 +6,7 @@ from utils import *
 from filters import *
 from analyzers import *
 from processors import *
-from plotting import plot_side_traces_func, dump_plotly
+from plotting import plotfuncs, dump_plotly
 from cli import put_thing
 from structures import RTree
 import preprocessing
@@ -1072,10 +1072,10 @@ def detect_triangles_on_lines(arr, lines):
         #if i not in [18]: continue
         #if abs(m) < .01 or abs(m) > 5: continue
         #if m != -13.:continue
-        print('--line %d' % i)
-        print('  m:',m)
-        print('  mp:',perp_slope(m))
-        print('  l:',l[0],l[1])
+        #print('--line %d' % i)
+        #print('  m:',m)
+        #print('  mp:',perp_slope(m))
+        #print('  l:',l[0],l[1])
 
 
         b = l[0][1] - m*l[0][0]
@@ -1091,7 +1091,7 @@ def detect_triangles_on_lines(arr, lines):
             m = 0
             left[0],left[1] = left[1],left[0]
             right[0],right[1] = right[1],right[0]
-            print('  TRANPOSE')
+            #print('  TRANPOSE')
             lim = arrT.shape
             srcImg = arrT
 
@@ -1110,6 +1110,7 @@ def detect_triangles_on_lines(arr, lines):
         pts = []
         side1 = []
         side2 = []
+        locs = []
         pm = perp_slope(m)
 
         count = 0
@@ -1142,6 +1143,7 @@ def detect_triangles_on_lines(arr, lines):
             s2 = l3 - l2
             side1.append(s1)
             side2.append(s2)
+            locs.append(pt)
 
             pts.append(pt)
 
@@ -1155,6 +1157,7 @@ def detect_triangles_on_lines(arr, lines):
         pts.insert(0,left)
         allpts.append(pts)
         x['side-traces'] = (side1,side2)
+        x['side-locs'] = locs
 
     return allpts
 
@@ -1234,8 +1237,8 @@ def context_aware_correction(orig,ins):
     #assign_triangles_to_lines(ins['triangles'], ins['lines'], tri_tree )
     allpts = detect_triangles_on_lines(arr['img'], ins['lines'])
 
-    dump_plotly(ins['lines'], plot_side_traces_func)
-
+    dump_plotly(ins['lines'], plotfuncs.side_traces)
+    #ins['lines'] = [l for l in ins['lines'] if l['id'] == 331]
 
     #draw_pts(orig,allpts)
     l = len(ins['lines'])

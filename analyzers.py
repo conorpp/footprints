@@ -19,7 +19,7 @@ def init(x,orig=None):
     PARAMS['imageh'] = x.shape[0]
     PARAMS['imagew'] = x.shape[1]
     PARAMS['line-thickness'] = sample_line_thickness(x)
-    print(PARAMS)
+    print(x.shape, PARAMS['line-thickness'])
     if orig is not None:
         PARAMS['orig'] = np.copy(orig)
 
