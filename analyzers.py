@@ -714,7 +714,7 @@ def make_irregular_shapes(shapes):
             if x.conf[i] > .95:
                 features.append(('line', x.contour[0+i:2+i], None, x.conf[i]))
             elif x['semi-circles'][i][2] > .45:
-                circle = x.semi-circles[i][:2]
+                circle = x.semi_circles[i][:2]
                 degrees = [(270,90), (180,360), (90,270), (180,0)][i]
                 features.append(('circle', circle, degrees, x.semi_circles[i][2]))
             else:

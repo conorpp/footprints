@@ -9,8 +9,8 @@ import preprocessing
 def init(input_file):
     arr = load_image(input_file)
     arr = remove_alpha(arr)
-    orig = np.copy(arr)
     arr = polarize(arr)
+    orig = np.copy(color(arr))
     analyzers.init(arr,orig)
 
     arr = preprocessing.preprocess(arr)

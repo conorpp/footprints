@@ -7,6 +7,7 @@ from filters import *
 from analyzers import *
 from processors import *
 from plotting import plotfuncs, dump_plotly
+from dimension_correction import TriangleHumps
 from cli import put_thing
 from structures import RTree
 import preprocessing
@@ -1053,7 +1054,7 @@ def grow_lines(arr, lines):
             right[0],right[1] = right[1],right[0]
 
 
-def detect_triangles_on_lines(arr, lines):
+def generate_line_girths(arr, lines):
     def perp_slope(m):
         if m == 0:
             return 1000
@@ -1112,6 +1113,10 @@ def detect_triangles_on_lines(arr, lines):
         side2 = []
         locs = []
         pm = perp_slope(m)
+        if invert:
+            x['pslope'] = 0
+        else:
+            x['pslope'] = pm
 
         count = 0
         while True:
@@ -1143,9 +1148,10 @@ def detect_triangles_on_lines(arr, lines):
             s2 = l3 - l2
             side1.append(s1)
             side2.append(s2)
-            locs.append(pt)
-
-            pts.append(pt)
+            if invert:
+                locs.append((pt[1],pt[0]))
+            else:
+                locs.append(pt)
 
         # invert line again to normal
         if invert:
@@ -1156,7 +1162,7 @@ def detect_triangles_on_lines(arr, lines):
 
         pts.insert(0,left)
         allpts.append(pts)
-        x['side-traces'] = (side1,side2)
+        x['side-traces'] = (np.array(side1),np.array(side2))
         x['side-locs'] = locs
 
     return allpts
@@ -1235,9 +1241,12 @@ def context_aware_correction(orig,ins):
 
     #TODO implement these
     #assign_triangles_to_lines(ins['triangles'], ins['lines'], tri_tree )
-    allpts = detect_triangles_on_lines(arr['img'], ins['lines'])
+    allpts = generate_line_girths(arr['img'], ins['lines'])
+    lines = ins['lines']
+    for x in lines:
+        syms = TriangleHumps.get_symmetrical_pairs(x, im = orig)
 
-    dump_plotly(ins['lines'], plotfuncs.side_traces)
+    #dump_plotly(ins['lines'], plotfuncs.side_traces)
     #ins['lines'] = [l for l in ins['lines'] if l['id'] == 331]
 
     #draw_pts(orig,allpts)
