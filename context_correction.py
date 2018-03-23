@@ -1244,6 +1244,7 @@ def context_aware_correction(orig,ins):
     allpts = generate_line_girths(arr['img'], ins['lines'])
     lines = ins['lines']
     for x in lines:
+        # TODO also look for --> <-- types via colinear groups
         syms = TriangleHumps.get_symmetrical_pairs(x, im = orig)
 
     #dump_plotly(ins['lines'], plotfuncs.side_traces)
