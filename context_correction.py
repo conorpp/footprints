@@ -852,8 +852,8 @@ def clamp_slopes(lines):
     for x in lines:
         s = x.slope
         l = x.abs_line
-        #if s == 0:
         if abs(s) < .20:
+            x.slope = 0
             ydim = int(round((l[0][1] + l[1][1])/2))
             l[0][1] = ydim
             l[1][1] = ydim
@@ -861,6 +861,7 @@ def clamp_slopes(lines):
                 print('horzontal line: ', l)
 
         if abs(s) > 100:
+            x.slope = 1000
             xdim = int(round((l[0][0] + l[1][0])/2))
             l[0][0] = xdim
             l[1][0] = xdim
@@ -1242,15 +1243,16 @@ def remove_duplicate_lines(lines, tree):
             dupmap[i[0]][0] += 1
         else:
             dupmap[i[0]] = [1, len(i[1]), i[1]]
+
     for i in dupmap:
         count,length,matches = dupmap[i]
         if count == length:
-            print(i,'\n  = duplicate lines')
+            #print(i,'\n  = duplicate lines')
             # remove all but first
             #remove_lines(matches[1:],lines,tree)
             trash += matches[1:]
         elif count < length:
-            print(i,'\n  = trash lines')
+            #print(i,'\n  = trash lines')
             # remove all
             trash += matches
         else:
@@ -1326,6 +1328,7 @@ def context_aware_correction(orig,ins):
     clamp_slopes(lines)
     merged = coalesce_lines(arr['img'],lines, line_tree)
     newlines = flatten(merged)
+    clamp_slopes(newlines)
     ins['lines'] = newlines
     t2 = TIME()
     #draw_para_lines(orig,merged)
@@ -1358,7 +1361,7 @@ def context_aware_correction(orig,ins):
     t2 = TIME()
     print('context-aware dimension detection: %d ms' % (t2-t1))
 
-    dump_plotly(ins['lines'], plotfuncs.side_traces)
+    #dump_plotly(ins['lines'], plotfuncs.side_traces)
     #ins['lines'] = [l for l in ins['lines'] if l['id'] == 331]
 
     #draw_pts(orig,allpts)

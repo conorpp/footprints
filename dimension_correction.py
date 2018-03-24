@@ -69,6 +69,7 @@ class TriangleHumps:
             if not added:
                 groups.append([h1])
         groups = [g for g in groups if len(g) > 1 and ((len(g) & 1) == 0)]
+        #groups = [g for g in groups if len(g) > 1 ]
         return groups
 
     def subtract_arrows(y,h1,h2):
@@ -111,13 +112,13 @@ class TriangleHumps:
             diff = TriangleHumps.subtract_arrows(y,hump1,hump2)
             p1 = hump1['range'][0]
             area = hump1['area']
-            if sum(abs(diff))/len(diff) <= max(len(diff)/12,1.1) and area > 9:
+            diff_trace[p1:p1+len(diff)] = diff
+            if sum(abs(diff))/len(diff) <= max(len(diff)/12,2.1) and area > 5:
                 #print(sum(abs(diff))/len(diff),len(diff))
                 # they should point out
                 #if TriangleHumps.points(y,(hump1,hump2)) == TriangleHumps.OUT:
                 #if 1:
                 syms.append((hump1,hump2))
-                diff_trace[p1:p1+len(diff)] = diff
             else:
                 #print(sum(abs(diff))/len(diff),len(diff))
                 pass
@@ -162,10 +163,12 @@ class TriangleHumps:
 
         syms = TriangleHumps.pass_symmetrical_pairs(y3,pairs)
 
-        #if x['id'] == 465:
-            #print(465,'has %d humps,%d groups' % (len(humps), len(groups)))
-            #print('%d pairs, %d diff traces' % (len(pairs), len(diff_traces)))
-            #print('%d syms' % (len(syms)))
+        #if x.id in (50,):
+            #print(x.id,'has %d humps,%d groups' % (len(humps), len(groups)))
+            #print('  %d pairs, %d diff traces' % (len(pairs), len(diff_traces)))
+            #print('  %d syms' % (len(syms)))
+            #print('  ', pairs[0][:2])
+
 
         if len(syms):
             #print('line %d has %d pairs of potential triangles' %(x.id, len(syms)))
