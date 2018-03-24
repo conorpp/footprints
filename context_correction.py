@@ -998,7 +998,7 @@ def extend_point(arr,pt, gen, lim, skips = 0, log = None):
             count = 0
 
         if log is not None:
-            log.append(pt[:])
+            log.append((np.copy(pt),arr[pt[1],pt[0]]))
 
 
     return count
@@ -1008,9 +1008,10 @@ def extend_point(arr,pt, gen, lim, skips = 0, log = None):
 def grow_lines(arr, lines):
     """ Grow lines along their slope if there are black pixels there """
     skip_count = 2
+    arrT = np.transpose(arr)
 
     for i,x in enumerate(lines):
-
+        
         m = x['slope']
         l = x['abs-line']
         b = l[0][1] - m*l[0][0]
@@ -1026,19 +1027,25 @@ def grow_lines(arr, lines):
             m = 0
             left[0],left[1] = left[1],left[0]
             right[0],right[1] = right[1],right[0]
+            bim = arrT
         # no inversion
         else:
+            bim = arr
             left = min((l[0],l[1]), key = lambda x : x[0])
             right = max((l[0],l[1]), key = lambda x : x[0])
+
 
         # use bresenham alg to get next pixel on line one by one
         leftdir = bresenham_line(left,m,b,-1)
         rightdir = bresenham_line(right,m,b,1)
 
+
+
         # extend left and right points
-        # TODO the arr img needs to be transposed for inverted lines..
-        lskips = extend_point(arr,left, leftdir, arr.shape, skip_count)
-        rskips = extend_point(arr,right, rightdir, arr.shape, skip_count)
+        lim = bim.shape
+        lskips = extend_point(bim,left, leftdir, lim, skip_count)
+        rskips = extend_point(bim,right, rightdir, lim, skip_count)
+
 
         # rewind white pixel steps
         leftdir = bresenham_line(left,m,b,1)
@@ -1245,7 +1252,7 @@ def context_aware_correction(orig,ins):
     lines = ins['lines']
     for x in lines:
         # TODO also look for --> <-- types via colinear groups
-        syms = TriangleHumps.get_symmetrical_pairs(x, im = orig)
+        syms = TriangleHumps.get_dimensions(x, im = orig)
 
     #dump_plotly(ins['lines'], plotfuncs.side_traces)
     #ins['lines'] = [l for l in ins['lines'] if l['id'] == 331]

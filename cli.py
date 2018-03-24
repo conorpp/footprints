@@ -178,7 +178,9 @@ def do_outputs(orig,outs):
         new_targets = []
         for i,x in enumerate(target_list):
             if len(args.q) == 1:
-                if x['id'] == q:
+                #if x['id'] == 488:
+                    #print('GOT IT')
+                if x['id'] in args.q:
                     new_targets.append(x)
             else:
                 assert((len(args.q)&1) == 0)

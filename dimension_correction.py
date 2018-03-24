@@ -6,6 +6,11 @@ from scipy import stats
 from analyzers import PARAMS
 from cli import put_thing,line_len
 
+class Dimension:
+    def __init__(self,tri1,tri2,line):
+        self.tri1 = tri1
+        self.tri2 = tri2
+        self.line = line
 
 class TriangleHumps:
     """
@@ -107,7 +112,7 @@ class TriangleHumps:
             p1 = hump1['range'][0]
             area = hump1['area']
             if sum(abs(diff))/len(diff) <= max(len(diff)/12,1.1) and area > 9:
-                print(sum(abs(diff))/len(diff),len(diff))
+                #print(sum(abs(diff))/len(diff),len(diff))
                 # they should point out
                 #if TriangleHumps.points(y,(hump1,hump2)) == TriangleHumps.OUT:
                 #if 1:
@@ -133,10 +138,11 @@ class TriangleHumps:
         else:
             return TriangleHumps.OUT
 
-    def get_symmetrical_pairs(x, **kwargs):
+    def get_dimensions(x, **kwargs):
         im = kwargs.get('im',None)
         s0 = np.array(x['side-traces'][0])
         s1 = np.array(x['side-traces'][1])
+        dimensions = []
 
         y3 = s0 * s1
 
@@ -171,15 +177,22 @@ class TriangleHumps:
                     #print('points in')
             locs = x['side-locs']
             pm = x['pslope']
-            s0 = x['side-traces'][0]
-            s1 = x['side-traces'][1]
             ss = s0+s1
             for a1,a2 in syms:
+                ddir = TriangleHumps.points(y3,(a1,a2))
                 p1,p2 = a1['range']
                 p3,p4 = a2['range']
 
-                base1 = locs[p2 + 0]
-                base2 = locs[p3 - 0]
+                if ddir == TriangleHumps.OUT:
+                    base1 = locs[p2 + 0]
+                    base2 = locs[p3 - 0]
+                    tip1 = locs[max(p1 - 2,0)]
+                    tip2 = locs[min(p4 + 2,len(locs)-1)]
+                else:
+                    base1 = locs[p1 + 0]
+                    base2 = locs[p4 - 0]
+                    tip1 = locs[max(p2 - 2,0)]
+                    tip2 = locs[min(p3 + 2,len(locs)-1)]
 
                 ang = math.atan(pm)
                 dist = max(ss[p1:p2+1])/2.+2
@@ -192,8 +205,6 @@ class TriangleHumps:
                 pm2 = (base2[0] - dx, base2[1] - dy)
                 pp2 = (base2[0] + dx, base2[1] + dy)
 
-                tip1 = locs[max(p1 - 2,0)]
-                tip2 = locs[min(p4 + 2,len(locs)-1)]
 
                 length = line_len((base1,tip1))
 
@@ -208,9 +219,13 @@ class TriangleHumps:
                 tri1 = (pm1,pp1,tip1)
                 tri2 = (pm2,pp2,tip2)
 
+                dim = Dimension(tri1,tri2,(tip1,tip2))
+                dimensions.append(dim)
+
                 #print(base_pt)
                 if im is not None:
                     put_thing(im,tri1,(0,0,255),(0,0),1)
                     put_thing(im,tri2,(0,0,255),(0,0),1)
                     #put_thing(im,[base2],(0,0,255),(0,0),3)
+        return dimensions
 
