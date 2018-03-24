@@ -172,9 +172,9 @@ def do_outputs(orig,outs):
     if args.i or args.all:
         target_list += outs['irregs']
 
-    print('args q', args.q)
 
     if args.q:
+        print('args q', args.q)
         new_targets = []
         for i,x in enumerate(target_list):
             if len(args.q) == 1:

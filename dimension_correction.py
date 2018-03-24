@@ -162,10 +162,10 @@ class TriangleHumps:
 
         syms = TriangleHumps.pass_symmetrical_pairs(y3,pairs)
 
-        if x['id'] == 465:
-            print(465,'has %d humps,%d groups' % (len(humps), len(groups)))
-            print('%d pairs, %d diff traces' % (len(pairs), len(diff_traces)))
-            print('%d syms' % (len(syms)))
+        #if x['id'] == 465:
+            #print(465,'has %d humps,%d groups' % (len(humps), len(groups)))
+            #print('%d pairs, %d diff traces' % (len(pairs), len(diff_traces)))
+            #print('%d syms' % (len(syms)))
 
         if len(syms):
             #print('line %d has %d pairs of potential triangles' %(x.id, len(syms)))

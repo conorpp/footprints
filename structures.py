@@ -1,30 +1,30 @@
 from rtree import index
 
 class RTree():
-    def __init__(self,arr):
+    def __init__(self,shape,use_offset=True):
         self.features = {}
         self.tree = index.Index()
-        self.shape = arr.shape
+        self.shape = shape
+        self.use_offset = use_offset
 
     def has(self,idx):
         return (idx in self.features)
 
-    def get_bounds(self, x):
+    def get_bounds(self, x,use_offset=True):
         left,bottom = x['boundxy']
         right,top = left + x['width'], bottom+ x['height']
-        left += x['offset'][0]
-        right += x['offset'][0]
-        bottom += x['offset'][1]
-        top += x['offset'][1]
+        if self.use_offset:
+            left += x['offset'][0]
+            right += x['offset'][0]
+            bottom += x['offset'][1]
+            top += x['offset'][1]
         return left,bottom,right,top
 
     def add_obj(self,x):
-        left,bottom,right,top = self.get_bounds(x)
+        left,bottom,right,top = self.get_bounds(x,)
         self.tree.insert(x['id'],(left,bottom,right,top))
         self.features[x['id']] = x
         #assert(x['id'] != 265)
-        if x['id'] == 265:
-            print('ADDED 265')
 
     def add_objs(self,objs):
         for x in objs:
@@ -77,6 +77,16 @@ class RTree():
         return l
 
 
+    def intersectPoint(self, pt, sz = 1):
+        l = []
+        left,bottom,right,top = pt[0] - sz, pt[1] - sz,pt[0] + sz,pt[1] + sz
+
+        ids = self.tree.intersection((left,bottom,right,top))
+        for x in ids:
+            l.append(self.features[x])
+        return l
+
+
 
     def nearest(self, x, num=1):
         l = []
@@ -96,15 +106,25 @@ class RTree():
         items = self.items()
         items = sorted([x for x in items])
         items2 = sorted([x.id for x in objs])
-        print(items)
-        print(items2)
-        print(len(items), 'vs', len(objs))
-
+        coher = True
         for x in objs:
             if (x.id in items):
                 pass
             else:
                 print('error %d is not in tree' % x.id)
+                coher = False
+        for x in items:
+            if x not in items2:
+                print('error %d is not in list' % x.id)
+                coher = False
+
+        if coher:
+            print('TREE is COHERENT with LIST')
+        else:
+            print(items)
+            print(items2)
+            print(len(items), 'vs', len(objs))
+
 
 counter = 0
 class Shape():

@@ -322,8 +322,6 @@ def get_isolated_images(arr):
         if y<0: 
             y=0
 
-        if i == 85:
-            print('insides',len(insides))
         #print(y,x,w,h)
         trim = arr[y:y+h,x:x+w]
         newim = np.zeros((h,w),dtype=np.uint8)

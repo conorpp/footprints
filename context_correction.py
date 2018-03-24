@@ -37,8 +37,6 @@ def group_ocr_lines(ocr,dim=0):
     if len(group) > 0:
         ocr_groups.append(group)
 
-    print('ocr_groups:', len(ocr_groups))
-
     ocr_groups = [sorted(x, key = lambda i : i[indx][dim]) for x in ocr_groups]
     return ocr_groups
 
@@ -200,7 +198,7 @@ def block_redundant_groups(horz, verz):
     for group in verz:
         if len(group)>1:
             new_verz.append(group)
-    print(len(verz+horz),'initial groups')
+    #print(len(verz+horz),'initial groups')
 
     crossed = False
     for group1 in horz:
@@ -275,8 +273,8 @@ def infer_ocr_groups(arr, ocr):
     hmode = stats.mode(heights)[0][0]
     mode = max(wmode,hmode,35)
 
-    print(wmode)
-    print(hmode)
+    #print(wmode)
+    #print(hmode)
 
     ocr = [x for x in ocr if x['width'] < (mode*2)]
     ocr = [x for x in ocr if x['height'] < (mode*2)]
@@ -287,9 +285,9 @@ def infer_ocr_groups(arr, ocr):
         x['boundxy3'] = (x['offset'][0] + x['boundxy'][0] + x['width'], x['offset'][1] + x['boundxy'][1])
 
     #vert,horiz = if_rotated(ocr)
-    print('horz:')
+    #print('horz:')
     horz = group_ocr(arr,ocr, 0)
-    print('verz:')
+    #print('verz:')
     verz = group_ocr(arr,ocr, 1)
 
     new_horz,new_verz = block_redundant_groups(horz,verz)
@@ -556,54 +554,74 @@ def coalesce_triangles(arr,triangles, tree):
 
     return new_triangles,merges,merged
 
-def update_bounding_boxes(outs):
-    """ update bounding boxes to be absolute and tight bound"""
-    for x in outs['circles']:
-        center,r = x['circle']
-        xmin = center[0]-r
-        ymin = center[1]-r
-        x['boundxy'] = (xmin,ymin)
-        x['width'] = 2 * r
-        x['height'] = 2 * r
-        x['offset'] = np.array(x['offset'])
-        #x['offset'] = np.array(x['offset'])
-        #x['offset'] = np.reshape(np.array(x['offset']),(2))
-    for x in outs['triangles']:
-        x['triangle'] = np.reshape(x['triangle'], (3,2))
-        xmin = np.min(x['triangle'][:,0])
-        xmax = np.max(x['triangle'][:,0])
-        ymin = np.min(x['triangle'][:,1])
-        ymax = np.max(x['triangle'][:,1])
-        x['boundxy'] = (xmin,ymin)
-        x['width'] = xmax-xmin
-        x['height'] = ymax-ymin
-        x['offset'] = np.array(x['offset'])
-        #x['triangle'] = np.reshape(x['triangle'],(3,2))
-        #x['offset'] = np.array(x['offset'])
-        #x['offset'] = np.reshape(np.array(x['offset']),(2))
-    for x in outs['lines']:
-        xmin = min(x['line'][0][0], x['line'][1][0],)
-        xmax = max(x['line'][0][0], x['line'][1][0],)
-        ymin = min(x['line'][0][1], x['line'][1][1],)
-        ymax = max(x['line'][0][1], x['line'][1][1],)
-        if 'ocontour' not in x:
-            analyze_rectangles((x,))
-        x['boundxy'] = (xmin,ymin)
-        x['width'] = xmax-xmin
-        x['height'] = ymax-ymin
-        x['offset'] = np.array(x['offset'])
-        #x['offset'] = np.reshape(np.array(x['offset']),(2))
-    for x in outs['rectangles']:
-        xmin = np.min(x['contour'][:,0])
-        xmax = np.max(x['contour'][:,0])
-        ymin = np.min(x['contour'][:,1])
-        ymax = np.max(x['contour'][:,1])
-        x['boundxy'] = (xmin,ymin)
-        x['width'] = xmax-xmin
-        x['height'] = ymax-ymin
-        x['offset'] = np.array(x['offset'])
-        #x['offset'] = np.reshape(np.array(x['offset']),(2))
-        #print(x['offset'])
+class Updates:
+    """
+        Stuff that should have been done correctly before,
+        but now just going to compensate for it here.
+    """
+    def update(outs):
+        Updates.circles(outs['circles'])
+        Updates.triangles(outs['triangles'])
+        Updates.lines(outs['lines'])
+        Updates.rectangles(outs['rectangles'])
+
+    def circles(circles):
+        for x in circles:
+            center,r = x['circle']
+            xmin = center[0]-r
+            ymin = center[1]-r
+            x['boundxy'] = (xmin,ymin)
+            x['width'] = 2 * r
+            x['height'] = 2 * r
+            x['offset'] = np.array(x['offset'])
+            #x['offset'] = np.array(x['offset'])
+            #x['offset'] = np.reshape(np.array(x['offset']),(2))
+
+#def update_bounding_boxes(outs):
+    #""" update bounding boxes to be absolute and tight bound"""
+    def triangles(triangles):
+        for x in triangles:
+            x['triangle'] = np.reshape(x['triangle'], (3,2))
+            xmin = np.min(x['triangle'][:,0])
+            xmax = np.max(x['triangle'][:,0])
+            ymin = np.min(x['triangle'][:,1])
+            ymax = np.max(x['triangle'][:,1])
+            x['boundxy'] = (xmin,ymin)
+            x['width'] = xmax-xmin
+            x['height'] = ymax-ymin
+            x['offset'] = np.array(x['offset'])
+            #x['triangle'] = np.reshape(x['triangle'],(3,2))
+            #x['offset'] = np.array(x['offset'])
+            #x['offset'] = np.reshape(np.array(x['offset']),(2))
+
+    def lines(lines):
+        for x in lines:
+            xmin = min(x['abs-line'][0][0], x['abs-line'][1][0],)
+            xmax = max(x['abs-line'][0][0], x['abs-line'][1][0],)
+            ymin = min(x['abs-line'][0][1], x['abs-line'][1][1],)
+            ymax = max(x['abs-line'][0][1], x['abs-line'][1][1],)
+
+            if 'ocontour' not in x:
+                analyze_rectangles((x,))
+            x['boundxy'] = (xmin,ymin)
+            x['width'] = xmax-xmin
+            x['height'] = ymax-ymin
+            x['offset'] = np.array(x['offset'])
+            #x['offset'] = np.reshape(np.array(x['offset']),(2))
+
+    def rectangles(rectangles):
+        for x in rectangles:
+            xmin = np.min(x['contour'][:,0])
+            xmax = np.max(x['contour'][:,0])
+            ymin = np.min(x['contour'][:,1])
+            ymax = np.max(x['contour'][:,1])
+            x['boundxy'] = (xmin,ymin)
+            x['width'] = xmax-xmin
+            x['height'] = ymax-ymin
+            x['offset'] = np.array(x['offset'])
+            #x['offset'] = np.reshape(np.array(x['offset']),(2))
+            #print(x['offset'])
+
     #for x in outs['irregs']:
         #pass # TODO
 
@@ -829,6 +847,29 @@ def line_slope(line):
 def slope_within(slop1,slop2,dv):
     return (slop1 < (slop2+dv)) and (slop1 > (slop2-dv))
 
+def clamp_slopes(lines):
+    """ Clamp lines below a threshold to be horizontal or vertical """
+    for x in lines:
+        s = x.slope
+        l = x.abs_line
+        #if s == 0:
+        if abs(s) < .20:
+            ydim = int(round((l[0][1] + l[1][1])/2))
+            l[0][1] = ydim
+            l[1][1] = ydim
+            if l[0][1] != l[1][1]:
+                print('horzontal line: ', l)
+
+        if abs(s) > 100:
+            xdim = int(round((l[0][0] + l[1][0])/2))
+            l[0][0] = xdim
+            l[1][0] = xdim
+
+            if l[0][0] != l[1][0]:
+                print('vertical line: ', l)
+
+
+
 def coalesce_lines(arr,lines, tree):
     """ Combine lines that should be one line.  Organize lines into colinear groups and return. """
     def coalesce_add(item, group, masterlist):
@@ -855,18 +896,18 @@ def coalesce_lines(arr,lines, tree):
 
     for x in lines:
         isvert = False
-        slop = x['slope']
+        slop = x.slope
         if slope_within(abs(slop),1000,1):
             slop = 1000
             isvert = True
-            center = x['abs-line'][0][0]
+            center = x.abs_line[0][0]
             left = center - padding
             right= center + padding
             bottom = 0
             top = arr.shape[0]
         elif slope_within(slop,0,.15):
             slop = 0
-            center = x['abs-line'][0][1]
+            center = x.abs_line[0][1]
             bottom = center - padding
             top = center + padding
             left = 0
@@ -910,10 +951,10 @@ def coalesce_lines(arr,lines, tree):
 
     # walk groups of lines and find lines that should be merged
     for group in groups2:
-
+        #if len(group)
         newgroup = []
-        end = group[0]['abs-line'][1]
         lastline = group[0]
+        end = group[0]['abs-line'][1]
         for k,l in enumerate(group[1:]):
 
             end = lastline['abs-line'][1]
@@ -1164,8 +1205,30 @@ def generate_line_girths(arr, lines):
 
     return allpts
 
-def remove_duplicate_lines(lines, line_tree):
+def remove_duplicate_lines(lines, tree):
     dups = []
+    dist = 15
+    for x in lines:
+        l = x.abs_line
+        if x.id in [468,167,485]:
+            print('line',x.id)
+            print(x['boundxy'],x.offset,x['width'],x.height, 'slope:',x.slope)
+            print(tree.get_bounds(x))
+            #continue
+        #print(l)
+        neighbors = tree.intersectPoint(l[0], dist)
+        matches = []
+        for pmatch in neighbors:
+            l2 = pmatch.abs_line
+            if (line_len((l2[0], l[1])) < dist) or (line_len((l2[1], l[1])) < dist):
+                len1 = line_len(l)
+                len2 = line_len(l2)
+                #if len1 < (len2+dist) and len1 > (len2-dist):
+                matches.append(pmatch)
+
+        if len(matches) > 1:
+            print('%d dups:' % x.id, [i.id for i in matches])
+
 
 def draw_pts(orig,pts_groups):
     for pts in pts_groups:
@@ -1182,9 +1245,9 @@ def context_aware_correction(orig,ins):
     lines = ins['lines']
     add_abs_line_detail(lines)
     t1 = TIME()
-    update_bounding_boxes(ins)
-    tri_tree = RTree(arr['img'])
-    line_tree = RTree(arr['img'])
+    Updates.update(ins)
+    tri_tree = RTree(arr.img.shape)
+    line_tree = RTree(arr.img.shape, False)
     tri_tree.add_objs(ins['triangles'])
     line_tree.add_objs(ins['lines'])
     t2 = TIME()
@@ -1221,23 +1284,25 @@ def context_aware_correction(orig,ins):
 
     #draw_trimmed_triangles(orig, affected)
 
-    print('previous lines: ', len(lines))
     t1 = TIME()
+    clamp_slopes(lines)
     merged = coalesce_lines(arr['img'],lines, line_tree)
     newlines = flatten(merged)
     ins['lines'] = newlines
     t2 = TIME()
-    print('after lines: ', len(newlines))
     #draw_para_lines(orig,merged)
     print('line coalesce time: %d ms' % (t2-t1))
-    line_tree.test_coherency(ins['lines'])
 
 
     t1 = TIME()
     grow_lines(arr['img'],ins['lines'])
+    Updates.lines(ins['lines'])
+    line_tree = RTree(arr.img.shape, False)
+    line_tree.add_objs(ins['lines'])
     t2 = TIME()
     print('line grow time: %d ms' % (t2-t1))
 
+    line_tree.test_coherency(ins['lines'])
     dups = remove_duplicate_lines(ins['lines'], line_tree)
 
 
@@ -1252,7 +1317,7 @@ def context_aware_correction(orig,ins):
     t2 = TIME()
     print('context-aware dimension detection: %d ms' % (t2-t1))
 
-    #dump_plotly(ins['lines'], plotfuncs.side_traces)
+    dump_plotly(ins['lines'], plotfuncs.side_traces)
     #ins['lines'] = [l for l in ins['lines'] if l['id'] == 331]
 
     #draw_pts(orig,allpts)
