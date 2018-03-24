@@ -168,7 +168,7 @@ class TriangleHumps:
             print('%d syms' % (len(syms)))
 
         if len(syms):
-            print('line %d has %d pairs of potential triangles' %(x.id, len(syms)))
+            #print('line %d has %d pairs of potential triangles' %(x.id, len(syms)))
             #for p in syms:
                 #dire = TriangleHumps.points(y3,p)
                 #if dire == TriangleHumps.OUT:

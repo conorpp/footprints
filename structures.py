@@ -36,6 +36,10 @@ class RTree():
         self.tree.delete(idx,bound)
         del self.features[idx]
 
+    def items(self,):
+        bound = self.tree.bounds
+        return self.tree.intersection(bound)
+
     def intersect(self, x, factor=0.0):
         l = []
         left,bottom = x['boundxy']
@@ -87,6 +91,20 @@ class RTree():
         for x in ids:
             l.append(self.features[x])
         return l
+
+    def test_coherency(self,objs):
+        items = self.items()
+        items = sorted([x for x in items])
+        items2 = sorted([x.id for x in objs])
+        print(items)
+        print(items2)
+        print(len(items), 'vs', len(objs))
+
+        for x in objs:
+            if (x.id in items):
+                pass
+            else:
+                print('error %d is not in tree' % x.id)
 
 counter = 0
 class Shape():

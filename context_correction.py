@@ -914,15 +914,13 @@ def coalesce_lines(arr,lines, tree):
         newgroup = []
         end = group[0]['abs-line'][1]
         lastline = group[0]
-        freshline = True
         for k,l in enumerate(group[1:]):
 
             end = lastline['abs-line'][1]
             if endpoints_connect(arr, end, l['abs-line'][0]):
                 ext_line = (tuple(lastline['abs-line'][0]), tuple(l['abs-line'][1]))
                 tree.remove(l['id'])
-                if freshline:
-                    tree.remove(lastline['id'])
+                tree.remove(lastline['id'])
                 lastline = combine_features(arr, lastline, l, ext_line)
 
                 analyze_rectangles((lastline,))
@@ -930,11 +928,11 @@ def coalesce_lines(arr,lines, tree):
                 inherit_from_line(lastline,l)
                 lastline['line'] = np.array(ext_line)
                 add_abs_line_detail((lastline,))
-                freshline = False
+
+                tree.add_obj(lastline)
             else:
                 newgroup.append(lastline)
                 lastline = l
-                freshline = True
 
         newgroup.append(lastline)
 
@@ -1077,14 +1075,6 @@ def generate_line_girths(arr, lines):
     for i,x in enumerate(lines):
         l = x['abs-line']
         m = x['slope']
-        #if i not in [18]: continue
-        #if abs(m) < .01 or abs(m) > 5: continue
-        #if m != -13.:continue
-        #print('--line %d' % i)
-        #print('  m:',m)
-        #print('  mp:',perp_slope(m))
-        #print('  l:',l[0],l[1])
-
 
         b = l[0][1] - m*l[0][0]
         invert = False
@@ -1174,6 +1164,8 @@ def generate_line_girths(arr, lines):
 
     return allpts
 
+def remove_duplicate_lines(lines, line_tree):
+    dups = []
 
 def draw_pts(orig,pts_groups):
     for pts in pts_groups:
@@ -1238,6 +1230,7 @@ def context_aware_correction(orig,ins):
     print('after lines: ', len(newlines))
     #draw_para_lines(orig,merged)
     print('line coalesce time: %d ms' % (t2-t1))
+    line_tree.test_coherency(ins['lines'])
 
 
     t1 = TIME()
@@ -1245,14 +1238,19 @@ def context_aware_correction(orig,ins):
     t2 = TIME()
     print('line grow time: %d ms' % (t2-t1))
 
+    dups = remove_duplicate_lines(ins['lines'], line_tree)
+
 
     #TODO implement these
     #assign_triangles_to_lines(ins['triangles'], ins['lines'], tri_tree )
+    t1 = TIME()
     allpts = generate_line_girths(arr['img'], ins['lines'])
     lines = ins['lines']
     for x in lines:
         # TODO also look for --> <-- types via colinear groups
         syms = TriangleHumps.get_dimensions(x, im = orig)
+    t2 = TIME()
+    print('context-aware dimension detection: %d ms' % (t2-t1))
 
     #dump_plotly(ins['lines'], plotfuncs.side_traces)
     #ins['lines'] = [l for l in ins['lines'] if l['id'] == 331]
