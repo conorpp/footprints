@@ -1206,14 +1206,19 @@ def generate_line_girths(arr, lines):
     return allpts
 
 def remove_duplicate_lines(lines, tree):
+    def remove_lines(dups,lines,tree):
+        for l in dups:
+            lines.remove(l)
+            tree.remove(l.id)
+
     dups = []
     dist = 15
     for x in lines:
         l = x.abs_line
-        if x.id in [468,167,485]:
-            print('line',x.id)
-            print(x['boundxy'],x.offset,x['width'],x.height, 'slope:',x.slope)
-            print(tree.get_bounds(x))
+        #if x.id in [468,167,485]:
+            #print('line',x.id)
+            #print(x['boundxy'],x.offset,x['width'],x.height, 'slope:',x.slope)
+            #print(tree.get_bounds(x))
             #continue
         #print(l)
         neighbors = tree.intersectPoint(l[0], dist)
@@ -1223,11 +1228,44 @@ def remove_duplicate_lines(lines, tree):
             if (line_len((l2[0], l[1])) < dist) or (line_len((l2[1], l[1])) < dist):
                 len1 = line_len(l)
                 len2 = line_len(l2)
-                #if len1 < (len2+dist) and len1 > (len2-dist):
-                matches.append(pmatch)
-
+                if len1 < (len2+dist) and len1 > (len2-dist):
+                    matches.append(pmatch)
+        matches = sorted(matches, key = lambda k : k.id)
         if len(matches) > 1:
-            print('%d dups:' % x.id, [i.id for i in matches])
+            #print('%d dups:' % x.id, [i.id for i in matches])
+            dups.append(('-'.join([str(i.id) for i in matches]),matches))
+
+    trash = []
+    dupmap = {}
+    for i in dups:
+        if i[0] in dupmap:
+            dupmap[i[0]][0] += 1
+        else:
+            dupmap[i[0]] = [1, len(i[1]), i[1]]
+    for i in dupmap:
+        count,length,matches = dupmap[i]
+        if count == length:
+            print(i,'\n  = duplicate lines')
+            # remove all but first
+            #remove_lines(matches[1:],lines,tree)
+            trash += matches[1:]
+        elif count < length:
+            print(i,'\n  = trash lines')
+            # remove all
+            trash += matches
+        else:
+            raise RuntimeError('Somehow got more dups than matches')
+    
+    trash = sorted(trash, key = lambda k : k.id)
+    lastid = -1
+    for t in trash:
+        if t.id != lastid:
+            lines.remove(t)
+            tree.remove(t.id)
+            lastid = t.id
+
+
+
 
 
 def draw_pts(orig,pts_groups):
@@ -1302,8 +1340,11 @@ def context_aware_correction(orig,ins):
     t2 = TIME()
     print('line grow time: %d ms' % (t2-t1))
 
+    t1 = TIME()
+    remove_duplicate_lines(ins['lines'], line_tree)
+    t2 = TIME()
+    print('dup removal: %d ms' % (t2-t1))
     line_tree.test_coherency(ins['lines'])
-    dups = remove_duplicate_lines(ins['lines'], line_tree)
 
 
     #TODO implement these
