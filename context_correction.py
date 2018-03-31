@@ -1207,11 +1207,6 @@ def generate_line_girths(arr, lines):
     return allpts
 
 def remove_duplicate_lines(lines, tree):
-    def remove_lines(dups,lines,tree):
-        for l in dups:
-            lines.remove(l)
-            tree.remove(l.id)
-
     dups = []
     dist = 15
     for x in lines:
@@ -1249,7 +1244,6 @@ def remove_duplicate_lines(lines, tree):
         if count == length:
             #print(i,'\n  = duplicate lines')
             # remove all but first
-            #remove_lines(matches[1:],lines,tree)
             trash += matches[1:]
         elif count < length:
             #print(i,'\n  = trash lines')
@@ -1264,6 +1258,7 @@ def remove_duplicate_lines(lines, tree):
         if t.id != lastid:
             lines.remove(t)
             tree.remove(t.id)
+            t['trash'] = True
             lastid = t.id
 
 
@@ -1349,19 +1344,27 @@ def context_aware_correction(orig,ins):
     print('dup removal: %d ms' % (t2-t1))
     line_tree.test_coherency(ins['lines'])
 
+    newmerged = []
+    for group in merged:
+        g = [l for l in group if not l['trash']]
+        if len(g):
+            newmerged.append(g)
+    merged = newmerged
 
-    #TODO implement these
-    #assign_triangles_to_lines(ins['triangles'], ins['lines'], tri_tree )
+
     t1 = TIME()
     allpts = generate_line_girths(arr['img'], ins['lines'])
     lines = ins['lines']
-    for x in lines:
+    colines = [Shape().init_from_line_group(g) for g in merged]
+    #for x in lines:
+    for x in colines:
         # TODO also look for --> <-- types via colinear groups
         syms = TriangleHumps.get_dimensions(x, im = orig)
     t2 = TIME()
     print('context-aware dimension detection: %d ms' % (t2-t1))
 
     #dump_plotly(ins['lines'], plotfuncs.side_traces)
+    dump_plotly(colines,plotfuncs.colinear_groups)
     #ins['lines'] = [l for l in ins['lines'] if l['id'] == 331]
 
     #draw_pts(orig,allpts)

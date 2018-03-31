@@ -1,3 +1,5 @@
+import numpy as np
+from scipy import stats
 from rtree import index
 
 class RTree():
@@ -155,7 +157,9 @@ class Shape():
     features = None
     traces = None
 
-    def __init__(self,im,parent=None, offset=None):
+    trash = False
+
+    def __init__(self,im=None,parent=None, offset=None):
         self.history = []
         self.img = im
         self.contour = []
@@ -177,6 +181,31 @@ class Shape():
         if offset is not None:
             self.offset[0] += offset[0]
             self.offset[1] += offset[1]
+
+    def init_from_line_group(self, group):
+        s0 = np.array([])
+        s1 = np.array([])
+        locs = []
+        pslops = []
+        slops = []
+        for x in group:
+            s0 = np.concatenate((s0,x['side-traces'][0]))
+            s1 = np.concatenate((s1,x['side-traces'][1]))
+            locs += x.side_locs
+            slops.append(x.slope)
+            pslops.append(x.pslope)
+
+        p0 = group[0]['abs-line'][0]
+        p1 = group[-1]['abs-line'][1]
+        self.abs_line = (p0,p1)
+        self.side_traces = (s0,s1)
+        self.side_locs = locs
+        self.group = group
+        slop_common = stats.mode(slops)[0][0]
+        indx = slops.index(slop_common)
+        self.slope = slop_common
+        self.pslope = pslops[indx]
+        return self
 
     # backwards compatible with dict
     def __getitem__(self, key):

@@ -42,6 +42,7 @@ class TriangleHumps:
                     markers[i] = (i)
                     hump = {'range': (lastmark,i),
                             'area': sum(y[lastmark:i]),
+                            #'var': np.std(y[lastmark+1:i-1]),
                             'length': i-lastmark}
                     humps.append(hump)
                     lastmark = None
@@ -62,7 +63,7 @@ class TriangleHumps:
             for gru in groups:
                 a2 = gru[0]['area']
                 l2 = gru[0]['length']
-                if a1 < (a2*1.15) and a1 > (a2*.85) or a1 < (a2+margin) and a1 > (a2-margin):
+                if a1 < (a2*1.3) and a1 > (a2*.7) or a1 < (a2+margin) and a1 > (a2-margin):
                     if l1 < (l2+margin) and l1 > (l2-margin):
                         gru.append(h1)
                         added = True
@@ -163,11 +164,15 @@ class TriangleHumps:
 
         syms = TriangleHumps.pass_symmetrical_pairs(y3,pairs)
 
-        #if x.id in (50,):
-            #print(x.id,'has %d humps,%d groups' % (len(humps), len(groups)))
-            #print('  %d pairs, %d diff traces' % (len(pairs), len(diff_traces)))
-            #print('  %d syms' % (len(syms)))
-            #print('  ', pairs[0][:2])
+        if x.id in (352,):
+            print(x.id,'has %d humps,%d groups' % (len(humps), len(groups)))
+            print('  %d pairs, %d diff traces' % (len(pairs), len(diff_traces)))
+            print('  %d syms' % (len(syms)))
+            if len(pairs):
+                print('  ', pairs[0][:2])
+            print('   humps:')
+            for h in humps:
+                print('      ',h)
 
 
         if len(syms):
