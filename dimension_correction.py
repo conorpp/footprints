@@ -1,5 +1,5 @@
 import math
-
+from random import randint
 import numpy as np
 from scipy import stats
 
@@ -27,6 +27,18 @@ class TriangleHumps:
         humps = []
         lastmark = None
         markers = [None]*len(y)
+        lastval = trigger
+
+        # preprocess to ensure triangles are separate from perpendicular lines
+        for i,val in enumerate(y):
+            if abs(val-lastval) > 150:
+                if val > trigger:
+                    if val > lastval:
+                        y[i-1] = trigger
+                    else:
+                        y[i] = trigger
+            lastval = val
+
         for i,val in enumerate(y):
 
             if lastmark is None: # look for rising edge
@@ -39,6 +51,8 @@ class TriangleHumps:
                         lastmark = i
             else:           # look for falling edge
                 if val <= trigger:
+                    #if (-val+lastval) > 150:
+                        #i = i - 1
                     markers[i] = (i)
                     hump = {'range': (lastmark,i),
                             'area': sum(y[lastmark:i]),
@@ -56,19 +70,23 @@ class TriangleHumps:
         """
         groups = []
         added = False
-        margin = 4
+        margin = 10
         for h1 in humps:
             a1 = h1['area']
             l1 = h1['length']
+
+            added = False
             for gru in groups:
                 a2 = gru[0]['area']
                 l2 = gru[0]['length']
-                if a1 < (a2*1.3) and a1 > (a2*.7) or a1 < (a2+margin) and a1 > (a2-margin):
-                    if l1 < (l2+margin) and l1 > (l2-margin):
+                if (a1 < (a2*1.5) and a1 > (a2*.5)) or (a1 < (a2+margin) and a1 > (a2-margin)):
+                    if l1 < (l2*2) and l1 > (l2/2):
                         gru.append(h1)
                         added = True
+
             if not added:
                 groups.append([h1])
+
         groups = [g for g in groups if len(g) > 1 and ((len(g) & 1) == 0)]
         #groups = [g for g in groups if len(g) > 1 ]
         return groups
@@ -78,12 +96,12 @@ class TriangleHumps:
             returns difference of h1 - reverse(h2), accounts for length mismatch
         """
         p1,p2 = h1['range']
-        y1 = y[p1:p2+1]
+        y1 = y[p1:p2]
         p1,p2 = h2['range']
-        y2 = y[p1:p2+1]
+        y2 = y[p1+1:p2+1]
         y2 = y2[::-1]
         l = min(len(y1),len(y2))
-        return y1[:l]-y2[:l]
+        return y1[:l]-y2[:l], y1[:l]
 
     def get_hump_pairs(y,groups):
         """
@@ -110,16 +128,24 @@ class TriangleHumps:
 
         syms = []
         for hump1,hump2,diff_trace in pairs:
-            diff = TriangleHumps.subtract_arrows(y,hump1,hump2)
+            diff,yshort = TriangleHumps.subtract_arrows(y,hump1,hump2)
+            diff = abs(diff)
+
             p1 = hump1['range'][0]
             area = hump1['area']
             diff_trace[p1:p1+len(diff)] = diff
-            if sum(abs(diff))/len(diff) <= max(len(diff)/12,2.1) and area > 5:
-                #print(sum(abs(diff))/len(diff),len(diff))
-                # they should point out
-                #if TriangleHumps.points(y,(hump1,hump2)) == TriangleHumps.OUT:
-                #if 1:
-                syms.append((hump1,hump2))
+
+            if area > 5:
+                #print('diff:', sum(abs(diff))/len(diff) )
+                #print('%d v %d' % (len(diff), len(yshort)))
+                #print('  diff', diff/yshort)
+                normdiff = sum(np.divide(diff, yshort, out=np.zeros_like(diff), where=yshort!=0))
+                if normdiff <= max(len(diff)/2,2.1):
+                    #print(sum(abs(diff))/len(diff),len(diff))
+                    # they should point out
+                    #if TriangleHumps.points(y,(hump1,hump2)) == TriangleHumps.OUT:
+                    #if 1:
+                    syms.append((hump1,hump2))
             else:
                 #print(sum(abs(diff))/len(diff),len(diff))
                 pass
@@ -161,10 +187,27 @@ class TriangleHumps:
             kwargs['debug_groups'] += groups
         if 'debug_markers' in kwargs:
             kwargs['debug_markers'] += markers
+        if 'y3' in kwargs:
+            kwargs['y3'] += list(y3)
 
         syms = TriangleHumps.pass_symmetrical_pairs(y3,pairs)
 
-        if x.id in (352,):
+        if x.id in (-1,):
+            print('examining',x.id)
+            for p in pairs:
+                p1 = p[0]['range']
+                p2 = p[1]['range']
+                sym1 = y3[p1[0]:p1[1]+1]
+                sym2 = y3[p2[0]:p2[1]+1]
+                #print('  pair: (%d->%d), (%d,%d)' % (p1[0],p1[1], p2[0],p2[1]))
+                print('  pair: (%d), (%d)' % (len(sym1),len(sym2) ))
+                m1 = list(sym1).index(max(sym1))
+                m2 = list(sym2).index(max(sym2))
+                print('  max@%d, max@%d' % (m1,m2))
+                print('  ', sym1)
+                print('  ', sym2)
+
+        if x.id in (-1,592):
             print(x.id,'has %d humps,%d groups' % (len(humps), len(groups)))
             print('  %d pairs, %d diff traces' % (len(pairs), len(diff_traces)))
             print('  %d syms' % (len(syms)))
@@ -223,17 +266,27 @@ class TriangleHumps:
                 # skip infeasibly short dimensions
                 if line_len((base1,base2)) < 5:
                     continue
+                def PolyArea(x,y):
+                    return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
+                tri1 = np.array((pm1,pp1,tip1))
+                tri2 = np.array((pm2,pp2,tip2))
+                area1 = PolyArea(tri1[:,0], tri1[:,1])
+                area2 = PolyArea(tri2[:,0], tri2[:,1])
+                
+                # skip highly unbalanced triangles
+                if area1 > (area2*3) or area1 < (area2/3):
+                    continue
 
-                tri1 = (pm1,pp1,tip1)
-                tri2 = (pm2,pp2,tip2)
 
                 dim = Dimension(tri1,tri2,(tip1,tip2))
                 dimensions.append(dim)
 
                 #print(base_pt)
                 if im is not None:
-                    put_thing(im,tri1,(0,0,255),(0,0),1)
-                    put_thing(im,tri2,(0,0,255),(0,0),1)
+                    #col = (randint(0,256),randint(0,256),randint(0,256),)
+                    col = (0,0,255)
+                    put_thing(im,tri1,col,(0,0),1)
+                    put_thing(im,tri2,col,(0,0),1)
                     #put_thing(im,[base2],(0,0,255),(0,0),3)
         return dimensions
 

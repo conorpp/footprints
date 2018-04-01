@@ -24,17 +24,17 @@ class plotfuncs:
         s1 = x['side-traces'][1]
         t1 = Scatter(y=s0)
         t2 = Scatter(y=s1)
-        y3 = s0 * s1
-        mode = stats.mode(y3)[0][0]
-        trigger = mode*2+1
-        t3 = Scatter(y=y3)
 
         #put_thing(im,x['abs-line'],(255,0,0),(0,0),3)
 
         groups = []
         diff_traces = []
         markers = []
-        TriangleHumps.get_dimensions(x,debug_groups=groups,debug_diffs=diff_traces,debug_markers = markers, im = im)
+        y3 = []
+        TriangleHumps.get_dimensions(x,debug_groups=groups,debug_diffs=diff_traces,debug_markers = markers, im = im,y3=y3)
+        mode = stats.mode(y3)[0][0]
+        trigger = mode*2+1
+        t3 = Scatter(y=y3)
 
         annotations = []
         diff_traces = [Scatter(y=v) for v in diff_traces]
