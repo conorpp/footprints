@@ -860,7 +860,7 @@ def clamp_slopes(lines):
             if l[0][1] != l[1][1]:
                 print('horzontal line: ', l)
 
-        if abs(s) > 100:
+        if abs(s) > 20:
             x.slope = 1000
             xdim = int(round((l[0][0] + l[1][0])/2))
             l[0][0] = xdim
@@ -888,7 +888,7 @@ def coalesce_lines(arr,lines, tree):
                 item['coalesced'] = True
                 masterlist.append([item])
 
-    padding = 5
+    padding = 15
     ypara_groups = []
     xpara_groups = []
     diag_lines = []
@@ -906,7 +906,7 @@ def coalesce_lines(arr,lines, tree):
             right= center + padding
             bottom = 0
             top = arr.shape[0]
-        elif slope_within(slop,0,.15):
+        elif slope_within(slop,0,.20):
             slop = 0
             center = x.abs_line[0][1]
             bottom = center - padding
@@ -926,7 +926,7 @@ def coalesce_lines(arr,lines, tree):
         coalesce_add(x,para_lines2,ypara_groups if isvert else xpara_groups)
 
     diag_groups = []
-    
+
     # group the diagnol lines
     diag_lines = sorted(diag_lines, key = lambda x : line_len(x[0]['line']), reverse=True)
     for i,(x,slop1) in enumerate(diag_lines):
@@ -991,7 +991,7 @@ def draw_para_lines(im, para_groups):
     """ output groups of lines to im image.  doesn't write to disk. """
     for i,para_lines in enumerate(para_groups):
         #if i in np.array([14]) :
-        if i in np.array([13]) or 1:
+        #if i in np.array([13]) or 1:
 
         #if i in range(13,15):
         #if i in np.array([10]):
@@ -1251,7 +1251,7 @@ def remove_duplicate_lines(lines, tree):
             trash += matches
         else:
             raise RuntimeError('Somehow got more dups than matches')
-    
+
     trash = sorted(trash, key = lambda k : k.id)
     lastid = -1
     for t in trash:
@@ -1260,9 +1260,6 @@ def remove_duplicate_lines(lines, tree):
             tree.remove(t.id)
             t['trash'] = True
             lastid = t.id
-
-
-
 
 
 def draw_pts(orig,pts_groups):
@@ -1323,10 +1320,14 @@ def context_aware_correction(orig,ins):
     clamp_slopes(lines)
     merged = coalesce_lines(arr['img'],lines, line_tree)
     newlines = flatten(merged)
+    print('COALESCE1: %d lines' % len(newlines))
     clamp_slopes(newlines)
+
+
     ins['lines'] = newlines
     t2 = TIME()
     #draw_para_lines(orig,merged)
+    #dump_plotly(ins['lines'], plotfuncs.lines)
     print('line coalesce time: %d ms' % (t2-t1))
 
 
