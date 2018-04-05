@@ -6,6 +6,7 @@ import sys
 ABCs = 'ABCDEFGHIJKLMNPQRSTUVWXYZ' 
 WHITELIST = "1234567890X()/\\" + ABCs
 OCR_API = PyTessBaseAPI()
+#OCR_API = PyTessBaseAPI(path='C:/Users/conor/Downloads/tessdata-master')
 OCR_API.SetVariable('tessedit_pageseg_mode',"7")
 OCR_API.SetVariable('tessedit_char_whitelist',WHITELIST)
 

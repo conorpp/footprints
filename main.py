@@ -13,14 +13,14 @@ def main():
     orig = outs['orig']
     PARAMS['orig'] = orig
     t2 = TIME()
-    #print('parse_drawing time: %d' % (t2-t1))
+    print('parse_drawing time: %d' % (t2-t1))
 
 
 
     t1 = TIME()
     outs = context_aware_correction(orig,outs)
     t2 = TIME()
-    #print('context correction time: %d' % (t2-t1))
+    print('context correction time: %d' % (t2-t1))
 
     do_outputs(orig,outs)
 

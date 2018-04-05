@@ -838,10 +838,10 @@ def line_slope(line):
     dy = line[1][1] - line[0][1]
     dx = line[1][0] - line[0][0]
     if dx <.1 and dx>-.1:
-        return 1000
+        return MAX_SLOPE
     m = dy/dx
     if abs(m) > 50:
-        return 1000
+        return MAX_SLOPE
     return m
 
 def slope_within(slop1,slop2,dv):
@@ -852,7 +852,7 @@ def clamp_slopes(lines):
     for x in lines:
         s = x.slope
         l = x.abs_line
-        if abs(s) < .20:
+        if abs(s) < CLAMP_SLOPE_LOWER:
             x.slope = 0
             ydim = int(round((l[0][1] + l[1][1])/2))
             l[0][1] = ydim
@@ -860,8 +860,8 @@ def clamp_slopes(lines):
             if l[0][1] != l[1][1]:
                 print('horzontal line: ', l)
 
-        if abs(s) > 20:
-            x.slope = 1000
+        if abs(s) > CLAMP_SLOPE_UPPER:
+            x.slope = MAX_SLOPE
             xdim = int(round((l[0][0] + l[1][0])/2))
             l[0][0] = xdim
             l[1][0] = xdim
@@ -898,8 +898,8 @@ def coalesce_lines(arr,lines, tree):
     for x in lines:
         isvert = False
         slop = x.slope
-        if slope_within(abs(slop),1000,1):
-            slop = 1000
+        if slope_within(abs(slop),MAX_SLOPE,1):
+            slop = MAX_SLOPE
             isvert = True
             center = x.abs_line[0][0]
             left = center - padding
@@ -1058,7 +1058,7 @@ def grow_lines(arr, lines):
         invert = False
 
         # invert vertical lines so rest of code can be used
-        if m >= 1000:
+        if m >= MAX_SLOPE:
 
             left = min((l[0],l[1]), key = lambda x : x[1])
             right = max((l[0],l[1]), key = lambda x : x[1])
@@ -1104,11 +1104,9 @@ def grow_lines(arr, lines):
 def generate_line_girths(arr, lines):
     def perp_slope(m):
         if m == 0:
-            return 1000
-        if m >= 1000:
+            return MAX_SLOPE
+        if m >= MAX_SLOPE:
             return 0
-        #if abs(m) < .01:
-            #return 1000
         return -1.0/m
 
     arrT = np.transpose(arr)
@@ -1327,7 +1325,6 @@ def context_aware_correction(orig,ins):
     ins['lines'] = newlines
     t2 = TIME()
     #draw_para_lines(orig,merged)
-    #dump_plotly(ins['lines'], plotfuncs.lines)
     print('line coalesce time: %d ms' % (t2-t1))
 
 
@@ -1365,7 +1362,7 @@ def context_aware_correction(orig,ins):
     print('context-aware dimension detection: %d ms' % (t2-t1))
 
     #dump_plotly(ins['lines'], plotfuncs.side_traces)
-    dump_plotly(colines,plotfuncs.colinear_groups)
+    #dump_plotly(colines,plotfuncs.colinear_groups)
     #ins['lines'] = [l for l in ins['lines'] if l['id'] == 331]
 
     #draw_pts(orig,allpts)

@@ -5,8 +5,10 @@ from scipy import stats
 
 from analyzers import PARAMS
 from cli import put_thing,line_len
+from settings import *
 
 class Dimension:
+    ocr_group = None
     def __init__(self,tri1,tri2,line):
         self.tri1 = tri1
         self.tri2 = tri2
@@ -31,7 +33,7 @@ class TriangleHumps:
 
         # preprocess to ensure triangles are separate from perpendicular lines
         for i,val in enumerate(y):
-            if abs(val-lastval) > 150:
+            if abs(val-lastval) > 150: #CONST
                 if val > trigger:
                     if val > lastval:
                         y[i-1] = trigger
@@ -51,8 +53,6 @@ class TriangleHumps:
                         lastmark = i
             else:           # look for falling edge
                 if val <= trigger:
-                    #if (-val+lastval) > 150:
-                        #i = i - 1
                     markers[i] = (i)
                     hump = {'range': (lastmark,i),
                             'area': sum(y[lastmark:i]),
@@ -262,17 +262,23 @@ class TriangleHumps:
                 # skip stubby triangles
                 if (length/dist) < 0.5:
                     continue
-                
+
+                # dont support diagnol lines
+                if pm != 0 and pm != MAX_SLOPE:
+                    continue
+
                 # skip infeasibly short dimensions
                 if line_len((base1,base2)) < 5:
                     continue
+
+                # skip highly unbalanced triangles
                 def PolyArea(x,y):
                     return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
                 tri1 = np.array((pm1,pp1,tip1))
                 tri2 = np.array((pm2,pp2,tip2))
                 area1 = PolyArea(tri1[:,0], tri1[:,1])
                 area2 = PolyArea(tri2[:,0], tri2[:,1])
-                
+
                 # skip highly unbalanced triangles
                 if area1 > (area2*3) or area1 < (area2/3):
                     continue

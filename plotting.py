@@ -83,6 +83,9 @@ class plotfuncs:
 
         return [t3], None, '%d lines (%d,%d)->(%d,%d)' % (len(group),p0[0],p0[1],p1[0],p1[1])
 
+    def lines(line,im):
+        put_thing(im,line['abs-line'],(255,0,0),(0,0),3)
+        return [Scatter(y=[])],None,None
 
 def getbase64(nparr,):
     """
