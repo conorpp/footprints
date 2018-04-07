@@ -307,44 +307,6 @@ def infer_ocr_groups(arr, ocr):
 
     return new_horz, new_verz
 
-def draw_ocr_group_rects(orig, new_horz, new_verz):
-    """ output function for drawing rectangles around the OCR groups """
-    print(len(new_horz) + len(new_verz),'groups')
-    for i,group in enumerate(new_horz):
-        leftest = group[0]
-        rightest = group[-1]
-
-        mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
-        mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
-
-        pt1 = (leftest['boundxy2'][0], mytop)
-        pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
-
-
-        cv2.rectangle(orig, pt1,pt2, [0,0,255])
-        #s = ''.join(x['symbol'] for x in group)
-        #print(s)
-        #print(pt1, pt2)
-        #if i == 9:
-            #break
-    for i,group in enumerate(new_verz):
-        leftest = group[0]
-        rightest = group[-1]
-
-        mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
-        mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
-
-        pt1 = (leftest['boundxy2'][0], mytop)
-        pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
-
-        cv2.rectangle(orig, pt1,pt2, [0,180,0])
-        #s = ''.join(x['symbol'] for x in group)[::-1]
-        #print(s)
-        #if i == 4:
-            #break
-
-
-
 
 def untangle_circles(circles, ocr_groups):
     """ Remove circles from OCR characters like P,8,O,... """
@@ -1012,21 +974,6 @@ def coalesce_lines(arr,lines, tree):
             l['colinear-group'] = group
 
     return groups
-
-def draw_para_lines(im, para_groups):
-    """ output groups of lines to im image.  doesn't write to disk. """
-    for i,para_lines in enumerate(para_groups):
-        #if i in np.array([14]) :
-        #if i in np.array([13]) or 1:
-
-        #if i in range(13,15):
-        #if i in np.array([10]):
-            color = (randint(0,255),randint(0,255), randint(0,255))
-            #if i in range(45,50):
-                #assert(len(para_lines)>1)
-            for x in para_lines:
-                put_thing(im, x['line'], color, x['offset'], 2)
-
 def bresenham_line(pt, m, b, sign):
     derr = abs(m)
     ysign = (1 if m >= 0 else -1)*sign
@@ -1325,6 +1272,68 @@ def remove_overlapping_lines(groups):
             newgroups.append(g)
     return newgroups
 
+class Output:
+    def draw_ocr_group_rects(orig, new_horz, new_verz):
+        """ output function for drawing rectangles around the OCR groups """
+        print(len(new_horz) + len(new_verz),'groups')
+        for i,group in enumerate(new_horz):
+            leftest = group[0]
+            rightest = group[-1]
+
+            mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
+            mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
+
+            pt1 = (leftest['boundxy2'][0], mytop)
+            pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
+
+
+            cv2.rectangle(orig, pt1,pt2, [0,0,200])
+            #s = ''.join(x['symbol'] for x in group)
+            #print(s)
+            #print(pt1, pt2)
+            #if i == 9:
+                #break
+        for i,group in enumerate(new_verz):
+            leftest = group[0]
+            rightest = group[-1]
+
+            mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
+            mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
+
+            pt1 = (leftest['boundxy2'][0], mytop)
+            pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
+
+            cv2.rectangle(orig, pt1,pt2, [0,180,0])
+            #s = ''.join(x['symbol'] for x in group)[::-1]
+            #print(s)
+            #if i == 4:
+                #break
+
+
+    def draw_colinear_lines(im, para_groups):
+        """ output groups of lines to im image.  doesn't write to disk. """
+        for i,para_lines in enumerate(para_groups):
+            #if i in np.array([14]) :
+            #if i in np.array([13]) or 1:
+
+            #if i in range(13,15):
+            #if i in np.array([10]):
+                color = (randint(0,255),randint(0,255), randint(0,255))
+                #if i in range(45,50):
+                    #assert(len(para_lines)>1)
+                for x in para_lines:
+                    put_thing(im, x['line'], color, x['offset'], 2)
+
+    def draw_dimensions(im, dims):
+        for d in dims:
+            tri1 = d.tri1
+            tri2 = d.tri2
+            col = (0,0,255)
+            put_thing(im,tri1,col,(0,0),1)
+            put_thing(im,tri2,col,(0,0),1)
+
+
+
 def context_aware_correction(orig,ins):
     orig = np.copy(orig)
     T = Timer()
@@ -1336,7 +1345,9 @@ def context_aware_correction(orig,ins):
     lines = ins['lines']
     add_abs_line_detail(lines)
     T.TIME()
-    Updates.update(ins)
+    Updates.triangles(ins['triangles'])
+    Updates.lines(ins['lines'])
+    Updates.rectangles(ins['rectangles'])
     tri_tree = RTree(arr.img.shape)
     line_tree = RTree(arr.img.shape, False)
     tri_tree.add_objs(ins['triangles'])
@@ -1354,9 +1365,12 @@ def context_aware_correction(orig,ins):
 
     new_horz = remove_ocr_groups(new_horz, ocr_rejects)
     new_verz = remove_ocr_groups(new_verz)
+    Updates.circles(ins['circles'])
     T.TIME()
     T.print('circle untangle time:')
 
+    ins['ocr_groups_horz'] = new_horz
+    ins['ocr_groups_verz'] = new_verz
 
     T.TIME()
     triangles = ins['triangles']
@@ -1386,7 +1400,6 @@ def context_aware_correction(orig,ins):
 
     T.TIME()
     T.print('line coalesce time:')
-    #draw_para_lines(orig,merged)
 
 
     T.TIME()
@@ -1395,6 +1408,7 @@ def context_aware_correction(orig,ins):
 
     merged = remove_overlapping_lines(merged)
     ins['lines'] = flatten(merged)
+    ins['colinear_groups'] = merged
 
     line_tree = RTree(arr.img.shape, False)
     line_tree.add_objs(ins['lines'])
@@ -1418,12 +1432,15 @@ def context_aware_correction(orig,ins):
     T.TIME()
     allpts = generate_line_girths(arr['img'], ins['lines'])
     colines = [Shape().init_from_line_group(g) for g in merged]
+    dims = []
     #for x in lines:
     for x in colines:
         # TODO also look for --> <-- types via colinear groups
-        syms = TriangleHumps.get_dimensions(x, im = orig)
+        dims += TriangleHumps.get_dimensions(x,im=orig)
     T.TIME()
     T.print('context-aware dimension detection:')
+
+    ins['dimensions'] = dims
 
     #dump_plotly(ins['lines'], plotfuncs.side_traces)
     #dump_plotly(colines,plotfuncs.colinear_groups)
@@ -1432,7 +1449,6 @@ def context_aware_correction(orig,ins):
     #draw_pts(orig,allpts)
 
     #draw_ocr_group_rects(orig, new_horz, new_verz)
-    save(orig,'output2.png')
 
     return ins
 

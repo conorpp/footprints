@@ -1,29 +1,37 @@
-
+import numpy as np
 from cli import *
+from utils import Timer
 
 from image_handling import parse_drawing
-from context_correction import context_aware_correction
+from context_correction import context_aware_correction, Output
 from inference import infer_drawing
 
 def main():
     args = arguments()
+    T = Timer()
 
-    t1 = TIME()
+    T.TIME()
     outs = parse_drawing(args.input_file)
     orig = outs['orig']
     PARAMS['orig'] = orig
-    t2 = TIME()
-    print('parse_drawing time: %d' % (t2-t1))
+    T.TIME()
+    T.print('parse_drawing time:')
 
-    t1 = TIME()
+    T.TIME()
     outs = context_aware_correction(orig,outs)
-    t2 = TIME()
-    print('context correction time: %d' % (t2-t1))
+    T.TIME()
+    T.print('context correction time:')
 
-    t1 = TIME()
+    orig2 = np.copy(orig)
+    Output.draw_ocr_group_rects(orig2, outs['ocr_groups_horz'], outs['ocr_groups_verz'])
+    #Output.draw_colinear_lines(orig2,outs['colinear_groups'])
+    Output.draw_dimensions(orig2, outs['dimensions'])
+    save(orig2,'output2.png')
+
+    T.TIME()
     outs = infer_drawing(orig,outs)
-    t2 = TIME()
-    print('infer drawing time: %d' % (t2-t1))
+    T.TIME()
+    T.print('infer drawing time:')
 
 
     do_outputs(orig,outs)
