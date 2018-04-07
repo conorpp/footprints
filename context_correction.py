@@ -639,6 +639,12 @@ def add_abs_line_detail(lines):
         else:
             x['abs-line'] = np.array((p1,p2))
 
+        x.boundxy = (min(p1[0], p2[0]), min(p2[1], p2[1]))
+        x.width = abs(p2[0] - p1[0]) + 1
+        x.height = abs(p2[1] - p1[1]) + 1
+        assert(x.width > 0)
+        assert(x.height > 0)
+
         x['slope'] = line_slope(x['abs-line'])
 
 
@@ -970,9 +976,11 @@ def coalesce_lines(arr,lines, tree):
                 ext_line = (tuple(lastline['abs-line'][0]), tuple(l['abs-line'][1]))
                 tree.remove(l['id'])
                 tree.remove(lastline['id'])
-                lastline = combine_features(arr, lastline, l, ext_line)
+                #lastline = combine_features(arr, lastline, l, ext_line)
+                lastline = Shape(arr, lastline)
+                lastline.offset = (0,0)
 
-                analyze_rectangles((lastline,))
+                #analyze_rectangles((lastline,))
 
                 inherit_from_line(lastline,l)
                 lastline['line'] = np.array(ext_line)
@@ -1056,7 +1064,8 @@ def extend_point(arr,pt, gen, lim, skips = 0, log = None):
             count = 0
 
         if log is not None:
-            log.append((np.copy(pt),arr[pt[1],pt[0]]))
+            log.append(None)
+            #log.append((np.copy(pt),arr[pt[1],pt[0]]))
 
 
     return count
@@ -1213,14 +1222,12 @@ def generate_line_girths(arr, lines):
             left[0],left[1] = left[1],left[0]
             right[0],right[1] = right[1],right[0]
 
-            pts = [[pt[1],pt[0]] for pt in pts]
-
         pts.insert(0,left)
-        allpts.append(pts)
+        #allpts.append(pts)
         x['side-traces'] = (np.array(side1),np.array(side2))
         x['side-locs'] = locs
 
-    return allpts
+    #return allpts
 
 def remove_duplicate_lines(lines, tree):
     dups = []
@@ -1377,6 +1384,14 @@ def context_aware_correction(orig,ins):
     newlines = flatten(merged)
     print('COALESCE1: %d lines' % len(newlines))
     clamp_slopes(newlines)
+
+    #lines = newlines
+    #merged = coalesce_lines(arr['img'],lines, line_tree)
+    #newlines = flatten(merged)
+    #print('COALESCE1: %d lines' % len(newlines))
+    #clamp_slopes(newlines)
+
+
 
     ins['lines'] = newlines
 

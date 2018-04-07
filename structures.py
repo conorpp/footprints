@@ -218,3 +218,14 @@ class Shape():
 
 def wrap_image(im,parent=None,offset=None):
     return Shape(im,parent,offset)
+
+
+
+class Dimension:
+    ocr_group = None
+    def __init__(self,tri1,tri2,line):
+        self.tri1 = tri1
+        self.tri2 = tri2
+        self.line = line
+
+

@@ -6,13 +6,7 @@ from scipy import stats
 from analyzers import PARAMS
 from cli import put_thing,line_len
 from settings import *
-
-class Dimension:
-    ocr_group = None
-    def __init__(self,tri1,tri2,line):
-        self.tri1 = tri1
-        self.tri2 = tri2
-        self.line = line
+from structures import Dimension
 
 class TriangleHumps:
     """
