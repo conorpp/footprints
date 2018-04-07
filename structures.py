@@ -121,12 +121,14 @@ class RTree():
                 coher = False
 
         if coher:
-            print('TREE is COHERENT with LIST')
+            #print('TREE is COHERENT with LIST')
+            return True
         else:
             print(items)
             print(items2)
             print(len(items), 'vs', len(objs))
-
+        raise RuntimeError('RTree is not coherent with list')
+        #return False
 
 counter = 0
 class Shape():

@@ -361,3 +361,21 @@ def collinear(p1, p2, p3):
     return norm(np.cross(p2-p1, p1-p3))/norm(p2-p1)
 
 
+class Timer():
+    def __init__(self,):
+        self.times = [0,0]
+        self.en = True
+    def TIME(self,):
+        self.times.pop(0)
+        t = TIME()
+        self.times.append(t)
+        return t
+    def print(self,msg):
+        if self.en: 
+            print(msg, self.times[1] - self.times[0],'ms')
+    def dis(self,):
+        self.en = True
+    def enable(self,val=True):
+        self.en = val
+
+

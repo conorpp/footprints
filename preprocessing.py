@@ -564,8 +564,6 @@ def preprocess(arr,*args):
     arr[:2,:]=255
     arr[-2:,:]=255
 
-    analyzers.init(arr)
-
     rectangles = get_rectangles(arr)
 
     rectangles = coalesce_rectangles(arr, rectangles)

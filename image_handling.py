@@ -22,7 +22,6 @@ def init(input_file):
 def parse_drawing(input_file):
 
     arr,orig = init(input_file)
-    print(arr['img'].shape)
 
     triangles = []
     ocr = []

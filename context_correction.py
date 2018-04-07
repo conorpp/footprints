@@ -1325,48 +1325,45 @@ def remove_overlapping_lines(groups):
             newgroups.append(g)
     return newgroups
 
-
-
-
-
 def context_aware_correction(orig,ins):
-    print('context_aware_correction')
     orig = np.copy(orig)
+    T = Timer()
+    T.enable(0)
 
     arr = ins['arr']
     ocr = ins['ocr']
     circles = ins['circles']
     lines = ins['lines']
     add_abs_line_detail(lines)
-    t1 = TIME()
+    T.TIME()
     Updates.update(ins)
     tri_tree = RTree(arr.img.shape)
     line_tree = RTree(arr.img.shape, False)
     tri_tree.add_objs(ins['triangles'])
     line_tree.add_objs(ins['lines'])
-    t2 = TIME()
-    print('tree creation: %d ms' % (t2-t1))
+    T.TIME()
+    T.print('tree creation:')
 
-    t1 = TIME()
+    T.TIME()
     new_horz, new_verz = infer_ocr_groups(arr,ocr)
-    t2 = TIME()
-    print('ocr inferring time: %d ms' % (t2-t1))
+    T.TIME()
+    T.print('ocr inferring time:')
 
-    t1 = TIME()
+    T.TIME()
     ins['circles'],ocr_rejects = untangle_circles(circles, new_horz + new_verz)
 
     new_horz = remove_ocr_groups(new_horz, ocr_rejects)
     new_verz = remove_ocr_groups(new_verz)
-    t2 = TIME()
-    print('circle untangle time: %d ms' % (t2-t1))
+    T.TIME()
+    T.print('circle untangle time:')
 
 
-    t1 = TIME()
+    T.TIME()
     triangles = ins['triangles']
     triangles,merges,merged = coalesce_triangles(arr['img'],triangles, tri_tree)
     ins['triangles'] = triangles
-    t2 = TIME()
-    print('triangle coalesce time: %d ms' % (t2-t1))
+    T.TIME()
+    T.print('triangle coalesce time:')
 
     #t1 = TIME()
     #affected = correct_trimmed_triangles(triangles, line_tree)
@@ -1378,30 +1375,21 @@ def context_aware_correction(orig,ins):
 
     #draw_trimmed_triangles(orig, affected)
 
-    t1 = TIME()
+    T.TIME()
     clamp_slopes(lines)
     merged = coalesce_lines(arr['img'],lines, line_tree)
     newlines = flatten(merged)
-    print('COALESCE1: %d lines' % len(newlines))
     clamp_slopes(newlines)
-
-    #lines = newlines
-    #merged = coalesce_lines(arr['img'],lines, line_tree)
-    #newlines = flatten(merged)
-    #print('COALESCE1: %d lines' % len(newlines))
-    #clamp_slopes(newlines)
-
-
 
     ins['lines'] = newlines
 
 
-    t2 = TIME()
+    T.TIME()
+    T.print('line coalesce time:')
     #draw_para_lines(orig,merged)
-    print('line coalesce time: %d ms' % (t2-t1))
 
 
-    t1 = TIME()
+    T.TIME()
     grow_lines(arr['img'],ins['lines'])
     Updates.lines(ins['lines'])
 
@@ -1410,8 +1398,8 @@ def context_aware_correction(orig,ins):
 
     line_tree = RTree(arr.img.shape, False)
     line_tree.add_objs(ins['lines'])
-    t2 = TIME()
-    print('line grow time: %d ms' % (t2-t1))
+    T.TIME()
+    T.print('line grow time:')
 
     #t1 = TIME()
     #remove_duplicate_lines(ins['lines'], line_tree)
@@ -1427,23 +1415,21 @@ def context_aware_correction(orig,ins):
     merged = newmerged
 
 
-    t1 = TIME()
+    T.TIME()
     allpts = generate_line_girths(arr['img'], ins['lines'])
-    lines = ins['lines']
     colines = [Shape().init_from_line_group(g) for g in merged]
     #for x in lines:
     for x in colines:
         # TODO also look for --> <-- types via colinear groups
         syms = TriangleHumps.get_dimensions(x, im = orig)
-    t2 = TIME()
-    print('context-aware dimension detection: %d ms' % (t2-t1))
+    T.TIME()
+    T.print('context-aware dimension detection:')
 
     #dump_plotly(ins['lines'], plotfuncs.side_traces)
     #dump_plotly(colines,plotfuncs.colinear_groups)
     #ins['lines'] = [l for l in ins['lines'] if l['id'] == 331]
 
     #draw_pts(orig,allpts)
-    l = len(ins['lines'])
 
     #draw_ocr_group_rects(orig, new_horz, new_verz)
     save(orig,'output2.png')
