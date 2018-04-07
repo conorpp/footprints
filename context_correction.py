@@ -1355,22 +1355,6 @@ def context_aware_correction(orig,ins):
     T.TIME()
     T.print('tree creation:')
 
-    T.TIME()
-    new_horz, new_verz = infer_ocr_groups(arr,ocr)
-    T.TIME()
-    T.print('ocr inferring time:')
-
-    T.TIME()
-    ins['circles'],ocr_rejects = untangle_circles(circles, new_horz + new_verz)
-
-    new_horz = remove_ocr_groups(new_horz, ocr_rejects)
-    new_verz = remove_ocr_groups(new_verz)
-    Updates.circles(ins['circles'])
-    T.TIME()
-    T.print('circle untangle time:')
-
-    ins['ocr_groups_horz'] = new_horz
-    ins['ocr_groups_verz'] = new_verz
 
     T.TIME()
     triangles = ins['triangles']
@@ -1441,6 +1425,26 @@ def context_aware_correction(orig,ins):
     T.print('context-aware dimension detection:')
 
     ins['dimensions'] = dims
+
+
+    T.TIME()
+    new_horz, new_verz = infer_ocr_groups(arr,ocr)
+    T.TIME()
+    T.print('ocr inferring time:')
+
+    T.TIME()
+    ins['circles'],ocr_rejects = untangle_circles(circles, new_horz + new_verz)
+
+    new_horz = remove_ocr_groups(new_horz, ocr_rejects)
+    new_verz = remove_ocr_groups(new_verz)
+    Updates.circles(ins['circles'])
+    T.TIME()
+    T.print('circle untangle time:')
+
+    ins['ocr_groups_horz'] = new_horz
+    ins['ocr_groups_verz'] = new_verz
+
+
 
     #dump_plotly(ins['lines'], plotfuncs.side_traces)
     #dump_plotly(colines,plotfuncs.colinear_groups)

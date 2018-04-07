@@ -131,10 +131,14 @@ class TriangleHumps:
 
             
             #if p1==124:
-            half1 = sum(y[p1:int((p1+p2)/2)+1])
-            half2 = sum(y[int((p1+p2)/2)+1:p2+1])
-
-            if area > 5 and min(half1,half2)/max(half1,half2) < 0.9: # min area and test for asymmetry
+            h1half1 = sum(y[p1:int((p1+p2)/2)+1])
+            h1half2 = sum(y[int((p1+p2)/2)+1:p2+1])
+            p1,p2 = hump2['range']
+            h2half1 = sum(y[p1:int((p1+p2)/2)+1])
+            h2half2 = sum(y[int((p1+p2)/2)+1:p2+1])
+            asym1 = min(h1half1,h1half2)/max(h1half1,h1half2)
+            asym2 = min(h2half1,h2half2)/max(h2half1,h2half2)
+            if area > 5 and (asym1 < 0.9 and asym2 < 0.9): # min area and test for asymmetry
                 #print('diff:', sum(abs(diff))/len(diff) )
                 #print('%d v %d' % (len(diff), len(yshort)))
                 #print('  diff', diff/yshort)
