@@ -207,12 +207,17 @@ class TriangleHumps:
                 print('  ', sym1)
                 print('  ', sym2)
 
-        if x.id in (-1,592):
+        badid = None
+        if x.id in (-1,badid):
             print(x.id,'has %d humps,%d groups' % (len(humps), len(groups)))
+            print('  %d colinear lines' % len(x.colinear_group))
+            for l in x.colinear_group:
+                print(l.abs_line)
             print('  %d pairs, %d diff traces' % (len(pairs), len(diff_traces)))
             print('  %d syms' % (len(syms)))
-            if len(pairs):
-                print('  ', pairs[0][:2])
+
+            for i in range(0, len(pairs)):
+                print('  ', pairs[i][:2])
             print('   humps:')
             for h in humps:
                 print('      ',h)
@@ -261,14 +266,17 @@ class TriangleHumps:
 
                 # skip stubby triangles
                 if (length/dist) < 0.5:
+                    if x.id == badid: print('skipping (%d,%d), due to stubby' % (p1,p2))
                     continue
 
                 # dont support diagnol lines
                 if pm != 0 and pm != MAX_SLOPE:
+                    if x.id == badid: print('skipping (%d,%d), due to diagnol' % (p1,p2))
                     continue
 
                 # skip infeasibly short dimensions
                 if line_len((base1,base2)) < 5:
+                    if x.id == badid: print('skipping (%d,%d), due to infeasibly short' % (p1,p2))
                     continue
 
                 # skip highly unbalanced triangles
@@ -281,6 +289,7 @@ class TriangleHumps:
 
                 # skip highly unbalanced triangles
                 if area1 > (area2*3) or area1 < (area2/3):
+                    if x.id == badid: print('skipping (%d,%d), due to highly unbalanced' % (p1,p2))
                     continue
 
 
@@ -290,9 +299,19 @@ class TriangleHumps:
                 #print(base_pt)
                 if im is not None:
                     #col = (randint(0,256),randint(0,256),randint(0,256),)
-                    col = (0,0,255)
-                    put_thing(im,tri1,col,(0,0),1)
-                    put_thing(im,tri2,col,(0,0),1)
+                    if x.id == badid:
+                        print('plotting (%d,%d)' % (p1,p2))
+                        print('plotting (%d,%d)' % (p2,p3))
+                        print(tri1)
+                        print(tri2)
+                        col = (255,0,255)
+                        put_thing(im,tri1,col,(0,0),1)
+                        put_thing(im,tri2,col,(0,0),1)
+
+                    else:
+                        col = (0,0,255)
+                        put_thing(im,tri1,col,(0,0),1)
+                        put_thing(im,tri2,col,(0,0),1)
                     #put_thing(im,[base2],(0,0,255),(0,0),3)
         return dimensions
 

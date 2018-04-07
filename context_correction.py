@@ -870,9 +870,7 @@ def clamp_slopes(lines):
                 print('vertical line: ', l)
 
 
-
-def coalesce_lines(arr,lines, tree):
-    """ Combine lines that should be one line.  Organize lines into colinear groups and return. """
+def group_colinear_lines(arr,lines,tree):
     def coalesce_add(item, group, masterlist):
         num_coalesced = 0
         for l in group:
@@ -888,7 +886,7 @@ def coalesce_lines(arr,lines, tree):
                 item['coalesced'] = True
                 masterlist.append([item])
 
-    padding = 15
+    padding = COLINEAR_LINE_PADDING
     ypara_groups = []
     xpara_groups = []
     diag_lines = []
@@ -940,18 +938,27 @@ def coalesce_lines(arr,lines, tree):
 
         coalesce_add(x, same_slops, diag_groups)
 
-    groups2 = []
-    groups3 = []
-    # sort lines
+    allgroups = []
+    # sort lines to be in order
     for group in xpara_groups:
-        groups2.append(sorted(group, key = lambda x : x['abs-line'][0][0]))
+        allgroups.append(sorted(group, key = lambda x : x['abs-line'][0][0]))
     for group in ypara_groups:
-        groups2.append(sorted(group, key = lambda x : x['abs-line'][0][1]))
+        allgroups.append(sorted(group, key = lambda x : x['abs-line'][0][1]))
     for group in diag_groups:
-        groups2.append(sorted(group, key = lambda x : line_len(((0,0),x['abs-line'][0]))))
+        allgroups.append(sorted(group, key = lambda x : line_len(((0,0),x['abs-line'][0]))))
 
+    return allgroups
+
+
+
+def coalesce_lines(arr,lines, tree):
+    """ Combine lines that should be one line.  Organize lines into colinear groups and return. """
+
+    groups = group_colinear_lines(arr,lines,tree)
+    
+    coalesced = []
     # walk groups of lines and find lines that should be merged
-    for group in groups2:
+    for group in groups:
         #if len(group)
         newgroup = []
         lastline = group[0]
@@ -976,16 +983,27 @@ def coalesce_lines(arr,lines, tree):
                 newgroup.append(lastline)
                 lastline = l
 
+        slop = lastline.slope
         newgroup.append(lastline)
+        newgroup = sorted(newgroup, key = lambda x : line_len(x.abs_line))
+        # ignore lines contained within other lines
+        #for i,l1 in enumerate(newgroup):
+            #for l2 in newgroup[i+1:]:
+                #if line_contains(l1,l2):
+                    #print('---------------IGNORING!')
 
-        groups3.append(newgroup)
+
+
+        coalesced += newgroup
+
+    groups = group_colinear_lines(arr,coalesced,tree)
 
     # assign reference to colinear group
-    for group in groups3:
+    for group in groups:
         for l in group:
             l['colinear-group'] = group
 
-    return groups3
+    return groups
 
 def draw_para_lines(im, para_groups):
     """ output groups of lines to im image.  doesn't write to disk. """
@@ -1209,12 +1227,6 @@ def remove_duplicate_lines(lines, tree):
     dist = 15
     for x in lines:
         l = x.abs_line
-        #if x.id in [468,167,485]:
-            #print('line',x.id)
-            #print(x['boundxy'],x.offset,x['width'],x.height, 'slope:',x.slope)
-            #print(tree.get_bounds(x))
-            #continue
-        #print(l)
         neighbors = tree.intersectPoint(l[0], dist)
         matches = []
         for pmatch in neighbors:
@@ -1264,6 +1276,51 @@ def draw_pts(orig,pts_groups):
     for pts in pts_groups:
         for pt in pts:
             orig[pt[1], pt[0]] = (255,0,0)
+
+def remove_overlapping_lines(groups):
+    """  remove lines that contain other lines and duplicates  """
+    def line_contains(bigline,smallline):
+        if bigline.slope == 0:
+            p1,p2 = bigline.abs_line
+            p3,p4 = smallline.abs_line
+            if p1[0] <= p3[0] and p2[0] >= p4[0]:
+                return True
+        elif bigline.slope == MAX_SLOPE:
+            p1,p2 = bigline.abs_line
+            p3,p4 = smallline.abs_line
+            if p1[1] <= p3[1] and p2[1] >= p4[1]:
+                return True
+        return False
+
+
+    for group in groups:
+        group = sorted(group, key = lambda x : line_len(x.abs_line), reverse=True)
+        newgroup = []
+        for i,l1 in enumerate(group):
+            if l1['trash']:
+                continue
+            for l2 in group[i+1:]:
+                if line_contains(l1,l2):
+                    l2['trash'] = True
+                    #print('---------------IGNORING!')
+                    #print('  (%d,%d),(%d,%d) contains (%d,%d),(%d,%d)' % 
+                            #(
+                                #l1.abs_line[0][0],l1.abs_line[0][1],
+                                #l1.abs_line[1][0],l1.abs_line[1][1],
+                                #l2.abs_line[0][0],l2.abs_line[0][1], 
+                                #l2.abs_line[1][0],l2.abs_line[1][1], 
+                                #))
+
+    newgroups = []
+    for group in groups:
+        g = [l for l in group if not l['trash']]
+        if len(g):
+            newgroups.append(g)
+    return newgroups
+
+
+
+
 
 def context_aware_correction(orig,ins):
     print('context_aware_correction')
@@ -1321,8 +1378,9 @@ def context_aware_correction(orig,ins):
     print('COALESCE1: %d lines' % len(newlines))
     clamp_slopes(newlines)
 
-
     ins['lines'] = newlines
+
+
     t2 = TIME()
     #draw_para_lines(orig,merged)
     print('line coalesce time: %d ms' % (t2-t1))
@@ -1331,15 +1389,19 @@ def context_aware_correction(orig,ins):
     t1 = TIME()
     grow_lines(arr['img'],ins['lines'])
     Updates.lines(ins['lines'])
+
+    merged = remove_overlapping_lines(merged)
+    ins['lines'] = flatten(merged)
+
     line_tree = RTree(arr.img.shape, False)
     line_tree.add_objs(ins['lines'])
     t2 = TIME()
     print('line grow time: %d ms' % (t2-t1))
 
-    t1 = TIME()
-    remove_duplicate_lines(ins['lines'], line_tree)
-    t2 = TIME()
-    print('dup removal: %d ms' % (t2-t1))
+    #t1 = TIME()
+    #remove_duplicate_lines(ins['lines'], line_tree)
+    #t2 = TIME()
+    #print('dup removal: %d ms' % (t2-t1))
     line_tree.test_coherency(ins['lines'])
 
     newmerged = []

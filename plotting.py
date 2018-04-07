@@ -62,7 +62,7 @@ class plotfuncs:
         p0,p1 = x.abs_line
         y3 = s0*s1
 
-        for l in x.group:
+        for l in x.colinear_group:
             put_thing(im,l['abs-line'],(255,0,0),(0,0),3)
 
         #s0 = np.array([])
@@ -141,7 +141,7 @@ def _dump_plotly(objs, images, func):
 
     fig['layout'].update(height=400*l, width=1100, margin={
         'l':80,
-        'r':320,
+        'r':330,
         't':100,
         'b':80,
         'pad':0,

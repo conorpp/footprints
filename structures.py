@@ -200,7 +200,7 @@ class Shape():
         self.abs_line = (p0,p1)
         self.side_traces = (s0,s1)
         self.side_locs = locs
-        self.group = group
+        self.colinear_group = group
         slop_common = stats.mode(slops)[0][0]
         indx = slops.index(slop_common)
         self.slope = slop_common
