@@ -131,20 +131,21 @@ class TriangleHumps:
             diff,yshort = TriangleHumps.subtract_arrows(y,hump1,hump2)
             diff = abs(diff)
 
-            p1 = hump1['range'][0]
+            p1,p2 = hump1['range']
             area = hump1['area']
             diff_trace[p1:p1+len(diff)] = diff
 
-            if area > 5:
+            
+            #if p1==124:
+            half1 = sum(y[p1:int((p1+p2)/2)+1])
+            half2 = sum(y[int((p1+p2)/2)+1:p2+1])
+
+            if area > 5 and min(half1,half2)/max(half1,half2) < 0.9: # min area and test for asymmetry
                 #print('diff:', sum(abs(diff))/len(diff) )
                 #print('%d v %d' % (len(diff), len(yshort)))
                 #print('  diff', diff/yshort)
                 normdiff = sum(np.divide(diff, yshort, out=np.zeros_like(diff), where=yshort!=0))
                 if normdiff <= max(len(diff)/2,2.1):
-                    #print(sum(abs(diff))/len(diff),len(diff))
-                    # they should point out
-                    #if TriangleHumps.points(y,(hump1,hump2)) == TriangleHumps.OUT:
-                    #if 1:
                     syms.append((hump1,hump2))
             else:
                 #print(sum(abs(diff))/len(diff),len(diff))
