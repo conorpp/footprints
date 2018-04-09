@@ -573,3 +573,81 @@ def preprocess(arr,*args):
     separate_grouped_rectangles(arr, rectangles, *args)
     separate_largest_rectangle(arr, rectangles, *args)
     return arr
+
+if __name__ == '__main__':
+    """ make results for blog post """
+    import plotly
+    from plotly import tools
+    from plotly.graph_objs import Scatter,Layout
+    from analyzers import analyze_rectangles,PARAMS
+    import image_handling
+
+    if len(sys.argv) != 2:
+        print('usage: %s <input.png>' % sys.argv[0])
+        sys.exit(1)
+    arr,orig = image_handling.init(sys.argv[1])
+    print(arr.img.shape)
+    analyze_rectangles([arr])
+    im = arr.img
+    orig = np.copy(PARAMS['orig'])
+
+    y1 = scan_dim(im,0)
+    y1 = np.sum(im == 0,axis=0)     # row sum
+    y1mean = np.mean(y1)
+    y1f = butter_highpass_filter(y1,1,25)
+    y2 = np.sum(im == 0,axis=1)     # column sum
+    y2mean = np.mean(y2)
+    y2f = butter_highpass_filter(y2,1,25)
+
+    trace = Scatter(
+        y = y1,
+        mode = 'lines'
+    )
+
+    trace2 = Scatter(
+        y = y1f,
+        mode = 'lines'
+    )
+
+    xlocs, ylocs = get_intersects(im, (im.shape[0]*.03), (im.shape[1]*.03))
+    show(~im)
+    print(xlocs)
+    print(ylocs)
+
+    for x in xlocs:
+        orig[:,x] = (255,0,0)
+
+    #for y in ylocs:
+        #orig[y,:] = (255,0,0)
+
+
+
+    if 1:
+        fig = [trace,trace2]
+
+        plotly.offline.plot(fig, auto_open=True, filename='blog.html')
+        input_img = im
+        orig_img = orig
+
+        grey_img = cv2.GaussianBlur(input_img,(5, 5),0)
+        edges = cv2.Canny(grey_img, 50, 150)
+
+        rho = 3
+        theta = np.pi/2
+        threshold = 1
+        min_line_length = 5
+        max_line_gap = 1
+
+        lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]),
+                            min_line_length, max_line_gap)
+
+        for line in lines:
+            for x1,y1,x2,y2 in line:
+                cv2.line(orig_img,(x1,y1),(x2,y2),(0,0,255),1)
+
+    save(orig_img,'output.png')
+
+
+
+
+
