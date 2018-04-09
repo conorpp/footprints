@@ -45,6 +45,8 @@ def arguments():
     parser.add_argument('--rect', action='store_true',help='put grow rect annotation')
     parser.add_argument('--rects', type=int,default=None,help='put grow rect side # annotation')
     parser.add_argument('--label', action='store_true',help='Put the OCR character match on targets')
+    
+    parser.add_argument('--colin', action='store_true',help='Draw colinear line groups, random color')
 
     parser.add_argument('--save-type', default='large', action='store', dest='save_type',help='small,large,outlined')
     parser.add_argument('--bg', action='store_true', help='use original image as background for --save-type')
@@ -54,6 +56,69 @@ def arguments():
 
     args = parser.parse_args()
     return args
+
+
+class Context:
+    def draw_ocr_group_rects(orig, new_horz, new_verz):
+        """ output function for drawing rectangles around the OCR groups """
+        print(len(new_horz) + len(new_verz),'groups')
+        for i,group in enumerate(new_horz):
+            leftest = group[0]
+            rightest = group[-1]
+
+            mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
+            mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
+
+            pt1 = (leftest['boundxy2'][0], mytop)
+            pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
+
+
+            cv2.rectangle(orig, pt1,pt2, [0,0,200])
+            #s = ''.join(x['symbol'] for x in group)
+            #print(s)
+            #print(pt1, pt2)
+            #if i == 9:
+                #break
+        for i,group in enumerate(new_verz):
+            leftest = group[0]
+            rightest = group[-1]
+
+            mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
+            mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
+
+            pt1 = (leftest['boundxy2'][0], mytop)
+            pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
+
+            cv2.rectangle(orig, pt1,pt2, [0,180,0])
+            #s = ''.join(x['symbol'] for x in group)[::-1]
+            #print(s)
+            #if i == 4:
+                #break
+
+
+    def draw_colinear_lines(im, para_groups):
+        """ output groups of lines to im image.  doesn't write to disk. """
+        for i,para_lines in enumerate(para_groups):
+            #if i in np.array([14]) :
+            #if i in np.array([13]) or 1:
+
+            #if i in range(13,15):
+            #if i in np.array([10]):
+                color = (randint(0,255),randint(0,255), randint(0,255))
+                #if i in range(45,50):
+                    #assert(len(para_lines)>1)
+                for x in para_lines:
+                    put_thing(im, x['line'], color, x['offset'], 2)
+
+    def draw_dimensions(im, dims):
+        for d in dims:
+            tri1 = d.tri1
+            tri2 = d.tri2
+            col = (0,0,255)
+            put_thing(im,tri1,col,(0,0),1)
+            put_thing(im,tri2,col,(0,0),1)
+
+
 
 def put_thing(im, x, color, offset=None, thickness = 1, closed=True):
     if offset is not None: offset = tuple(offset)
@@ -76,6 +141,8 @@ def put_thing(im, x, color, offset=None, thickness = 1, closed=True):
 
 def do_outputs(orig,outs):
 
+    orig2 = np.copy(orig)
+
     args = arguments()
 
     print('%d triangles' % len(outs['triangles']))
@@ -84,6 +151,12 @@ def do_outputs(orig,outs):
     print('%d lines' % len(outs['lines']))
     print('%d irregs' % len(outs['irregs']))
     print('%d leftover' % len(outs['leftover']))
+
+    outs['dimensions'] = outs.get('dimensions',[])
+    outs['dimensions'] = outs.get('dimensions',[])
+    outs['ocr_groups_horz'] = outs.get('ocr_groups_horz',[])
+    outs['colinear_groups'] = outs.get('colinear_groups',[])
+    #outs['ocr_groups'] = outs['ocr_groups_horz'] + outs['ocr_groups_verz']
     for x in outs['ocr']:
         x['type'] = 'ocr'
     for x in outs['leftover']:
@@ -98,6 +171,11 @@ def do_outputs(orig,outs):
         x['type'] = 'circle'
     for x in outs['irregs']:
         x['type'] = 'irreg'
+    #for x in outs['dimensions']:
+        #x['type'] = 'dimension'
+    #for x in outs['ocr_groups']:
+        #x['type'] = 'ocr_group'
+
     def put_label(im, feat, label):
         x,y = centroid(feat['ocontour'])
         x += feat['offset'][0]
@@ -157,7 +235,7 @@ def do_outputs(orig,outs):
             save(x,n)
 
     target_list = []
-    if args.t or args.all:
+    if args.t:
         target_list += outs['triangles']
     if args.r or args.all:
         target_list += outs['rectangles']
@@ -291,6 +369,14 @@ def do_outputs(orig,outs):
             save_things(outs['leftover'], 'leftover')
 
 
+    if args.all:
+        Context.draw_ocr_group_rects(orig, outs['ocr_groups_horz'], outs['ocr_groups_verz'])
+        Context.draw_dimensions(orig, outs['dimensions'])
+
+    if args.colin:
+        Output.draw_colinear_lines(orig,outs['colinear_groups'])
+
     save(orig,'output.png')
+    #save(orig2,'output2.png')
 
 
