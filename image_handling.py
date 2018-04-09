@@ -4,6 +4,7 @@ from filters import *
 from analyzers import *
 from processors import *
 from structures import wrap_image, Shape
+from context_correction import add_abs_line_detail
 import preprocessing
 
 def init(input_file):
@@ -129,6 +130,8 @@ def parse_drawing(input_file):
     triangles,leftover = pass_triangles(leftover, arr)
 
     polish_rectangles(rectangles)
+
+    add_abs_line_detail(lines)
 
     outs = {'triangles': triangles,
             'ocr': ocr,

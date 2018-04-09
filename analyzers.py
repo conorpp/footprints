@@ -878,34 +878,11 @@ if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('usage: %s <input.png>' % sys.argv[0])
         sys.exit(1)
-    import processors
-    arr = load_image(sys.argv[1])
-    if len(arr.shape) > 2:
-        arr = polarize(arr)
+    arr,orig = init(sys.argv[1])
     
-    #arr[:,:120]=255
-    #arr[:,-630:]=255
-    #arr[:120,:]=255
-    #arr[-360:,:]=255
-
     print(arr.shape)
     
     arr = wrap_image(arr)
     analyze_rectangles([arr])
-
-
-    newlines,lineleftover = processors.find_line_features([arr])
-
-    #arr =color(arr)
-    #for i,insides in (outsides):
-        #color = [randint(0,255) for x in range(0,3)]
-        #cv2.drawContours(arr,[i],0,color,1)
-        ##print(len(insides),'inside')
-        #for j in insides:
-            #cv2.drawContours(arr,[j],0,color,1)
-    
-    save(arr,'output.png')
-
-
 
 

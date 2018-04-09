@@ -3,7 +3,7 @@ from cli import *
 from utils import Timer
 
 from image_handling import parse_drawing
-from context_correction import context_aware_correction, Output
+from context_correction import context_aware_correction
 from inference import infer_drawing
 
 def main():
@@ -21,12 +21,6 @@ def main():
     outs = context_aware_correction(orig,outs)
     T.TIME()
     T.print('context correction time:')
-
-    orig2 = np.copy(orig)
-    Output.draw_ocr_group_rects(orig2, outs['ocr_groups_horz'], outs['ocr_groups_verz'])
-    #Output.draw_colinear_lines(orig2,outs['colinear_groups'])
-    Output.draw_dimensions(orig2, outs['dimensions'])
-    save(orig2,'output2.png')
 
     T.TIME()
     outs = infer_drawing(orig,outs)

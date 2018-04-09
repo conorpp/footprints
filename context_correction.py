@@ -1238,12 +1238,14 @@ def remove_overlapping_lines(groups):
             p1,p2 = bigline.abs_line
             p3,p4 = smallline.abs_line
             if p1[0] <= p3[0] and p2[0] >= p4[0]:
-                return True
+                if p1[1] < (p3[1] + 2) and p1[1] > (p3[1] - 2):
+                    return True
         elif bigline.slope == MAX_SLOPE:
             p1,p2 = bigline.abs_line
             p3,p4 = smallline.abs_line
             if p1[1] <= p3[1] and p2[1] >= p4[1]:
-                return True
+                if p1[0] < (p3[0] + 2) and p1[0] > (p3[0] - 2):
+                    return True
         return False
 
 
@@ -1271,67 +1273,6 @@ def remove_overlapping_lines(groups):
         if len(g):
             newgroups.append(g)
     return newgroups
-
-class Output:
-    def draw_ocr_group_rects(orig, new_horz, new_verz):
-        """ output function for drawing rectangles around the OCR groups """
-        print(len(new_horz) + len(new_verz),'groups')
-        for i,group in enumerate(new_horz):
-            leftest = group[0]
-            rightest = group[-1]
-
-            mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
-            mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
-
-            pt1 = (leftest['boundxy2'][0], mytop)
-            pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
-
-
-            cv2.rectangle(orig, pt1,pt2, [0,0,200])
-            #s = ''.join(x['symbol'] for x in group)
-            #print(s)
-            #print(pt1, pt2)
-            #if i == 9:
-                #break
-        for i,group in enumerate(new_verz):
-            leftest = group[0]
-            rightest = group[-1]
-
-            mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
-            mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
-
-            pt1 = (leftest['boundxy2'][0], mytop)
-            pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
-
-            cv2.rectangle(orig, pt1,pt2, [0,180,0])
-            #s = ''.join(x['symbol'] for x in group)[::-1]
-            #print(s)
-            #if i == 4:
-                #break
-
-
-    def draw_colinear_lines(im, para_groups):
-        """ output groups of lines to im image.  doesn't write to disk. """
-        for i,para_lines in enumerate(para_groups):
-            #if i in np.array([14]) :
-            #if i in np.array([13]) or 1:
-
-            #if i in range(13,15):
-            #if i in np.array([10]):
-                color = (randint(0,255),randint(0,255), randint(0,255))
-                #if i in range(45,50):
-                    #assert(len(para_lines)>1)
-                for x in para_lines:
-                    put_thing(im, x['line'], color, x['offset'], 2)
-
-    def draw_dimensions(im, dims):
-        for d in dims:
-            tri1 = d.tri1
-            tri2 = d.tri2
-            col = (0,0,255)
-            put_thing(im,tri1,col,(0,0),1)
-            put_thing(im,tri2,col,(0,0),1)
-
 
 def untangle_dimensions_from_ocr(arr,dims,ocr):
     """ filter out ocrs based on context dimensions """
@@ -1361,7 +1302,6 @@ def context_aware_correction(orig,ins):
     arr = ins['arr']
     circles = ins['circles']
     lines = ins['lines']
-    add_abs_line_detail(lines)
     T.TIME()
     Updates.triangles(ins['triangles'])
     Updates.lines(ins['lines'])
@@ -1392,7 +1332,7 @@ def context_aware_correction(orig,ins):
     T.print('line coalesce time:')
 
 
-    T.TIME()
+    #T.TIME()
     grow_lines(arr['img'],ins['lines'])
     Updates.lines(ins['lines'])
     merged = remove_overlapping_lines(merged)
@@ -1400,8 +1340,8 @@ def context_aware_correction(orig,ins):
     ins['colinear_groups'] = merged
     line_tree = RTree(arr.img.shape, False)
     line_tree.add_objs(ins['lines'])
-    T.TIME()
-    T.print('line grow time:')
+    #T.TIME()
+    #T.print('line grow time:')
 
 
     line_tree.test_coherency(ins['lines'])

@@ -225,6 +225,7 @@ def wrap_image(im,parent=None,offset=None):
 
 class Dimension:
     ocr_group = None
+    type = 'dimension'
     def __init__(self,tri1,tri2,line):
         self.tri1 = tri1
         self.tri2 = tri2
