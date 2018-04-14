@@ -65,10 +65,10 @@ class RTree():
         #left,bottom = x['boundxy']
         #right,top = left + x['width']*(1 + factor), bottom+ x['height']*(1 + factor)
         if offset is not None:
-            left += x['offset'][0]
-            right += x['offset'][0]
-            bottom += x['offset'][1]
-            top += x['offset'][1]
+            left += offset[0]
+            right += offset[0]
+            bottom += offset[1]
+            top += offset[1]
 
         #left -= x['width'] * factor
         #bottom -= x['width'] * factor

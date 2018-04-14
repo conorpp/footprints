@@ -573,14 +573,18 @@ class Updates:
 
     def rectangles(rectangles):
         for x in rectangles:
-            xmin = np.min(x['contour'][:,0])
-            xmax = np.max(x['contour'][:,0])
-            ymin = np.min(x['contour'][:,1])
-            ymax = np.max(x['contour'][:,1])
+            off = x.offset
+            con = x.contour
+            xmin = np.min(con[:,0])
+            xmax = np.max(con[:,0])
+            ymin = np.min(con[:,1])
+            ymax = np.max(con[:,1])
             x['boundxy'] = (xmin,ymin)
             x['width'] = xmax-xmin
             x['height'] = ymax-ymin
-            x['offset'] = np.array(x['offset'])
+            x['offset'] = np.array(off)
+            #x.rect = [con[0]+off, con[1]+off, con[2]+off, con[3]+off, con[4]+off]
+            x.rect = con + off
             #x['offset'] = np.reshape(np.array(x['offset']),(2))
             #print(x['offset'])
 
@@ -974,22 +978,6 @@ def coalesce_lines(arr,lines, tree):
             l['colinear-group'] = group
 
     return groups
-def bresenham_line(pt, m, b, sign):
-    derr = abs(m)
-    ysign = (1 if m >= 0 else -1)*sign
-    error = 0.0
-    x,y = pt
-    while True:
-        # plot(x,y)
-        error += derr
-        while error >= 0.5:
-            y += ysign
-            error -= 1.0
-            yield (x,y)
-
-        x += sign
-        yield (x,y)
-
 
 def extend_point(arr,pt, gen, lim, skips = 0, log = None):
     count = 0
@@ -1288,7 +1276,7 @@ def untangle_dimensions_from_ocr(arr,dims,ocr):
         ocrs += ocr_tree.intersectPoint(center2)
         for o in ocrs:
             o.trash = True
-        print('got %d ocrs' % len(ocrs))
+        #print('got %d ocrs' % len(ocrs))
     ocr = [o for o in ocr if not o.trash]
     return ocr
 
@@ -1311,7 +1299,7 @@ def context_aware_correction(orig,ins):
     tri_tree.add_objs(ins['triangles'])
     line_tree.add_objs(ins['lines'])
     T.TIME()
-    T.print('tree creation:')
+    T.echo('tree creation:')
 
 
     T.TIME()
@@ -1319,7 +1307,7 @@ def context_aware_correction(orig,ins):
     triangles,merges,merged = coalesce_triangles(arr['img'],triangles, tri_tree)
     ins['triangles'] = triangles
     T.TIME()
-    T.print('triangle coalesce time:')
+    T.echo('triangle coalesce time:')
 
 
     T.TIME()
@@ -1329,7 +1317,7 @@ def context_aware_correction(orig,ins):
     clamp_slopes(newlines)
     ins['lines'] = newlines
     T.TIME()
-    T.print('line coalesce time:')
+    T.echo('line coalesce time:')
 
 
     #T.TIME()
@@ -1341,7 +1329,7 @@ def context_aware_correction(orig,ins):
     line_tree = RTree(arr.img.shape, False)
     line_tree.add_objs(ins['lines'])
     #T.TIME()
-    #T.print('line grow time:')
+    #T.echo('line grow time:')
 
 
     line_tree.test_coherency(ins['lines'])
@@ -1357,7 +1345,7 @@ def context_aware_correction(orig,ins):
         dims += TriangleHumps.get_dimensions(x,im=orig)
     ins['dimensions'] = dims
     T.TIME()
-    T.print('context-aware dimension detection:')
+    T.echo('context-aware dimension detection:')
 
 
     T.TIME()
@@ -1365,7 +1353,7 @@ def context_aware_correction(orig,ins):
     ocr = untangle_dimensions_from_ocr(arr,dims,ocr)
     new_horz, new_verz = infer_ocr_groups(arr,ocr)
     T.TIME()
-    T.print('ocr inferring time:')
+    T.echo('ocr inferring time:')
 
 
     T.TIME()
@@ -1376,7 +1364,7 @@ def context_aware_correction(orig,ins):
     ins['ocr_groups_horz'] = new_horz
     ins['ocr_groups_verz'] = new_verz
     T.TIME()
-    T.print('circle untangle time:')
+    T.echo('circle untangle time:')
 
 
     #dump_plotly(ins['lines'], plotfuncs.side_traces)

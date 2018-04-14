@@ -6,53 +6,8 @@ import cv2
 import numpy as np
 
 
-# wraps np array image with metadata
-#counter = 0
-#def wrap_image(im,parent=None,offset=None):
-    #global counter
-    #specs = {
-            #'conf':0,           # % of pixels that are black under contour
-            #'area-ratio':0,     # a1/a2
-            #'a1':0,             # number of pixels in contour
-            #'a2':0,             # number of pixels
-            #'contour':[],        # inside rectangle growth
-            #'offset':[0,0],    # offset with respect to parent
-            #'img': im,          # image
-            #'height': 1,        # bounding rect height and width
-            #'width':1,
-            #'history':[],       # previous image
-            #'comment':'',
-            #'id': counter,
-
-            #'line-conf': 0,
-            #'aspect-ratio':0,
-            #'line-length':0,
-            #'length-area-ratio':0,
-            #'vertical':0,
-            #'sum':{'score':0.0, 'distinct':0, 'mode':[0,0], 'sum':[]},
-            #'rotated': False,
-
-            #'line-scan-attempt': 0,
-            #'line-estimates':[],
-            #'features':[],
-            #'traces':[],
-            
-            #'merged':False,
-
-            #}
-
-    #counter = counter + 1
-    #if parent is not None:
-        #snapshot_img(specs,'parent',parent)
-
-    #if offset is not None:
-        #specs['offset'][0] += offset[0]
-        #specs['offset'][1] += offset[1]
-
-    #return specs
-
 def count_black(x):
-    nz = np.count_nonzero(x)
+    cdef int nz = np.count_nonzero(x)
     return x.shape[0] * x.shape[1] - nz
 
 
@@ -342,7 +297,7 @@ def endpoints_connect(arr,p1,p2):
         return True
     dx = abs(p2[0] - p1[0])
     dy = abs(p2[1] - p1[1])
-    d = int(max(dx,dy))
+    cdef int d = int(max(dx,dy))
     xs = np.linspace(p1[0], p2[0],d)
     ys = np.linspace(p1[1], p2[1],d)
     black_count = 0
@@ -370,12 +325,30 @@ class Timer():
         t = TIME()
         self.times.append(t)
         return t
-    def print(self,msg):
+    def echo(self,msg):
         if self.en: 
             print(msg, self.times[1] - self.times[0],'ms')
     def dis(self,):
         self.en = True
     def enable(self,val=True):
         self.en = val
+
+
+def bresenham_line(pt, m, b, sign):
+    cdef float derr = abs(m)
+    cdef int ysign = (1 if m >= 0 else -1)*sign
+    cdef float error = 0.0
+    cdef int x = pt[0]
+    cdef int y = pt[1]
+    while True:
+        # plot(x,y)
+        error += derr
+        while error >= 0.5:
+            y += ysign
+            error -= 1.0
+            yield (x,y)
+
+        x += sign
+        yield (x,y)
 
 

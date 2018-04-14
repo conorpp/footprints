@@ -15,17 +15,17 @@ def main():
     orig = outs['orig']
     PARAMS['orig'] = orig
     T.TIME()
-    T.print('parse_drawing time:')
+    T.echo('parse_drawing time:')
 
     T.TIME()
     outs = context_aware_correction(orig,outs)
     T.TIME()
-    T.print('context correction time:')
+    T.echo('context correction time:')
 
     T.TIME()
     outs = infer_drawing(orig,outs)
     T.TIME()
-    T.print('infer drawing time:')
+    T.echo('infer drawing time:')
 
 
     do_outputs(orig,outs)
