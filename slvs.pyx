@@ -108,7 +108,11 @@ cdef class Slvs:
     cdef public uint32_t paramid
     cdef public uint32_t entityid
     cdef public uint32_t constraintid
-    
+
+    cdef public Slvs_hEntity origin
+    cdef public Slvs_hEntity normal
+    cdef public Slvs_hEntity workplane
+
     cdef public Slvs_hGroup group
 
     def __cinit__(self,):
@@ -116,7 +120,23 @@ cdef class Slvs:
         self.paramid = 0x8000
         self.entityid = 0x8000
         self.constraintid = 0x8000
-        self.group = 0
+        self.group = 1
+
+
+        # First, we create our workplane. Its origin corresponds to the origin
+        # of our base frame (x y z) = (0 0 0)
+        self.origin = self.MakePoint3d(self.P(0.0), self.P(0.0), self.P(0.0));
+        # and it is parallel to the xy plane, so it has basis vectors (1 0 0)
+        # and (0 1 0).
+        (qw,qx,qy,qz) = self.MakeQuaternion(1, 0, 0,
+                                         0, 1, 0);
+
+        self.normal = self.MakeNormal3d(self.P(qw), self.P(qx), self.P(qy), self.P(qz));
+
+        self.workplane = self.MakeWorkplane(self.origin, self.normal);
+
+        self.group = 2
+
 
     def __dealloc__(self):
         self.free_sys()
@@ -147,8 +167,11 @@ cdef class Slvs:
         self.group = group
 
 
-    cpdef solve(self,Slvs_hGroup group):
+    def solve(self,group = None):
         cdef Slvs_Param par
+
+        if group is None:
+            group = self.group
 
         items = max(len(self.param), len(self.entity), len(self.constraint))
 
@@ -207,14 +230,13 @@ cdef class Slvs:
 
 
     def MakePoint2d(self,
-                   Slvs_hEntity wrkpl,
                    Slvs_hParam u, Slvs_hParam v, **kwargs):
         cdef Slvs_Entity r;
         memset(&r, 0, sizeof(r));
         r.h = self.entityId(kwargs)
         r.group = self.group;
         r.type = SLVS_E_POINT_IN_2D;
-        r.wrkpl = wrkpl;
+        r.wrkpl = self.workplane;
         r.param[0] = u;
         r.param[1] = v;
         self.add_entity(r)
@@ -250,45 +272,42 @@ cdef class Slvs:
         self.add_entity(r)
         return r.h
 
-    def MakeNormal2d(self,
-            Slvs_hEntity wrkpl, **kwargs):
+    def MakeNormal2d(self,  **kwargs):
         cdef Slvs_Entity r;
         memset(&r, 0, sizeof(r));
         r.h = self.entityId(kwargs)
         r.group = self.group;
         r.type = SLVS_E_NORMAL_IN_2D;
-        r.wrkpl = wrkpl;
+        r.wrkpl = self.workplane;
         self.add_entity(r)
         return r.h
 
     def MakeDistance(self,
-            Slvs_hEntity wrkpl, Slvs_hParam d, **kwargs):
+            Slvs_hParam d, **kwargs):
         cdef Slvs_Entity r;
         memset(&r, 0, sizeof(r));
         r.h = self.entityId(kwargs)
         r.group = self.group;
         r.type = SLVS_E_DISTANCE;
-        r.wrkpl = wrkpl;
+        r.wrkpl = self.workplane;
         r.param[0] = d;
         self.add_entity(r)
         return r.h
 
     def MakeLineSegment(self,
-                       Slvs_hEntity wrkpl,
                        Slvs_hEntity ptA, Slvs_hEntity ptB, **kwargs):
         cdef Slvs_Entity r;
         memset(&r, 0, sizeof(r));
         r.h = self.entityId(kwargs)
         r.group = self.group;
         r.type = SLVS_E_LINE_SEGMENT;
-        r.wrkpl = wrkpl;
+        r.wrkpl = self.workplane;
         r.point[0] = ptA;
         r.point[1] = ptB;
         self.add_entity(r)
         return r.h
 
     def MakeCubic(self,
-                 Slvs_hEntity wrkpl,
                  Slvs_hEntity pt0, Slvs_hEntity pt1,
                  Slvs_hEntity pt2, Slvs_hEntity pt3, **kwargs):
         cdef Slvs_Entity r;
@@ -296,7 +315,7 @@ cdef class Slvs:
         r.h = self.entityId(kwargs)
         r.group = self.group;
         r.type = SLVS_E_CUBIC;
-        r.wrkpl = wrkpl;
+        r.wrkpl = self.workplane;
         r.point[0] = pt0;
         r.point[1] = pt1;
         r.point[2] = pt2;
@@ -305,8 +324,6 @@ cdef class Slvs:
         return r.h
 
     def MakeArcOfCircle(self,
-                       Slvs_hEntity wrkpl,
-                       Slvs_hEntity normal,
                        Slvs_hEntity center,
                        Slvs_hEntity start, Slvs_hEntity end, **kwargs):
         cdef Slvs_Entity r;
@@ -314,8 +331,8 @@ cdef class Slvs:
         r.h = self.entityId(kwargs)
         r.group = self.group;
         r.type = SLVS_E_ARC_OF_CIRCLE;
-        r.wrkpl = wrkpl;
-        r.normal = normal;
+        r.wrkpl = self.workplane;
+        r.normal = self.normal;
         r.point[0] = center;
         r.point[1] = start;
         r.point[2] = end;
@@ -323,17 +340,16 @@ cdef class Slvs:
         return r.h
 
     def MakeCircle(self, 
-                  Slvs_hEntity wrkpl,
                   Slvs_hEntity center,
-                  Slvs_hEntity normal, Slvs_hEntity radius, **kwargs):
+                  Slvs_hEntity radius, **kwargs):
         cdef Slvs_Entity r;
         memset(&r, 0, sizeof(r));
         r.h = self.entityId(kwargs)
         r.group = self.group;
         r.type = SLVS_E_CIRCLE;
-        r.wrkpl = wrkpl;
+        r.wrkpl = self.workplane;
         r.point[0] = center;
-        r.normal = normal;
+        r.normal = self.normal;
         r.distance = radius;
         self.add_entity(r)
         return r.h
@@ -353,7 +369,6 @@ cdef class Slvs:
 
     def MakeConstraint(self,
                           int _type,
-                          Slvs_hEntity wrkpl,
                           double valA,
                           Slvs_hEntity ptA,
                           Slvs_hEntity ptB,
@@ -364,7 +379,7 @@ cdef class Slvs:
         r.h = self.constraintId(kwargs)
         r.group = self.group;
         r.type = _type;
-        r.wrkpl = wrkpl;
+        r.wrkpl = self.workplane;
         r.valA = valA;
         r.ptA = ptA;
         r.ptB = ptB;
