@@ -70,9 +70,12 @@ cdef void check_free(void * mem):
         free(mem)
 
 class Param:
-    def __init__(self,h,val):
+    def __init__(self,h,val,group=0):
         self.h = h
         self.val = val
+        self.group = group
+    def __int__(self, ):
+        return self.h
 
 cdef class SlvsResult:
 
@@ -125,13 +128,13 @@ cdef class Slvs:
 
         # First, we create our workplane. Its origin corresponds to the origin
         # of our base frame (x y z) = (0 0 0)
-        self.origin = self.MakePoint3d(self.P(0.0), self.P(0.0), self.P(0.0));
+        self.origin = self.MakePoint3d(self.P(0.0).h, self.P(0.0).h, self.P(0.0).h);
         # and it is parallel to the xy plane, so it has basis vectors (1 0 0)
         # and (0 1 0).
         (qw,qx,qy,qz) = self.MakeQuaternion(1, 0, 0,
                                          0, 1, 0);
 
-        self.normal = self.MakeNormal3d(self.P(qw), self.P(qx), self.P(qy), self.P(qz));
+        self.normal = self.MakeNormal3d(self.P(qw).h, self.P(qx).h, self.P(qy).h, self.P(qz).h);
 
         self.workplane = self.MakeWorkplane(self.origin, self.normal);
 
@@ -177,11 +180,17 @@ cdef class Slvs:
 
         self.free_sys()
         self.alloc_sys(items)
-        
+
         # copy over records
         for i in range(0,len(self.param)):
-            self.sys.param[i] = self.param[i]
+            parpy = self.param[i]
+            par.h = parpy.h
+            par.group = parpy.group
+            par.val = parpy.val
+
+            self.sys.param[i] = par
             self.sys.params += 1
+
         for i in range(0,len(self.entity)):
             self.sys.entity[i] = self.entity[i]
             self.sys.entities += 1
@@ -191,6 +200,10 @@ cdef class Slvs:
 
 
         slvs.Slvs_Solve(&self.sys, group)
+
+        for i in range(0,len(self.param)):
+            self.param[i].val = self.sys.param[i].val
+
         res = self.sys.result
         dof = self.sys.dof
 
@@ -206,7 +219,7 @@ cdef class Slvs:
         return (qw,qx,qy,qz)
 
 
-    cdef add_param(self, Slvs_Param par):
+    cdef add_param(self, par):
         self.param.append(par)
 
     cdef add_entity(self, Slvs_Entity ent):
@@ -218,12 +231,9 @@ cdef class Slvs:
 
     def MakeParam(self, double val, ** kwargs):
         #par = slvs.Slvs_MakeParam(ref,g,num)
-        cdef Slvs_Param par;
-        par.h = self.paramId(kwargs)
-        par.group = self.group
-        par.val = val
+        par = Param(self.paramId(kwargs), val, self.group)
         self.add_param(par)
-        return par.h
+        return par
 
     def P(self, double val, ** kwargs):
         return self.MakeParam(val,**kwargs)

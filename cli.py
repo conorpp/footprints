@@ -209,12 +209,6 @@ def do_outputs(orig,outs):
                         pts = cv2.ellipse2Poly(tuple(f[1][0]), (f[1][1],f[1][1]), 0, f[2][0], f[2][1],1)
                         put_thing(im, pts, irc, x['offset'], 2, False)
 
-                        #off = x['offset']
-                        #xp = off[0] + f[1][0][0]
-                        #yp = off[1] + f[1][0][1]
-                        #cv2.circle(im,(xp,yp),x['circle'][1],(255,0x8c,0),2 )
-
-
             elif x['type'] == 'ocr':
                 pass
             else:
