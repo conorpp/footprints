@@ -122,17 +122,18 @@ class Context:
 
 def put_thing(im, x, color, offset=None, thickness = 1, closed=True):
     if offset is not None: offset = tuple(offset)
+    else: offset=(0,0)
     for i in range(0,len(x)-1):
-        p1 = np.array(x[i]).flatten()
-        p2 = np.array(x[i+1]).flatten()
+        p1 = np.round(np.array(x[i]).flatten()).astype(np.int32)
+        p2 = np.round(np.array(x[i+1]).flatten()).astype(np.int32)
 
         p1 = (p1[0] + offset[0], p1[1] + offset[1])
         p2 = (p2[0] + offset[0], p2[1] + offset[1])
         cv2.line(im,p1,p2,color,thickness)
 
     if closed:
-        p1 = np.array(x[0]).flatten()
-        p2 = np.array(x[-1]).flatten()
+        p1 = np.round(np.array(x[0]).flatten()).astype(np.int32)
+        p2 = np.round(np.array(x[-1]).flatten()).astype(np.int32)
 
         p1 = (p1[0] + offset[0], p1[1] + offset[1])
         p2 = (p2[0] + offset[0], p2[1] + offset[1])
