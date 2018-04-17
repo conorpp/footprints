@@ -285,11 +285,10 @@ def test_for_dups(pdups):
             if l1 is l2:
                 count += 1
         print('---count: %d---' % count)
+
 def flatten(groups):
     """ Flatten a 2D python list """
     return [x for group in groups for x in group]
-
-
 
 def endpoints_connect(arr,p1,p2):
     """  Determine if two points are connected by mostly black pixels in straight line  """

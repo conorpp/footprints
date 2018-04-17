@@ -6,6 +6,7 @@ import cv2
 
 import analyzers
 from utils import *
+from structures import Shape
 
 def butter_highpass(cutoff, fs, order=5):
     nyq = 0.5 * fs
@@ -446,8 +447,13 @@ def group_rects(rects,margin=12):
     groups = []
 
     for r in rects:
-        xdim = abs(r[0][0] - r[2][0])
-        ydim = abs(r[0][1] - r[2][1])
+        if isinstance(r,Shape):
+            ri = r.rect
+            xdim = abs(ri[0][0] - ri[2][0])
+            ydim = abs(ri[0][1] - ri[2][1])
+        else:
+            xdim = abs(r[0][0] - r[2][0])
+            ydim = abs(r[0][1] - r[2][1])
         added = False
         for dx,dy,gro in groups:
             if xdim < (dx+margin) and xdim > (dx-margin):
