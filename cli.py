@@ -48,6 +48,9 @@ def arguments():
     
     parser.add_argument('--colin', action='store_true',help='Draw colinear line groups, random color')
 
+    parser.add_argument('--pickle', default=None,help='pickle image/context information to <file>')
+    parser.add_argument('--loads', default=None,help='load pickle data to skip image/context steps')
+
     parser.add_argument('--save-type', default='large', action='store', dest='save_type',help='small,large,outlined')
     parser.add_argument('--bg', action='store_true', help='use original image as background for --save-type')
     parser.add_argument('-a', action='append', dest='outa',help='extra annotations to add to output image.')
