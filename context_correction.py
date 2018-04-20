@@ -98,7 +98,7 @@ def detect_punct(arr, x1, x2, dx, dim, ):
     return None
 
 
-def group_ocr(arr, ocr, dim=0):
+def group_ocr(arr, ocr, dim=0, sepdist = None):
     """ Naively group adjacent OCR characters in same dimension row/col. Good first step. """
     # dim=0 means horizontal text, dim=1 means vertical text
     odim = (dim+1)&1
@@ -113,6 +113,8 @@ def group_ocr(arr, ocr, dim=0):
     ocr_groups2 = []
     SEPARATING_DIST = 4         # TODO normalize
     SEPARATING_DIST_COMMA = 36  # TODO normalize
+    if sepdist is not None:
+        SEPARATING_DIST = sepdist
 
     # Segment into consecutive groups on other dimension
     for i,group in enumerate(ocr_groups):
@@ -177,7 +179,7 @@ def group_crosses(group1,group2):
                 return True
     return False
 def item_contained(x,group_set):
-    """ support.  Test if a OCR group is contained by a set of OCR groups. """
+    """ support.  Test if a item is contained by a set of OCR groups. """
     for group2 in group_set:
         for y in group2:
             if x['id'] == y['id']:
@@ -261,7 +263,7 @@ def block_redundant_groups(horz, verz):
     return new_horz,new_verz
 
 
-def infer_ocr_groups(arr, ocr):
+def infer_ocr_groups(arr, ocr, sepdist = None):
     """ Group together OCR characters.  Ensure rotation coherency. """
     widths = []
     heights = []
@@ -286,9 +288,9 @@ def infer_ocr_groups(arr, ocr):
 
     #vert,horiz = if_rotated(ocr)
     #print('horz:')
-    horz = group_ocr(arr,ocr, 0)
+    horz = group_ocr(arr,ocr, 0, sepdist)
     #print('verz:')
-    verz = group_ocr(arr,ocr, 1)
+    verz = group_ocr(arr,ocr, 1, sepdist)
 
     new_horz,new_verz = block_redundant_groups(horz,verz)
 

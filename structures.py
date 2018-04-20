@@ -161,6 +161,8 @@ class Shape():
 
     trash = False
 
+    symbol = ''
+
     def __init__(self,im=None,parent=None, offset=None):
         self.history = []
         self.img = im
@@ -216,7 +218,11 @@ class Shape():
         return setattr(self,key.replace('-','_'),value)
     def __contains__(self,key):
         return hasattr(self,key)
-
+    def __repr__(self,):
+        return self.__str__()
+    def __str__(self,):
+        #return '%dx%d' % (self.width,self.height,)
+        return '%dx%d' % (self.rect[0][0],self.rect[0][1])
 
 def wrap_image(im,parent=None,offset=None):
     return Shape(im,parent,offset)
