@@ -52,7 +52,7 @@ class Constrainer:
             self.constr(SLVS_C_EQUAL_LENGTH_LINES, 0, 0, 0, r1[0], r2[0])
             self.constr(SLVS_C_EQUAL_LENGTH_LINES, 0, 0, 0, r1[2], r2[2])
 
-    def colinear_rects(self,r1,r2, horizontal):
+    def colinear_rects(self,r1,r2, horizontal,orig=None):
         """ Constraint two same-sized rectangles to have colinear sides """
 
         if horizontal:
@@ -77,7 +77,16 @@ class Constrainer:
 
         colin = self.Line(p1,p2)
 
-        self.constr(SLVS_C_PT_ON_LINE, 0, pn, 0, colin, 0)
+        if orig is not None:
+            l = [(p1.x.val,p1.y.val),(p2.x.val,p2.y.val)]
+            l2 = [(pn.x.val-2,pn.y.val-2),(pn.x.val+2,pn.y.val+2)]
+            put_thing(orig,l,(255,0,0),None,3)
+            put_thing(orig,l2,(0,200,0),None,3)
+
+        if horizontal:
+            self.constr(SLVS_C_HORIZONTAL, 0, 0, 0, colin, 0)
+        else:
+            self.constr(SLVS_C_VERTICAL, 0, 0, 0, colin, 0)
 
 
     def same_pitch_rects(self,rects):
@@ -276,8 +285,8 @@ class AutoConstrain:
 
             print()
         #r1 = groups[3][2][0]
-        top1 = groups[2][2][0].geom[0]
-        top2 = groups[2][2][7].geom[0]
+        #top1 = groups[2][2][0].geom[0]
+        #top2 = groups[2][2][7].geom[0]
         #r1.geom[0].p1.y.val -= 50
         #xdist = abs(top.p1.x.val - top.p2.x.val)-25
         #sys.constr(SLVS_C_PT_PT_DISTANCE, 700, top1.p1, top2.p1, 0, 0);
