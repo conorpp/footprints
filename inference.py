@@ -187,25 +187,30 @@ def organize_by_alignment(group):
 
     xgroups = group_data(group, by_xpitch)
     ygroups = group_data(group, by_ypitch)
-    print('xgroup',xgroups)
-    print('ygroup',ygroups)
 
     return xgroups,ygroups
 
+def get_bounding_rect(rects):
+    xmin = rects[0].rect[0][0]
+    xmax = rects[0].rect[0][0]
+    ymin = rects[0].rect[0][1]
+    ymax = rects[0].rect[0][1]
+    
+    for r in rects:
+        for p in r.rect:
+            x,y = p
+            xmin = min(xmin,x)
+            xmax = max(xmax,x)
+            ymin = min(ymin,y)
+            ymax = max(ymax,y)
+
+    return (xmin,xmax,ymin,ymax)
+
+
 class Output:
     def draw_bounding_rect(orig,rects):
-        xmin = rects[0].rect[0][0]
-        xmax = rects[0].rect[0][0]
-        ymin = rects[0].rect[0][1]
-        ymax = rects[0].rect[0][1]
-        
-        for r in rects:
-            for p in r.rect:
-                x,y = p
-                xmin = min(xmin,x)
-                xmax = max(xmax,x)
-                ymin = min(ymin,y)
-                ymax = max(ymax,y)
+
+        (xmin,xmax,ymin,ymax) = get_bounding_rect(rects)
 
         xmin -= 1
         ymin -= 1
@@ -222,19 +227,14 @@ class Output:
 
 class AutoConstrain:
 
-    def rectangles(orig,rectangles):
-        sys = Constrainer()
-        geo = []
+    def rectangles(sys, rectangles, orig = None):
 
         for x in rectangles:
             lines = sys.add_rectangle(x.rect)
-
-            # (top,bottom,left,right)
-            geo.append(lines)
             x.geom = lines
 
         groups = group_rects(rectangles,12)
-        print('there are %d groups rectangles' % len(groups))
+
         for g in groups:
             g = g[2]
             for i,r1 in enumerate(g[:len(g)-1]):
@@ -258,7 +258,7 @@ class AutoConstrain:
 
         for i,g in enumerate(groups):
             g = g[2]
-            print('group %d' % i)
+            #print('group %d' % i)
             xsubs,ysubs = organize_by_alignment(g)
             if len(xsubs) < len(ysubs):
                 horizontal = 0
@@ -266,37 +266,59 @@ class AutoConstrain:
             else:
                 horizontal = 1
                 subgroups = ysubs
+            axis = (horizontal + 1) & 1
+            #print('  %d subbgroups' % (len(subgroups)))
 
+            subgroup_stats = []
             for k, sg in enumerate(subgroups):
-                Output.draw_bounding_rect(orig,sg)
+                if orig is not None: Output.draw_bounding_rect(orig,sg)
                 for j, r1 in enumerate(sg[:len(sg)-1]):
                     r2 = sg[j+1]
                     sys.colinear_rects(r1.geom,r2.geom,horizontal)
 
-                axis = (horizontal + 1) & 1
                 pitches = organize_by_pitch(sg, axis)
                 for ssg in pitches:
-                    print('%d rects in pitch group' % (len(ssg)))
+                    #print('  %d rects in pitch group' % (len(ssg)))
                     sys.same_pitch_rects([r.geom for r in ssg])
+                
+                subgroup_stats.append(
+                        {
+                            'pitch_groups':pitches,
+                            'bound_rect': get_bounding_rect(sg),
+                            'subgroup': sg
+                        })
+                #print('  subgroup %d has %d pitch groups' % (k, len(pitches)))
 
-                print('subgroup %d has %d pitch groups' % (k, len(pitches)))
-                print('')
+            def vertically_aligned(x,y):
+                xbound = x['bound_rect']
+                ybound = y['bound_rect']
+                dmin1 = xbound[axis*2 + 0]  # axis is delegate
+                dmax1 = xbound[axis*2 + 1]
+                dmin2 = ybound[axis*2 + 0]
+                dmax2 = ybound[axis*2 + 1]
+                same_width = within_margin(dmin1,dmin2,4) and within_margin(dmax1,dmax2,4)
+                same_pitch = len(x['pitch_groups']) == len(y['pitch_groups'])
+                return same_width and same_pitch
+
+            valigned = group_data(subgroup_stats, vertically_aligned)
+            #print('  %d sets of subgroups aligned to each other' % (len(valigned)))
+            for sg in valigned:
+                #sg = sg['subgroup']
+                for i,ssg1 in enumerate(sg[:len(sg)-1]):
+                    ssg2 = sg[i+1]
+                    r1 = ssg1['subgroup'][0]
+                    r2 = ssg2['subgroup'][0]
+                    sys.colinear_rects(r1.geom,r2.geom, axis)
+
+                #print('    %d groups aligned' % (len(sg)))
 
 
-            print()
-        #r1 = groups[3][2][0]
+        #r1 = groups[1][2][0]
         #top1 = groups[2][2][0].geom[0]
         #top2 = groups[2][2][7].geom[0]
         #r1.geom[0].p1.y.val -= 50
         #xdist = abs(top.p1.x.val - top.p2.x.val)-25
         #sys.constr(SLVS_C_PT_PT_DISTANCE, 700, top1.p1, top2.p1, 0, 0);
-        res = sys.solve()
-        assert(res.status == SLVS_RESULT_OKAY)
-
-        print('dof:', res.dof)
-        for lset in geo:
-            for i in lset:
-                put_thing(orig,i.array(),(255,0,0))
 
         #for i,g in enumerate(groups):
             #g = g[2]
@@ -310,7 +332,18 @@ class AutoConstrain:
 
 def infer_drawing(orig,ins):
     blank = (np.copy(orig) * 0) + 255
-    AutoConstrain.rectangles(blank,ins['rectangles'])
+    sys = Constrainer()
+    AutoConstrain.rectangles(sys, ins['rectangles'], blank)
+
+    res = sys.solve()
+    assert(res.status == SLVS_RESULT_OKAY)
+
+    print('dof:', res.dof)
+    for r in ins['rectangles']:
+        lset = r.geom
+        for i in lset:
+            put_thing(blank,i.array(),(255,0,0))
+
 
     save(blank,'output2.png')
     return ins
