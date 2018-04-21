@@ -1,6 +1,9 @@
 import numpy as np
+from utils import line_len, line_slope
 from scipy import stats
 from rtree import index
+
+from settings import *
 
 class RTree():
     def __init__(self,shape,use_offset=True):
@@ -8,6 +11,11 @@ class RTree():
         self.tree = index.Index()
         self.shape = shape
         self.use_offset = use_offset
+        self.counter = 0
+        self.xmax = shape[1]
+        self.ymax = shape[0]
+        self.xmin = 0
+        self.ymin = 0
 
     def has(self,idx):
         return (idx in self.features)
@@ -22,15 +30,25 @@ class RTree():
             top += x['offset'][1]
         return left,bottom,right,top
 
-    def add_obj(self,x):
-        left,bottom,right,top = self.get_bounds(x,)
-        self.tree.insert(x['id'],(left,bottom,right,top))
-        self.features[x['id']] = x
+    def add_obj(self,x,key=None):
+        if key is None:
+            left,bottom,right,top = self.get_bounds(x,)
+        else:
+            left,bottom,right,top = key(x)
+
+        if hasattr(x,'id'):
+            self.tree.insert(x.id,(left,bottom,right,top))
+            self.features[x.id] = x
+        else:
+            self.tree.insert(self.counter,(left,bottom,right,top))
+            self.features[self.counter] = x
+            self.counter += 1
+
         #assert(x['id'] != 265)
 
-    def add_objs(self,objs):
+    def add_objs(self,objs,key=None):
         for x in objs:
-            self.add_obj(x)
+            self.add_obj(x,key)
 
     def remove(self,idx):
         #if bound is None:
@@ -228,13 +246,44 @@ def wrap_image(im,parent=None,offset=None):
     return Shape(im,parent,offset)
 
 
+HORIZONTAL = 0
+VERTICAL = 1
+DIAGNOL = 2
 
 class Dimension:
     ocr_group = None
-    type = 'dimension'
-    def __init__(self,tri1,tri2,line):
+    def __init__(self,tri1,tri2,):
+        """
+            Make a dimension object.  Triangles are each 3 points: (bp1, bp2, tip)
+                Where the two base points are first and the tip is last
+        """
         self.tri1 = tri1
         self.tri2 = tri2
+        line = (tri1[2], tri2[2])
+        m = line_slope(line)
+        if m > CLAMP_SLOPE_UPPER:
+            m = MAX_SLOPE
+        elif m < CLAMP_SLOPE_LOWER:
+            m = 0
+
+        if m == MAX_SLOPE:
+            self.type = VERTICAL
+        elif m == 0:
+            self.type = HORIZONTAL
+        else:
+            self.type = DIAGNOL
+
         self.line = line
+        self.base_len = line_len(tri1[:2])
+
+class TextBox:
+    def __init__(self, pt1, pt2, text):
+        self.width = abs(pt1[0] - pt2[0])
+        self.height = abs(pt1[1] - pt2[1])
+        self.p = (min(pt1[0], pt2[0]), min(pt1[1], pt2[1]))
+        self.p1 = pt1
+        self.p2 = pt2
+        self.text = text
+
 
 

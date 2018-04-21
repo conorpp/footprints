@@ -9,7 +9,8 @@ from processors import *
 from plotting import plotfuncs, dump_plotly
 from dimension_correction import TriangleHumps
 from cli import put_thing
-from structures import RTree
+from structures import RTree, TextBox
+import structures
 import preprocessing
 
 def group_ocr_lines(ocr,dim=0):
@@ -807,17 +808,6 @@ def update_list_against_tree(li, tree):
         if tree.has(x['id']): new_list.append(x)
     return new_list
 
-def line_slope(line):
-    """ return slope of line.  Infinity is clamped to a larger number. Large slopes are ceil'd to same large number."""
-    dy = line[1][1] - line[0][1]
-    dx = line[1][0] - line[0][0]
-    if dx <.1 and dx>-.1:
-        return MAX_SLOPE
-    m = dy/dx
-    if abs(m) > 50:
-        return MAX_SLOPE
-    return m
-
 def slope_within(slop1,slop2,dv):
     return (slop1 < (slop2+dv)) and (slop1 > (slop2-dv))
 
@@ -1278,9 +1268,36 @@ def untangle_dimensions_from_ocr(arr,dims,ocr):
         ocrs += ocr_tree.intersectPoint(center2)
         for o in ocrs:
             o.trash = True
-        #print('got %d ocrs' % len(ocrs))
-    ocr = [o for o in ocr if not o.trash]
-    return ocr
+
+ 
+def block_marked_groups(groups):
+    newgroups = []
+    for g in groups:
+        add = True
+        if len(g) == 1:
+            if g[0].trash:
+                add = False
+        if add:
+            newgroups.append(g)
+    return newgroups
+
+
+
+def ocrgroup_to_textbox(group, flip = False):
+    leftest = group[0]
+    rightest = group[-1]
+
+    # sorry this boundxy* stuff is crap
+    mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
+    mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
+
+    pt1 = (leftest['boundxy2'][0], mytop)
+    pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
+
+    text = ''.join([x.symbol for x in group])
+    if flip:
+        text = text[::-1]
+    return TextBox(pt1,pt2,text)
 
 
 
@@ -1349,11 +1366,15 @@ def context_aware_correction(orig,ins):
     T.TIME()
     T.echo('context-aware dimension detection:')
 
+    # get line paths from dims
+
 
     T.TIME()
     ocr = ins['ocr']
-    ocr = untangle_dimensions_from_ocr(arr,dims,ocr)
+    untangle_dimensions_from_ocr(arr,dims,ocr)
     new_horz, new_verz = infer_ocr_groups(arr,ocr)
+    new_horz = block_marked_groups(new_horz)
+    new_verz = block_marked_groups(new_verz)
     T.TIME()
     T.echo('ocr inferring time:')
 
@@ -1363,10 +1384,44 @@ def context_aware_correction(orig,ins):
     new_horz = remove_ocr_groups(new_horz, ocr_rejects)
     new_verz = remove_ocr_groups(new_verz)
     Updates.circles(ins['circles'])
+    new_horz = [ocrgroup_to_textbox(x) for x in new_horz]
+    new_verz = [ocrgroup_to_textbox(x, True) for x in new_verz]
     ins['ocr_groups_horz'] = new_horz
     ins['ocr_groups_verz'] = new_verz
     T.TIME()
     T.echo('circle untangle time:')
+
+    boxtree = RTree(arr.img.shape,False)
+            #left,bottom,right,top = self.get_bounds(x,)
+    boxtree.add_objs(new_horz, lambda x : (x.p[0], x.p[1], x.p[0] + x.width, x.p[1] + x.height))
+    boxtree.add_objs(new_verz, lambda x : (x.p[0], x.p[1], x.p[0] + x.width, x.p[1] + x.height))
+
+    for tbox in new_horz+new_verz:
+        print(tbox.text)
+
+    for d in dims:
+        print(d.line, ' intersects:')
+        pad = d.base_len
+        if d.type == structures.HORIZONTAL:
+            xmin = min(d.line[0][0],d.line[1][0])
+            xmax = max(d.line[0][0],d.line[1][0])
+            #box = boxtree.xmin, d.line[0][1] - pad, boxtree.xmax, d.line[0][1] + pad
+            box = xmin, d.line[0][1] - pad, xmax, d.line[0][1] + pad
+        elif d.type == structures.VERTICAL:
+            ymin = min(d.line[0][1],d.line[1][1])
+            ymax = max(d.line[0][1],d.line[1][1])
+            #box = d.line[0][0], boxtree.ymin - pad, d.line[0][0], boxtree.ymax + pad
+            box = d.line[0][0] - pad, ymin, d.line[0][0] + pad, ymax
+        else:
+            # skip
+            print('DIAGANOL')
+            continue
+
+        texts = boxtree.intersectBox(box)
+        for t in texts:
+            print('  %s' % t.text)
+
+
 
 
     #dump_plotly(ins['lines'], plotfuncs.side_traces)

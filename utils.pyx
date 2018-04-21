@@ -4,6 +4,7 @@ from numpy.linalg import norm
 from PIL import Image, ImageDraw
 import cv2
 import numpy as np
+from settings import *
 
 
 def count_black(x):
@@ -349,5 +350,17 @@ def bresenham_line(pt, m, b, sign):
 
         x += sign
         yield (x,y)
+
+
+def line_slope(line):
+    """ return slope of line.  Infinity is clamped to a larger number. Large slopes are ceil'd to same large number."""
+    dy = line[1][1] - line[0][1]
+    dx = line[1][0] - line[0][0]
+    if dx <.1 and dx>-.1:
+        return MAX_SLOPE
+    m = dy/dx
+    if abs(m) > 50:
+        return MAX_SLOPE
+    return m
 
 

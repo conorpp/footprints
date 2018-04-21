@@ -292,7 +292,7 @@ class TriangleHumps:
                     continue
 
 
-                dim = Dimension(tri1,tri2,(tip1,tip2))
+                dim = Dimension(tri1,tri2)
                 dimensions.append(dim)
 
                 #print(base_pt)

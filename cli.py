@@ -60,43 +60,15 @@ def arguments():
     args = parser.parse_args()
     return args
 
-
 class Context:
     def draw_ocr_group_rects(orig, new_horz, new_verz):
         """ output function for drawing rectangles around the OCR groups """
         print(len(new_horz) + len(new_verz),'groups')
-        for i,group in enumerate(new_horz):
-            leftest = group[0]
-            rightest = group[-1]
+        for i,tbox in enumerate(new_horz):
+            cv2.rectangle(orig, tbox.p1,tbox.p2, [0,0,200])
 
-            mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
-            mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
-
-            pt1 = (leftest['boundxy2'][0], mytop)
-            pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
-
-
-            cv2.rectangle(orig, pt1,pt2, [0,0,200])
-            #s = ''.join(x['symbol'] for x in group)
-            #print(s)
-            #print(pt1, pt2)
-            #if i == 9:
-                #break
-        for i,group in enumerate(new_verz):
-            leftest = group[0]
-            rightest = group[-1]
-
-            mytop = min(leftest['boundxy2'][1] - leftest['height'],rightest['boundxy2'][1] - rightest['height'] )
-            mybot = max(leftest['boundxy2'][1],rightest['boundxy2'][1])
-
-            pt1 = (leftest['boundxy2'][0], mytop)
-            pt2 = (rightest['boundxy2'][0] + rightest['width'], mybot)
-
-            cv2.rectangle(orig, pt1,pt2, [0,180,0])
-            #s = ''.join(x['symbol'] for x in group)[::-1]
-            #print(s)
-            #if i == 4:
-                #break
+        for i,tbox in enumerate(new_verz):
+            cv2.rectangle(orig, tbox.p1,tbox.p2, [0,180,0])
 
 
     def draw_colinear_lines(im, para_groups):
